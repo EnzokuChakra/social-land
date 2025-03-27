@@ -8,7 +8,7 @@ import EditProfileModal from "@/components/modals/EditProfileModal";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "OG GRAM",
+  title: "Social Land",
   description: "A beautiful social media platform",
 };
 

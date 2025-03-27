@@ -152,9 +152,9 @@ export async function fetchPosts(userId?: string) {
     });
 
     // Transform the posts to ensure all comments have user data
-    const transformedPosts = posts.map((post) => ({
+    const transformedPosts = posts.map((post: PostWithExtras) => ({
       ...post,
-      comments: post.comments.map((comment) => ({
+      comments: post.comments.map((comment: CommentWithExtras) => ({
         ...comment,
         user: comment.user || {
           id: 'deleted',
@@ -171,7 +171,7 @@ export async function fetchPosts(userId?: string) {
           createdAt: new Date(),
           updatedAt: new Date(),
         },
-        replies: comment.replies?.map((reply) => ({
+        replies: comment.replies?.map((reply: CommentWithExtras) => ({
           ...reply,
           user: reply.user || {
             id: 'deleted',
@@ -956,64 +956,24 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
     }
 
     // Transform followers and following data with error handling
-    const transformedFollowers = followersResult.map(f => ({
-      id: f.follower.id,
-      username: f.follower.username,
-      name: f.follower.name,
-      image: f.follower.image,
-      verified: f.follower.verified,
-      isPrivate: f.follower.isPrivate,
-      followerId: f.followerId,
-      followingId: f.followingId,
-      status: f.status,
-      isFollowing: false,
-      hasPendingRequest: false,
+    const transformedFollowers = followersResult.map((f: FollowerWithExtras) => ({
+      ...f,
       uniqueId: `${f.followerId}-${f.followingId}`,
-      follower: {
-        id: f.follower.id,
-        username: f.follower.username,
-        name: f.follower.name,
-        image: f.follower.image,
-        verified: f.follower.verified,
-        isPrivate: f.follower.isPrivate,
-        isFollowing: false,
-        hasPendingRequest: false
-      }
     }));
 
-    const transformedFollowing = followingResult.map(f => ({
-      id: f.following.id,
-      username: f.following.username,
-      name: f.following.name,
-      image: f.following.image,
-      verified: f.following.verified,
-      isPrivate: f.following.isPrivate,
-      followerId: f.followerId,
-      followingId: f.followingId,
-      status: f.status,
-      isFollowing: false,
-      hasPendingRequest: false,
+    const transformedFollowing = followingResult.map((f: FollowingWithExtras) => ({
+      ...f,
       uniqueId: `${f.followerId}-${f.followingId}`,
-      following: {
-        id: f.following.id,
-        username: f.following.username,
-        name: f.following.name,
-        image: f.following.image,
-        verified: f.following.verified,
-        isPrivate: f.following.isPrivate,
-        isFollowing: false,
-        hasPendingRequest: false
-      }
     }));
 
     // Ensure all posts have a tags array
-    const postsWithTags = profile.posts.map(post => ({
+    const postsWithTags = profile.posts.map((post: PostWithExtras) => ({
       ...post,
       tags: post.tags || []
     }));
 
     // Ensure all tagged posts have a tags array
-    const taggedPostsWithTags = taggedPostsResult.map(post => ({
+    const taggedPostsWithTags = taggedPostsResult.map((post: PostWithExtras) => ({
       ...post,
       tags: post.tags || []
     }));
@@ -1152,8 +1112,8 @@ export async function fetchSuggestedUsers(userId: string | undefined) {
 
     // Extract all user IDs that have any kind of relationship
     const excludeUserIds = new Set([
-      ...followRelationships.map(rel => rel.followerId),
-      ...followRelationships.map(rel => rel.followingId)
+      ...followRelationships.map((rel: { followerId: string; followingId: string }) => rel.followerId),
+      ...followRelationships.map((rel: { followerId: string; followingId: string }) => rel.followingId)
     ]);
 
     // Get users that have no follow relationship with the current user

@@ -8,7 +8,7 @@ const tabs = [
   { title: "Notifications", value: "notifications" },
   { title: "Privacy and security", value: "privacy-and-security" },
   { title: "Login activity", value: "login-activity" },
-  { title: "Emails from OG Gram", value: "emails-from-instagram" },
+  { title: "Emails from Social Land", value: "emails-from-social-land" },
 ];
 
 function SettingsLayout({ children }: { children: React.ReactNode }) {

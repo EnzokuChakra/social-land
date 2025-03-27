@@ -80,8 +80,8 @@ export default function VerifyPage() {
               Congratulations! You are verified
             </h1>
             <p className="text-muted-foreground text-lg max-w-2xl">
-              Your account has been verified by OG Gram. The verified badge appears next to your name, 
-              indicating that we&apos;ve confirmed you are a notable presence in our community.
+              Your account has been verified by Social Land. The verified badge appears next to your name, 
+              indicating that Social Land has confirmed that the account meets our verification requirements.
             </p>
             <div className="flex items-center justify-center gap-2 text-green-500">
               <SparklesIcon className="h-5 w-5" />
@@ -188,10 +188,10 @@ export default function VerifyPage() {
             <BadgeCheckIcon className="h-24 w-24 text-blue-500 relative" />
           </div>
           <div className="space-y-4">
-            <h1 className="text-4xl font-bold">Get Verified on OG Gram</h1>
+            <h1 className="text-4xl font-bold">Get Verified on Social Land</h1>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               A verified badge is a check that appears next to an account&apos;s name to
-              indicate that OG Gram has confirmed that the account meets our
+              indicate that Social Land has confirmed that the account meets our
               verification requirements.
             </p>
           </div>

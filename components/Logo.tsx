@@ -7,7 +7,7 @@ function Logo() {
   return (
     <Link href={"/dashboard"} className="hidden md:block">
       <div className={buttonVariants({ variant: "ghost", className: "font-semibold text-xl px-4" })}>
-        OG GRAM
+        Social Land
       </div>
     </Link>
   );

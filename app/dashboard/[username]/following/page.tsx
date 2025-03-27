@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   return {
-    title: `People followed by ${profile.username} • Instagram Clone`,
+    title: `People followed by ${profile.username} • Social Land`,
   };
 }
 

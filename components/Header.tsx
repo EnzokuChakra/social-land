@@ -11,7 +11,7 @@ function Header() {
           variant={"ghost"}
           className="font-semibold text-xl"
         >
-          OG Gram
+          Social Land
         </Button>
       </Link>
     </header>

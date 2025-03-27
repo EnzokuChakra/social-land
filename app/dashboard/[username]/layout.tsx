@@ -21,12 +21,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   
   if (!profile) {
     return {
-      title: "User not found • Instagram Clone",
+      title: "User not found • Social Land",
     };
   }
   
   return {
-    title: `${profile.username} • Instagram Clone`,
+    title: `${profile.username} • Social Land`,
   };
 }
 

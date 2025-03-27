@@ -353,7 +353,7 @@ export default function Navbar() {
           {isCollapsed ? (
             <span className="font-bold text-xl">OG</span>
           ) : (
-            <h1 className="font-bold text-xl">OG GRAM</h1>
+            <h1 className="font-bold text-xl">Social Land</h1>
           )}
         </Link>
 

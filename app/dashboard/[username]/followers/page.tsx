@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const profile = await fetchProfile(username);
   
   return {
-    title: `${profile?.username || "User"}'s followers • Instagram Clone`,
+    title: `${profile?.username || "User"}'s followers • Social Land`,
   };
 }
 
