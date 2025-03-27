@@ -27,6 +27,9 @@ import { db } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
 import { uploadFile } from "@/lib/uploadFile";
 
+const followCooldowns = new Map<string, number>();
+const FOLLOW_COOLDOWN_MS = 5000; // 5 seconds cooldown
+
 export async function createPost(values: z.infer<typeof CreatePost>) {
   const session = await auth();
 
@@ -932,8 +935,22 @@ export async function followUser({
       return { error: "Not authenticated", status: "UNFOLLOWED" };
     }
 
-    // Log the request details
-    console.log("followUser - Request:", { followerId, followingId, action });
+    // Check cooldown for follow action
+    if (action === "follow") {
+      const cooldownKey = `${followerId}-${followingId}`;
+      const lastFollowTime = followCooldowns.get(cooldownKey);
+      const now = Date.now();
+
+      if (lastFollowTime && now - lastFollowTime < FOLLOW_COOLDOWN_MS) {
+        return { 
+          error: "Please wait a few seconds before following again", 
+          status: "UNFOLLOWED" 
+        };
+      }
+
+      // Set cooldown
+      followCooldowns.set(cooldownKey, now);
+    }
 
     // Check if there's an existing follow relationship
     const existingFollow = await prisma.follows.findFirst({
@@ -943,19 +960,44 @@ export async function followUser({
       },
     });
 
-    console.log("followUser - Existing follow:", existingFollow);
-
     if (action === "unfollow") {
-      if (!existingFollow) {
-        return { error: "Not following this user", status: "UNFOLLOWED" };
+      if (!existingFollow || existingFollow.status !== "ACCEPTED") {
+        return {
+          error: "Not following this user",
+          status: "UNFOLLOWED",
+        };
       }
 
+      // Delete the follow relationship
       await prisma.follows.delete({
         where: {
           followerId_followingId: {
             followerId,
             followingId,
           },
+        },
+      });
+
+      // Delete ALL follow-related notifications between these users
+      await prisma.notification.deleteMany({
+        where: {
+          type: {
+            in: ["FOLLOW", "FOLLOW_REQUEST"]
+          },
+          AND: [
+            {
+              OR: [
+                { sender_id: followerId },
+                { sender_id: followingId }
+              ]
+            },
+            {
+              OR: [
+                { userId: followerId },
+                { userId: followingId }
+              ]
+            }
+          ]
         },
       });
 
@@ -984,25 +1026,35 @@ export async function followUser({
         },
       });
 
-      // Transform the follow request notification into a follow notification
-      const existingNotification = await prisma.notification.findFirst({
+      // Delete any existing follow notifications between these users
+      await prisma.notification.deleteMany({
         where: {
-          type: "FOLLOW_REQUEST",
-          userId: followerId,
-          sender_id: followingId,
+          type: {
+            in: ["FOLLOW", "FOLLOW_REQUEST"]
+          },
+          OR: [
+            {
+              sender_id: followingId,
+              userId: followerId,
+            },
+            {
+              sender_id: followerId,
+              userId: followingId,
+            }
+          ]
         },
       });
 
-      if (existingNotification) {
-        // Update the existing notification to be a FOLLOW notification
-        await prisma.notification.update({
-          where: { id: existingNotification.id },
-          data: {
-            type: "FOLLOW",
-            createdAt: new Date(), // Update timestamp to bring it to top
-          },
-        });
-      }
+      // Create a single new follow notification
+      await prisma.notification.create({
+        data: {
+          id: crypto.randomUUID(),
+          type: "FOLLOW",
+          userId: followerId,
+          sender_id: followingId,
+          createdAt: new Date(),
+        },
+      });
 
       revalidateAllPaths();
       return { message: "Follow request accepted", status: "ACCEPTED" };
@@ -1055,6 +1107,29 @@ export async function followUser({
       return { error: "User not found", status: "UNFOLLOWED" };
     }
 
+    // Delete any existing follow notifications between these users
+    await prisma.notification.deleteMany({
+      where: {
+        type: {
+          in: ["FOLLOW", "FOLLOW_REQUEST"]
+        },
+        AND: [
+          {
+            OR: [
+              { sender_id: followerId },
+              { sender_id: followingId }
+            ]
+          },
+          {
+            OR: [
+              { userId: followerId },
+              { userId: followingId }
+            ]
+          }
+        ]
+      },
+    });
+
     // Create the follow relationship
     const newFollow = await prisma.follows.create({
       data: {
@@ -1064,10 +1139,15 @@ export async function followUser({
       },
     });
 
-    // Create appropriate notification
-    await createNotification({
-      type: targetUser.isPrivate ? "FOLLOW_REQUEST" : "FOLLOW",
-      user_id: followingId,
+    // Create a single new notification
+    await prisma.notification.create({
+      data: {
+        id: crypto.randomUUID(),
+        type: targetUser.isPrivate ? "FOLLOW_REQUEST" : "FOLLOW",
+        userId: followingId,
+        sender_id: followerId,
+        createdAt: new Date(),
+      },
     });
 
     revalidateAllPaths();

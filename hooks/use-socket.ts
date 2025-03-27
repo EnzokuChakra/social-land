@@ -15,14 +15,14 @@ export function useSocket() {
         transports: ['websocket', 'polling'],
         autoConnect: true,
         reconnection: true,
-        reconnectionAttempts: 5,
+        reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
-        timeout: 20000,
+        timeout: 100000,
         forceNew: true,
         withCredentials: true,
-        path: '/socket.io',
-        secure: true,
+        path: '/socket.io/',
+        secure: false,
         rejectUnauthorized: false,
         auth: {
           token: typeof window !== 'undefined' ? localStorage.getItem('socket_token') : null
@@ -30,8 +30,11 @@ export function useSocket() {
         upgrade: true,
         rememberUpgrade: true,
         query: {
-          timestamp: Date.now(), // Add timestamp to prevent caching
+          timestamp: Date.now(),
           EIO: 4
+        },
+        extraHeaders: {
+          'Access-Control-Allow-Origin': '*'
         }
       });
 
@@ -55,6 +58,13 @@ export function useSocket() {
           url: socketUrl,
           timestamp: new Date().toISOString()
         });
+        
+        // Attempt to reconnect on connection error
+        setTimeout(() => {
+          if (!socketRef.current?.connected) {
+            socketRef.current?.connect();
+          }
+        }, 1000);
       });
 
       socketRef.current.on('disconnect', (reason) => {
@@ -65,9 +75,11 @@ export function useSocket() {
         });
         
         // Attempt to reconnect on certain disconnect reasons
-        if (reason === 'io server disconnect' || reason === 'transport close') {
+        if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
           setTimeout(() => {
-            socketRef.current?.connect();
+            if (!socketRef.current?.connected) {
+              socketRef.current?.connect();
+            }
           }, 1000);
         }
       });

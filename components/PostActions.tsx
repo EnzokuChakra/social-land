@@ -23,25 +23,39 @@ const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5002",
   transports: ['websocket', 'polling'],
   autoConnect: true,
   reconnection: true,
-  reconnectionAttempts: 5,
+  reconnectionAttempts: Infinity,
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
-  timeout: 20000,
+  timeout: 100000,
   forceNew: true,
-  secure: true,
+  secure: false,
   rejectUnauthorized: false,
-  path: '/socket.io/'
+  path: '/socket.io/',
+  extraHeaders: {
+    'Access-Control-Allow-Origin': '*'
+  }
 });
 
 socket.on('connect_error', (error) => {
   console.error('Socket connection error:', error);
   toast.error('Failed to connect to real-time updates');
+  
+  // Attempt to reconnect on connection error
+  setTimeout(() => {
+    if (!socket.connected) {
+      socket.connect();
+    }
+  }, 1000);
 });
 
 socket.on('disconnect', (reason) => {
   console.log('Socket disconnected:', reason);
-  if (reason === 'io server disconnect') {
-    socket.connect();
+  if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
+    setTimeout(() => {
+      if (!socket.connected) {
+        socket.connect();
+      }
+    }, 1000);
   }
 });
 

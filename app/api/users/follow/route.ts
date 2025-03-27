@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { FollowUser } from "@/lib/schemas";
 
+const followCooldowns = new Map<string, number>();
+const FOLLOW_COOLDOWN_MS = 5000; // 5 seconds cooldown
+
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -24,6 +27,25 @@ export async function POST(req: Request) {
     const body = await req.json();
     const validatedData = FollowUser.parse(body);
     const { followingId, followerId, action } = validatedData;
+
+    // Add rate limiting for follow action
+    if (action === "follow") {
+      const cooldownKey = `${session.user.id}-${followingId}`;
+      const lastFollowTime = followCooldowns.get(cooldownKey);
+      const now = Date.now();
+
+      if (lastFollowTime && now - lastFollowTime < FOLLOW_COOLDOWN_MS) {
+        return new NextResponse(
+          JSON.stringify({ 
+            error: "Please wait a few seconds before following again",
+            status: "UNFOLLOWED" 
+          }),
+          { status: 429 }
+        );
+      }
+
+      followCooldowns.set(cooldownKey, now);
+    }
 
     // Log the request for debugging
     console.log('Follow API - Request details:', {
@@ -121,16 +143,33 @@ export async function POST(req: Request) {
         timestamp: new Date().toISOString()
       });
 
-      // Update the notification type from FOLLOW_REQUEST to FOLLOW
-      console.log('Follow API - Updating notification');
-      await prisma.notification.updateMany({
+      // Delete any existing follow notifications between these users
+      await prisma.notification.deleteMany({
         where: {
-          type: "FOLLOW_REQUEST",
-          sender_id: followerId!,
-          userId: session.user.id
+          type: {
+            in: ["FOLLOW", "FOLLOW_REQUEST"]
+          },
+          OR: [
+            {
+              sender_id: followerId!,
+              userId: session.user.id,
+            },
+            {
+              sender_id: session.user.id,
+              userId: followerId!,
+            }
+          ]
         },
+      });
+
+      // Create a single new follow notification
+      await prisma.notification.create({
         data: {
-          type: "FOLLOW"
+          id: crypto.randomUUID(),
+          type: "FOLLOW",
+          userId: session.user.id,
+          sender_id: followerId!,
+          createdAt: new Date()
         }
       });
 
@@ -159,13 +198,23 @@ export async function POST(req: Request) {
         }
       });
 
-      // Delete the associated notification
+      // Delete ALL follow-related notifications between these users
       await prisma.notification.deleteMany({
         where: {
-          type: "FOLLOW_REQUEST",
-          sender_id: currentUserId,
-          userId: followingId!
-        }
+          type: {
+            in: ["FOLLOW", "FOLLOW_REQUEST"]
+          },
+          OR: [
+            {
+              sender_id: currentUserId,
+              userId: followingId!,
+            },
+            {
+              sender_id: followingId!,
+              userId: currentUserId,
+            }
+          ]
+        },
       });
 
       return new NextResponse(
@@ -207,6 +256,29 @@ export async function POST(req: Request) {
         }
       });
 
+      // Delete ALL follow-related notifications between these users
+      await prisma.notification.deleteMany({
+        where: {
+          type: {
+            in: ["FOLLOW", "FOLLOW_REQUEST"]
+          },
+          AND: [
+            {
+              OR: [
+                { sender_id: actualFollowerId },
+                { sender_id: followingId }
+              ]
+            },
+            {
+              OR: [
+                { userId: actualFollowerId },
+                { userId: followingId }
+              ]
+            }
+          ]
+        },
+      });
+
       return new NextResponse(
         JSON.stringify({ 
           status: "DELETED",
@@ -220,10 +292,8 @@ export async function POST(req: Request) {
     if (existingFollow) {
       return new NextResponse(
         JSON.stringify({ 
-          status: existingFollow.status,
-          message: existingFollow.status === "PENDING" 
-            ? "Follow request already sent" 
-            : "Already following this user"
+          error: "Already following or requested",
+          status: existingFollow.status
         }), 
         { status: 400 }
       );
@@ -242,6 +312,29 @@ export async function POST(req: Request) {
       );
     }
 
+    // Before creating a new follow relationship, delete any existing notifications
+    await prisma.notification.deleteMany({
+      where: {
+        type: {
+          in: ["FOLLOW", "FOLLOW_REQUEST"]
+        },
+        AND: [
+          {
+            OR: [
+              { sender_id: actualFollowerId },
+              { sender_id: followingId }
+            ]
+          },
+          {
+            OR: [
+              { userId: actualFollowerId },
+              { userId: followingId }
+            ]
+          }
+        ]
+      },
+    });
+
     // Create the follow relationship
     const follow = await prisma.follows.create({
       data: {
@@ -251,28 +344,16 @@ export async function POST(req: Request) {
       }
     });
 
-    // Create a notification for the target user
-    if (targetUser.isPrivate) {
-      await prisma.notification.create({
-        data: {
-          id: crypto.randomUUID(),
-          userId: followingId!,
-          type: "FOLLOW_REQUEST",
-          sender_id: actualFollowerId,
-          createdAt: new Date()
-        }
-      });
-    } else {
-      await prisma.notification.create({
-        data: {
-          id: crypto.randomUUID(),
-          userId: followingId!,
-          type: "FOLLOW",
-          sender_id: actualFollowerId,
-          createdAt: new Date()
-        }
-      });
-    }
+    // Create a single new notification
+    await prisma.notification.create({
+      data: {
+        id: crypto.randomUUID(),
+        userId: followingId!,
+        type: targetUser.isPrivate ? "FOLLOW_REQUEST" : "FOLLOW",
+        sender_id: actualFollowerId,
+        createdAt: new Date()
+      }
+    });
 
     return new NextResponse(
       JSON.stringify({ 
