@@ -561,19 +561,23 @@ export default function StoryModal() {
         const updatedUserStories = storyModal.userStories.filter(
           (_, index) => index !== storyModal.currentUserIndex
         );
-        storyModal.setUserStories(updatedUserStories);
         
-        // If there are no more users with stories, close the modal
+        // If there are no more users with stories, close the modal and refresh
         if (updatedUserStories.length === 0) {
           storyModal.onClose();
+          // Force refresh the page to update the UI
+          window.location.reload();
           return;
         }
         
-        // Move to the next user's stories
+        // Update the stories state
+        storyModal.setUserStories(updatedUserStories);
+        
+        // If we were viewing the last user's stories, move to the previous user
         if (storyModal.currentUserIndex >= updatedUserStories.length) {
           storyModal.setCurrentUserIndex(updatedUserStories.length - 1);
+          setCurrentStoryIndex(0);
         }
-        setCurrentStoryIndex(0);
       } else {
         // Update the current user's stories
         const updatedUserStories = [...storyModal.userStories];
@@ -583,14 +587,15 @@ export default function StoryModal() {
         };
         storyModal.setUserStories(updatedUserStories);
         
-        // If we're at the last story, move to the previous one
+        // If we were viewing the last story, move to the previous one
         if (currentStoryIndex >= updatedStories.length) {
-          setCurrentStoryIndex(updatedStories.length - 1);
+          setCurrentStoryIndex(Math.max(0, updatedStories.length - 1));
         }
       }
       
       toast.success('Story deleted successfully');
     } catch (error) {
+      console.error('Error deleting story:', error);
       toast.error('Failed to delete story');
     }
   };

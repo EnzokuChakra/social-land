@@ -140,11 +140,53 @@ function ProfileAvatar({
   const [showViewers, setShowViewers] = useState(false);
   const [showViewersList, setShowViewersList] = useState(false);
 
-  const hasStories = stories.length > 0;
+  const hasStories = stories.length > 0 && stories.some(story => {
+    const storyDate = new Date(story.createdAt);
+    const now = new Date();
+    const diff = now.getTime() - storyDate.getTime();
+    const hours = diff / (1000 * 60 * 60);
+    return hours < 24;
+  });
 
   const handleProfileClick = () => {
     if (hasStories) {
-      setShowOptionsModal(true);
+      const activeStories = stories.filter(story => {
+        if (!story?.fileUrl) return false;
+        const storyDate = new Date(story.createdAt);
+        const now = new Date();
+        const diff = now.getTime() - storyDate.getTime();
+        const hours = diff / (1000 * 60 * 60);
+        return hours < 24;
+      });
+
+      if (activeStories.length === 0) {
+        if (isCurrentUser) {
+          editProfileModal.onOpen();
+        }
+        return;
+      }
+
+      const formattedStories = activeStories.map(story => ({
+        ...story,
+        views: story.views || [],
+        likes: story.likes || [],
+        user: {
+          id: user.id,
+          username: user.username,
+          name: user.name,
+          image: user.image
+        }
+      }));
+
+      const allStories = [{
+        userId: user.id,
+        stories: formattedStories
+      }];
+
+      storyModal.setUserStories(allStories);
+      storyModal.setCurrentUserIndex(0);
+      storyModal.setUserId(user.id);
+      storyModal.onOpen();
     } else if (isCurrentUser) {
       editProfileModal.onOpen();
     }
@@ -157,14 +199,14 @@ function ProfileAvatar({
       <div 
         className={cn(
           "relative cursor-pointer",
-          stories.length > 0 && "before:absolute before:inset-0 before:rounded-full before:border-2 before:border-pink-500 before:w-[calc(100%+8px)] before:h-[calc(100%+8px)] before:-left-1 before:-top-1"
+          hasStories && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[0.5px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-0.5 before:-top-0.5"
         )}
         onClick={handleProfileClick}
         suppressHydrationWarning
       >
         <div className={cn(
           "relative rounded-full overflow-hidden",
-          stories.length > 0 && "p-1"
+          hasStories && "p-1"
         )}>
           {children}
         </div>

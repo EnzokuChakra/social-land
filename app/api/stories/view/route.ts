@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getErrorMessage } from "@/lib/utils";
+import { nanoid } from "nanoid";
 
 export async function POST(req: Request) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
@@ -22,38 +21,36 @@ export async function POST(req: Request) {
       );
     }
 
-    // Use a transaction to ensure data consistency
-    const result = await prisma.$transaction(async (tx) => {
-      // Check if story exists and is not expired (24 hours)
-      const story = await tx.story.findFirst({
-        where: {
-          id: storyId,
-          createdAt: {
-            gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-          }
-        },
-        include: {
-          user: true
+    // Check if story exists and is not expired (24 hours)
+    const story = await prisma.story.findFirst({
+      where: {
+        id: storyId,
+        createdAt: {
+          gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
         }
-      });
-
-      if (!story) {
-        throw new Error("Story not found or expired");
       }
+    });
 
+    if (!story) {
+      return NextResponse.json(
+        { success: false, error: "Story not found or expired" },
+        { status: 404 }
+      );
+    }
+
+    // Use a transaction to handle race conditions
+    const result = await prisma.$transaction(async (tx) => {
       // Try to find existing view
-      const existingView = await tx.storyview.findUnique({
+      const existingView = await tx.storyview.findFirst({
         where: {
-          storyId_user_id: {
-            storyId: storyId,
-            user_id: session.user.id
-          }
+          storyId: storyId,
+          user_id: session.user.id
         }
       });
 
       if (existingView) {
         // Update existing view's timestamp
-        const updatedView = await tx.storyview.update({
+        return await tx.storyview.update({
           where: {
             id: existingView.id
           },
@@ -71,41 +68,33 @@ export async function POST(req: Request) {
             }
           }
         });
-
-        return {
-          success: true,
-          message: "View updated",
-          data: updatedView
-        };
-      }
-
-      // Create new view
-      const newView = await tx.storyview.create({
-        data: {
-          id: crypto.randomUUID(),
-          storyId: storyId,
-          user_id: session.user.id
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              username: true,
-              name: true,
-              image: true
+      } else {
+        // Create new view
+        return await tx.storyview.create({
+          data: {
+            id: nanoid(),
+            storyId: storyId,
+            user_id: session.user.id
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                name: true,
+                image: true
+              }
             }
           }
-        }
-      });
-
-      return {
-        success: true,
-        message: "View created",
-        data: newView
-      };
+        });
+      }
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      success: true,
+      message: "View recorded successfully",
+      data: result
+    });
   } catch (error) {
     console.error("[STORY_VIEW_ERROR]", {
       error: error instanceof Error ? {
@@ -118,13 +107,6 @@ export async function POST(req: Request) {
         nodeEnv: process.env.NODE_ENV
       }
     });
-
-    if (error instanceof Error && error.message === "Story not found or expired") {
-      return NextResponse.json(
-        { success: false, error: "Story not found or expired" },
-        { status: 404 }
-      );
-    }
 
     return NextResponse.json(
       { success: false, error: "Failed to record story view" },

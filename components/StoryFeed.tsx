@@ -191,8 +191,25 @@ export default function StoryFeed({ userStories: initialUserStories = [], otherS
   const handleStoryClick = async (userId: string) => {
     if (!session?.user?.id || !userId) return;
 
-    // Get all stories for the clicked user
-    const clickedUserStories = userId === session.user.id ? userStories : otherStories.filter(story => story.user.id === userId);
+    // Get all active stories for the clicked user
+    const clickedUserStories = userId === session.user.id 
+      ? userStories.filter(story => {
+          const storyDate = new Date(story.createdAt);
+          const now = new Date();
+          const diff = now.getTime() - storyDate.getTime();
+          const hours = diff / (1000 * 60 * 60);
+          return hours < 24;
+        })
+      : otherStories.filter(story => {
+          const storyDate = new Date(story.createdAt);
+          const now = new Date();
+          const diff = now.getTime() - storyDate.getTime();
+          const hours = diff / (1000 * 60 * 60);
+          return story.user.id === userId && hours < 24;
+        });
+
+    // If no active stories, don't open modal
+    if (clickedUserStories.length === 0) return;
 
     // Transform the stories into the correct format
     const allStories = [
@@ -201,9 +218,15 @@ export default function StoryFeed({ userStories: initialUserStories = [], otherS
         userId: userId,
         stories: clickedUserStories
       }] : []),
-      // Other users' stories (excluding the clicked user)
+      // Other users' active stories (excluding the clicked user)
       ...otherStories
-        .filter(story => story.user.id !== userId)
+        .filter(story => {
+          const storyDate = new Date(story.createdAt);
+          const now = new Date();
+          const diff = now.getTime() - storyDate.getTime();
+          const hours = diff / (1000 * 60 * 60);
+          return story.user.id !== userId && hours < 24;
+        })
         .reduce((acc: { userId: string; stories: StoryWithExtras[] }[], story) => {
           const existingUserIndex = acc.findIndex(item => item.userId === story.user.id);
           if (existingUserIndex === -1) {
