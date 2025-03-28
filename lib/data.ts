@@ -444,19 +444,6 @@ export async function fetchPostsByUsername(username: string, postId?: string) {
             verified: true,
           },
         },
-        tags: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                username: true,
-                name: true,
-                image: true,
-                verified: true,
-              },
-            },
-          },
-        },
       },
       orderBy: {
         createdAt: "desc",
