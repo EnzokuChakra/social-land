@@ -1,13 +1,9 @@
-import { PostsSkeleton } from "@/components/Skeletons";
+import { CustomLoader } from "@/components/ui/custom-loader";
 
 export default function Loading() {
   return (
-    <div className="flex flex-col items-center min-h-screen">
-      <div className="flex flex-col items-center flex-grow w-full max-w-7xl gap-10 px-6">
-        <div className="flex flex-col items-center flex-grow w-full max-w-4xl gap-10">
-          <PostsSkeleton />
-        </div>
-      </div>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-black/80">
+      <CustomLoader />
     </div>
   );
 } 
