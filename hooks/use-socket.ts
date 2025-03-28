@@ -15,14 +15,14 @@ export function useSocket() {
         transports: ['websocket', 'polling'],
         autoConnect: true,
         reconnection: true,
-        reconnectionAttempts: Infinity,
+        reconnectionAttempts: 5,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
-        timeout: 100000,
+        timeout: 45000,
         forceNew: true,
         withCredentials: true,
         path: '/socket.io/',
-        secure: false,
+        secure: true,
         rejectUnauthorized: false,
         auth: {
           token: typeof window !== 'undefined' ? localStorage.getItem('socket_token') : null

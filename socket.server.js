@@ -24,22 +24,22 @@ const server = http.createServer(app);
 // Configure Socket.IO with CORS
 const io = socketIo(server, {
   cors: {
-    origin: ["http://localhost:3000", process.env.APP_URL, "https://social-land.ro"],
+    origin: ["http://localhost:3000", process.env.APP_URL, "https://social-land.ro", "https://www.social-land.ro"],
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   },
   path: '/socket.io/',
   allowEIO3: true,
-  pingTimeout: 120000,
+  pingTimeout: 60000,
   pingInterval: 25000,
-  connectTimeout: 100000,
+  connectTimeout: 45000,
   transports: ['websocket', 'polling'],
   allowUpgrades: true,
   cookie: false,
   maxHttpBufferSize: 1e8,
-  connectTimeout: 100000,
-  timeout: 100000,
+  connectTimeout: 45000,
+  timeout: 45000,
 });
 
 const PORT = process.env.PORT || 5002;
