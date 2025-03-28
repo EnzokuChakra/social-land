@@ -245,10 +245,10 @@ export default function CreateModal({ children }: { children: React.ReactNode })
 
       // Create post/story/reel based on active tab
       const endpoint = activeTab === "story" 
-        ? `${window.location.origin}/api/stories?action=create`
+        ? `/api/stories?action=create`
         : activeTab === "reel"
-        ? `${window.location.origin}/api/reels/create`
-        : `${window.location.origin}/api/posts/create`;
+        ? `/api/reels/create`
+        : `/api/posts/create`;
 
       // Different body for different content types
       const body = {
@@ -765,16 +765,22 @@ export default function CreateModal({ children }: { children: React.ReactNode })
                         <div className="p-6 border-t border-neutral-200 dark:border-neutral-800">
                           <Button
                             onClick={handleUpload}
-                            disabled={state.isUploading}
-                            className="w-full"
+                            disabled={isSubmitting}
+                            className="w-full relative flex items-center justify-center"
                           >
-                            {state.isUploading ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Sharing...
-                              </>
+                            {isSubmitting ? (
+                              <div className="flex items-center gap-2">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>
+                                  {activeTab === "story"
+                                    ? "Sharing story..."
+                                    : activeTab === "reel"
+                                    ? "Sharing reel..."
+                                    : "Sharing post..."}
+                                </span>
+                              </div>
                             ) : (
-                              `Share ${activeTab}`
+                              <span>Share {activeTab}</span>
                             )}
                           </Button>
                         </div>
