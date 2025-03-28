@@ -26,6 +26,7 @@ import {
 import { db } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
 import { uploadFile } from "@/lib/uploadFile";
+import { deleteUploadedFile } from "@/lib/server-utils";
 
 const followCooldowns = new Map<string, number>();
 const FOLLOW_COOLDOWN_MS = 5000; // 5 seconds cooldown
@@ -82,10 +83,18 @@ export async function deletePost(postId: string) {
   }
 
   try {
-    // First check if the user owns the post
+    // First check if the user owns the post and get the file URL
     const post = await db.post.findUnique({
       where: { id: postId },
-      select: { user_id: true },
+      select: { 
+        user_id: true, 
+        fileUrl: true,
+        user: {
+          select: {
+            username: true
+          }
+        }
+      },
     });
 
     if (!post) {
@@ -96,10 +105,21 @@ export async function deletePost(postId: string) {
       throw new Error("Not authorized to delete this post");
     }
 
-    // Delete the post and all related data
+    // Delete the file from the server first
+    await deleteUploadedFile(post.fileUrl);
+
+    // Then delete the post and all related data
     await db.post.delete({
       where: { id: postId },
     });
+
+    // Revalidate all necessary paths
+    revalidatePath("/dashboard");
+    if (post.user?.username) {
+      revalidatePath(`/dashboard/${post.user.username}`);
+    }
+    revalidatePath(`/dashboard/p/${postId}`);
+    revalidatePath("/");
 
     return { message: "Post deleted successfully" };
   } catch (error) {

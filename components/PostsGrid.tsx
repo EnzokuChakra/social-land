@@ -4,20 +4,47 @@ import { PostWithExtras } from "@/lib/definitions";
 import { HeartIcon, MessageCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
-export function PostsGrid({ posts }: { posts: PostWithExtras[] | undefined }) {
+export function PostsGrid({ posts: initialPosts }: { posts: PostWithExtras[] | undefined }) {
+  const [posts, setPosts] = useState<PostWithExtras[] | undefined>(initialPosts);
   const [isMounted, setIsMounted] = useState(false);
+
+  // Update posts when initialPosts changes
+  useEffect(() => {
+    setPosts(initialPosts);
+  }, [initialPosts]);
 
   useEffect(() => {
     setIsMounted(true);
+  }, []);
+
+  // Listen for post deletion events
+  useEffect(() => {
+    const handlePostDelete = (event: CustomEvent<{ postId: string }>) => {
+      console.log('Post deleted event received:', event.detail.postId);
+      setPosts((prevPosts) => {
+        if (!prevPosts) return prevPosts;
+        const newPosts = prevPosts.filter(post => post.id !== event.detail.postId);
+        console.log('Posts after filter:', newPosts.length);
+        return newPosts;
+      });
+    };
+
+    // Add event listener
+    window.addEventListener('post-deleted', handlePostDelete as EventListener);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('post-deleted', handlePostDelete as EventListener);
+    };
   }, []);
 
   if (!isMounted) {
     return null;
   }
 
-  if (posts?.length === 0) {
+  if (!posts || posts.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center space-y-3 max-w-3xl lg:max-w-4xl mx-auto pb-20">
         <p className="font-semibold text-sm text-neutral-400">No more posts.</p>
@@ -27,7 +54,7 @@ export function PostsGrid({ posts }: { posts: PostWithExtras[] | undefined }) {
 
   return (
     <div className="grid grid-cols-3 gap-0.5 md:gap-1 lg:gap-2 mt-8">
-      {posts?.map((post, index) => (
+      {posts.map((post, index) => (
         <Link
           href={`/dashboard/p/${post.id}`}
           key={post.id}

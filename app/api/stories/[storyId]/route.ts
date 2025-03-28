@@ -5,8 +5,6 @@ import { authOptions } from "@/lib/auth";
 import { auth as authLib } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { deleteUploadedFile } from "@/lib/server-utils";
-import fs from "fs";
-import path from "path";
 
 export async function GET(
   request: Request,
@@ -70,17 +68,8 @@ export async function DELETE(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // Delete the file from the filesystem
-    if (story.fileUrl) {
-      const filePath = path.join(process.cwd(), "public", story.fileUrl.replace(/^\//, ""));
-      try {
-        fs.unlinkSync(filePath);
-        console.log("Successfully deleted file:", filePath);
-      } catch (error) {
-        console.error("Error deleting file:", error);
-        // Continue with database deletion even if file deletion fails
-      }
-    }
+    // Delete the file from the filesystem using our utility function
+    await deleteUploadedFile(story.fileUrl);
 
     // Delete associated records in the correct order
     await db.$transaction(async (tx) => {
