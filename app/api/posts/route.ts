@@ -87,7 +87,7 @@ export async function POST(req: Request) {
         const validUserIds = followingUsers.map(f => f.followingId);
 
         // Only create tags for valid users (those being followed)
-        await prisma.posttag.createMany({
+        await prisma.postTag.createMany({
           data: (taggedUsers as TaggedUser[])
             .filter((user: TaggedUser) => validUserIds.includes(user.userId))
             .map((user: TaggedUser) => ({
@@ -112,9 +112,39 @@ export async function POST(req: Request) {
         });
 
         console.log("[POST_CREATE] Tags and notifications created successfully");
+
+        // After creating tags, fetch the updated post with tags
+        const updatedPost = await prisma.post.findUnique({
+          where: { id: post.id },
+          include: {
+            user: true,
+            likes: true,
+            savedBy: true,
+            comments: {
+              include: {
+                user: true,
+                likes: true,
+                replies: {
+                  include: {
+                    user: true,
+                    likes: true
+                  }
+                }
+              }
+            },
+            tags: {
+              include: {
+                user: true
+              }
+            }
+          }
+        });
+
+        return NextResponse.json(updatedPost);
       } catch (tagError) {
         console.error("[POST_CREATE] Error creating tags/notifications:", tagError);
-        // Don't throw here, as the post was created successfully
+        // Return the post even if tag creation fails
+        return NextResponse.json(post);
       }
     }
 
