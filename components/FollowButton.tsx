@@ -239,7 +239,7 @@ export default function FollowButton({
               "bg-blue-500 hover:bg-blue-600 text-white",
               "shadow-sm hover:shadow-md",
               "border border-blue-600 hover:border-blue-700",
-              isFollowedByUser && "animate-pulse"
+              isFollowedByUser && "transition-all duration-300"
             ),
         className
       )}
