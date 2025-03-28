@@ -10,7 +10,7 @@ export function CustomLoader() {
           <stop offset="1" stopColor="#FFFFFF" stopOpacity="0"></stop>
         </radialGradient>
         <circle 
-          transformOrigin="center" 
+          style={{ transformOrigin: 'center' }}
           fill="none" 
           stroke="url(#a2)" 
           strokeWidth="14" 
@@ -33,7 +33,7 @@ export function CustomLoader() {
           />
         </circle>
         <circle 
-          transformOrigin="center" 
+          style={{ transformOrigin: 'center' }}
           fill="none" 
           opacity=".2" 
           stroke="#FFFFFF" 
