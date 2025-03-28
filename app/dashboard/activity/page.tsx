@@ -1,7 +1,7 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { getUserActivity } from "@/lib/data";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,19 +9,78 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import UserAvatar from "@/components/UserAvatar";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { Heart, MessageCircle, Bookmark } from "lucide-react";
+import { CustomLoader } from "@/components/ui/custom-loader";
+import { useRouter } from "next/navigation";
+import PageLayout from "@/components/PageLayout";
 
-export default async function ActivityPage() {
-  const session = await getServerSession(authOptions);
-  if (!session?.user) {
-    redirect("/login");
+interface ActivityData {
+  likes: any[];
+  comments: any[];
+  savedPosts: any[];
+}
+
+export default function ActivityPage() {
+  const { data: session, status } = useSession();
+  const [activity, setActivity] = useState<ActivityData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.push("/login");
+      return;
+    }
+
+    if (status === "authenticated") {
+      async function fetchActivity() {
+        try {
+          const response = await fetch("/api/activity");
+          const data = await response.json();
+          
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to fetch activity');
+          }
+          
+          setActivity(data);
+        } catch (err) {
+          console.error('Activity fetch error:', err);
+          setError(err instanceof Error ? err.message : 'An error occurred while fetching your activity');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+
+      fetchActivity();
+    }
+  }, [status, router]);
+
+  if (isLoading) {
+    return (
+      <PageLayout>
+        <div className="container max-w-5xl px-4 min-h-[calc(100vh-80px)] flex items-center justify-center">
+          <CustomLoader size="default" />
+        </div>
+      </PageLayout>
+    );
   }
 
-  const activity = await getUserActivity(session.user.id);
+  if (error) {
+    return (
+      <PageLayout>
+        <div className="container max-w-5xl px-4 min-h-[calc(100vh-80px)] flex items-center justify-center">
+          <p className="text-red-500">Error: {error}</p>
+        </div>
+      </PageLayout>
+    );
+  }
+
+  if (!activity) return null;
 
   return (
-    <div className="flex flex-col items-center min-h-screen bg-background">
-      <div className="w-full max-w-4xl p-4 md:p-6 space-y-8">
-        <div className="flex flex-col items-center space-y-4">
+    <PageLayout>
+      <div className="container max-w-5xl px-4 py-8">
+        <div className="flex flex-col items-center space-y-4 mb-8">
           <h1 className="text-2xl font-bold tracking-tight">Your Activity</h1>
           <p className="text-muted-foreground text-center">
             Track your interactions across posts and content
@@ -162,6 +221,6 @@ export default async function ActivityPage() {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    </PageLayout>
   );
 } 
