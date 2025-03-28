@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { nanoid } from "nanoid";
 
 export async function POST() {
   try {
@@ -24,8 +25,11 @@ export async function POST() {
     // Create new verification request
     const request = await prisma.verificationRequest.create({
       data: {
+        id: nanoid(),
         userId: session.user.id,
         status: "PENDING",
+        createdAt: new Date(),
+        updatedAt: new Date()
       },
     });
 

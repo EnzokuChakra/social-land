@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { deleteUploadedFile } from "@/lib/server-utils";
+import { fetchPostById } from "@/lib/data";
 import { NextResponse } from "next/server";
 
 export async function DELETE(
@@ -45,5 +46,30 @@ export async function DELETE(
   } catch (error) {
     console.error("[POST_DELETE]", error);
     return new NextResponse("Internal Error", { status: 500 });
+  }
+}
+
+export async function GET(
+  req: Request,
+  { params }: { params: { postId: string } }
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const post = await fetchPostById(params.postId);
+    if (!post) {
+      return new NextResponse("Post not found", { status: 404 });
+    }
+
+    return NextResponse.json(post);
+  } catch (error) {
+    console.error("[POST_GET]", error);
+    return new NextResponse(
+      "Internal Error",
+      { status: 500 }
+    );
   }
 } 

@@ -1,4 +1,3 @@
-import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CustomLoaderProps {
@@ -20,7 +19,10 @@ export function CustomLoader({ className = "", size = "default", noPadding = fal
       !noPadding && "pl-[88px]",
       className
     )}>
-      <Loader2 className={`${sizeClasses[size]} animate-spin`} />
+      <div className={cn(
+        "animate-spin rounded-full border-b-2 border-white",
+        sizeClasses[size]
+      )} />
     </div>
   );
 } 

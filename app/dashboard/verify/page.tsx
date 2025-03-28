@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { useNavbar } from "@/lib/hooks/use-navbar";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
+import { useSocket } from "@/lib/hooks/use-socket";
 
 type VerificationStatus = {
   hasRequest: boolean;
@@ -25,6 +27,9 @@ export default function VerifyPage() {
     status: null
   });
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showTransition, setShowTransition] = useState(false);
+  const socket = useSocket();
 
   useEffect(() => {
     if (!session?.user) {
@@ -32,7 +37,27 @@ export default function VerifyPage() {
     }
 
     checkVerificationStatus();
-  }, [session]);
+
+    // Listen for verification status updates
+    if (socket) {
+      socket.on(`user:${session.user.id}`, (data: any) => {
+        if (data.type === "VERIFICATION_APPROVED") {
+          // Update the session to reflect the new verified status
+          if (session.user) {
+            session.user.verified = true;
+          }
+          // Show success message
+          toast.success(data.data.message);
+          // Refresh the page to show verified state
+          window.location.reload();
+        }
+      });
+
+      return () => {
+        socket.off(`user:${session.user.id}`);
+      };
+    }
+  }, [session, socket]);
 
   async function checkVerificationStatus() {
     try {
@@ -48,17 +73,34 @@ export default function VerifyPage() {
 
   async function handleVerificationRequest() {
     try {
+      setIsSubmitting(true);
+      setShowTransition(true);
+
       const response = await fetch("/api/verification/request", {
         method: "POST",
       });
 
-      if (!response.ok) throw new Error("Failed to submit request");
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || "Failed to submit request");
+      }
 
+      // Add a small delay for the animation
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Update local state immediately
+      setStatus({
+        hasRequest: true,
+        status: "PENDING"
+      });
+      
       toast.success("Verification request submitted successfully");
-      checkVerificationStatus();
     } catch (error) {
       console.error("Error submitting verification request:", error);
-      toast.error("Failed to submit verification request");
+      toast.error(error instanceof Error ? error.message : "Failed to submit verification request");
+    } finally {
+      setIsSubmitting(false);
+      setShowTransition(false);
     }
   }
 
@@ -70,7 +112,12 @@ export default function VerifyPage() {
         </div>
       ) : session?.user?.verified ? (
         // Verified user view
-        <div className="flex flex-col items-center justify-center space-y-8 text-center mb-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col items-center justify-center space-y-8 text-center mb-10"
+        >
           <div className="relative">
             <div className="absolute -inset-4 rounded-full bg-green-500/20 blur-lg"></div>
             <BadgeCheckIcon className="h-24 w-24 text-green-500 relative" />
@@ -133,10 +180,15 @@ export default function VerifyPage() {
               </CardContent>
             </Card>
           </div>
-        </div>
+        </motion.div>
       ) : status.hasRequest ? (
         // Pending verification view
-        <div className="flex flex-col items-center justify-center space-y-8 text-center mb-10">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          className="flex flex-col items-center justify-center space-y-8 text-center mb-10"
+        >
           <div className="relative">
             <div className="absolute -inset-4 rounded-full bg-yellow-500/20 blur-lg"></div>
             <Clock className="h-24 w-24 text-yellow-500 relative" />
@@ -179,111 +231,120 @@ export default function VerifyPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
       ) : (
-        // Non-verified user view
-        <div className="flex flex-col items-center justify-center space-y-8 text-center mb-10">
+        // Initial verification request view
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col items-center justify-center space-y-8 text-center mb-10"
+        >
           <div className="relative">
             <div className="absolute -inset-4 rounded-full bg-blue-500/20 blur-lg"></div>
             <BadgeCheckIcon className="h-24 w-24 text-blue-500 relative" />
           </div>
           <div className="space-y-4">
-            <h1 className="text-4xl font-bold">Get Verified on Social Land</h1>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              A verified badge is a check that appears next to an account&apos;s name to
-              indicate that Social Land has confirmed that the account meets our
-              verification requirements.
+            <h1 className="text-4xl font-bold text-blue-500">
+              Get Verified
+            </h1>
+            <p className="text-muted-foreground text-lg max-w-2xl">
+              Apply for a verified badge to show your followers that you&apos;re the real deal.
+              This badge helps distinguish authentic accounts from fan accounts or impersonators.
             </p>
           </div>
 
-          <div className="grid gap-6 w-full">
-            <Card className="bg-white dark:bg-black border-0 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-2xl text-left">Eligibility Requirements</CardTitle>
-                <CardDescription className="text-base text-left">
-                  To be eligible for verification, your account must meet the following criteria:
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6 pt-4">
-                <div className="grid gap-6">
-                  <div className="flex items-start gap-4">
-                    <div className="rounded-full bg-blue-500/10 p-3 shrink-0">
-                      <BadgeCheckIcon className="h-6 w-6 text-blue-500" />
-                    </div>
-                    <div className="text-left">
-                      <h3 className="font-semibold text-lg mb-1">Authentic</h3>
-                      <p className="text-muted-foreground text-base">
-                        Your account must represent a real person, registered business, or entity.
-                      </p>
-                    </div>
+          <Card className="bg-white dark:bg-black border-0 shadow-md">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-2xl text-left">Eligibility Requirements</CardTitle>
+              <CardDescription className="text-base text-left">
+                To be eligible for verification, your account must meet the following criteria:
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6 pt-4">
+              <div className="grid gap-6">
+                <div className="flex items-start gap-4">
+                  <div className="rounded-full bg-blue-500/10 p-3 shrink-0">
+                    <BadgeCheckIcon className="h-6 w-6 text-blue-500" />
                   </div>
-                  <div className="flex items-start gap-4">
-                    <div className="rounded-full bg-blue-500/10 p-3 shrink-0">
-                      <BadgeCheckIcon className="h-6 w-6 text-blue-500" />
-                    </div>
-                    <div className="text-left">
-                      <h3 className="font-semibold text-lg mb-1">Unique</h3>
-                      <p className="text-muted-foreground text-base">
-                        Your account must be the unique presence of the person or business it represents.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <div className="rounded-full bg-blue-500/10 p-3 shrink-0">
-                      <BadgeCheckIcon className="h-6 w-6 text-blue-500" />
-                    </div>
-                    <div className="text-left">
-                      <h3 className="font-semibold text-lg mb-1">Experience</h3>
-                      <p className="text-muted-foreground text-base">
-                        You must have at least 5,000 months spent in the city.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <div className="rounded-full bg-blue-500/10 p-3 shrink-0">
-                      <BadgeCheckIcon className="h-6 w-6 text-blue-500" />
-                    </div>
-                    <div className="text-left">
-                      <h3 className="font-semibold text-lg mb-1">Notable</h3>
-                      <p className="text-muted-foreground text-base">
-                        Your account must represent a well-known, highly searched individual, with a minimum of 1 year of content creation experience.
-                      </p>
-                    </div>
+                  <div className="text-left">
+                    <h3 className="font-semibold text-lg mb-1">Authentic</h3>
+                    <p className="text-muted-foreground text-base">
+                      Your account must represent a real person, registered business, or entity.
+                    </p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="flex items-start gap-4">
+                  <div className="rounded-full bg-blue-500/10 p-3 shrink-0">
+                    <BadgeCheckIcon className="h-6 w-6 text-blue-500" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-semibold text-lg mb-1">Unique</h3>
+                    <p className="text-muted-foreground text-base">
+                      Your account must be the unique presence of the person or business it represents.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="rounded-full bg-blue-500/10 p-3 shrink-0">
+                    <BadgeCheckIcon className="h-6 w-6 text-blue-500" />
+                  </div>
+                  <div className="text-left">
+                    <h3 className="font-semibold text-lg mb-1">Notable</h3>
+                    <p className="text-muted-foreground text-base">
+                      Your account must be in the public interest, news, entertainment, or another designated field.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-            <div className="flex justify-center gap-4 mt-6">
-              <Button 
-                size="lg" 
-                className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-8 h-12 text-base"
-                onClick={handleVerificationRequest}
-              >
-                Apply now
-              </Button>
-              <Button 
-                size="lg" 
-                variant="outline" 
-                className="border-blue-500 text-blue-500 hover:bg-blue-500/10 dark:hover:bg-blue-950 font-semibold px-8 h-12 text-base"
-                onClick={() => toast.info("Coming soon!")}
-              >
-                Buy with OG Coins
-              </Button>
-            </div>
-          </div>
-        </div>
+          <motion.div
+            animate={showTransition ? { scale: [1, 1.1, 1], opacity: [1, 0.8, 1] } : {}}
+            transition={{ duration: 0.5 }}
+          >
+            <Button
+              onClick={handleVerificationRequest}
+              disabled={isSubmitting}
+              className={cn(
+                "bg-blue-500 hover:bg-blue-600 text-white px-8 py-6 text-lg font-semibold rounded-full relative overflow-hidden",
+                isSubmitting && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              <AnimatePresence>
+                {isSubmitting ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className="flex items-center gap-2"
+                  >
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    Submitting...
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                  >
+                    Apply for Verification
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </Button>
+          </motion.div>
+        </motion.div>
       )}
     </div>
   );
 
   return (
-    <div
-      className={cn(
-        "min-h-screen transition-[margin] duration-300 ease-in-out pt-10",
-        isMobile ? "ml-0" : isCollapsed ? "ml-[88px]" : "ml-[245px]"
-      )}
-    >
+    <div className={cn(
+      "flex-1 space-y-4 p-8 pt-6",
+      isCollapsed && !isMobile ? "ml-14" : "ml-64"
+    )}>
       {mainContent}
     </div>
   );

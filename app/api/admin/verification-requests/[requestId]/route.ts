@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { io } from "@/lib/socket.server";
 
 export async function PATCH(
   req: Request,
@@ -42,6 +43,15 @@ export async function PATCH(
         data: {
           verified: true,
         },
+      });
+
+      // Emit socket event to notify the user
+      io.emit(`user:${updatedRequest.user.id}`, {
+        type: "VERIFICATION_APPROVED",
+        data: {
+          verified: true,
+          message: "Your account has been verified!"
+        }
       });
     }
 

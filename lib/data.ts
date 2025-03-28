@@ -201,6 +201,11 @@ export async function fetchPosts(userId?: string) {
 
 export async function fetchPostById(id: string) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Unauthorized");
+    }
+
     const post = await prisma.post.findUnique({
       where: { id },
       include: {
@@ -274,6 +279,23 @@ export async function fetchPostById(id: string) {
                 username: true,
                 image: true,
                 verified: true,
+                isPrivate: true,
+                followers: {
+                  where: {
+                    followerId: session.user.id,
+                  },
+                  select: {
+                    status: true,
+                  }
+                },
+                following: {
+                  where: {
+                    followingId: session.user.id,
+                  },
+                  select: {
+                    status: true,
+                  }
+                }
               },
             },
           },
@@ -317,28 +339,27 @@ export async function fetchPostById(id: string) {
       },
     });
 
-    if (!post) return null;
+    if (!post) {
+      return null;
+    }
 
-    // Get the current session without throwing
-    const session = await auth();
-    const userId = session?.user?.id;
-
-    // Check if the current user is following the post's author
-    const isFollowing = userId ? await prisma.follows.findFirst({
-      where: {
-        followerId: userId,
-        followingId: post.user.id,
-        status: "ACCEPTED"
-      }
-    }) : null;
-
-    return {
+    // Transform the likes to include following status
+    const transformedPost = {
       ...post,
-      user: {
-        ...post.user,
-        isFollowing: !!isFollowing,
-      }
+      likes: post.likes.map(like => ({
+        ...like,
+        user: {
+          ...like.user,
+          isFollowing: like.user.followers[0]?.status === "ACCEPTED",
+          hasPendingRequest: like.user.followers[0]?.status === "PENDING",
+          isFollowedByUser: like.user.following[0]?.status === "ACCEPTED",
+          followers: undefined, // Remove the followers array as we've extracted the status
+          following: undefined // Remove the following array as we've extracted the status
+        }
+      }))
     };
+
+    return transformedPost;
   } catch (error) {
     console.error("Database Error:", error);
     throw new Error("Failed to fetch post");

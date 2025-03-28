@@ -94,12 +94,24 @@ function PostActions({ post, userId, className, inputRef }: Props) {
     }
 
     // Listen for like updates
-    const handleLikeUpdate = (result: any) => {
+    const handleLikeUpdate = async (result: any) => {
       if (!result?.post) return;
       
-      const data = result.post;
-      if (data.id === post.id) {
-        setallLikes(data);
+      try {
+        // Fetch the updated post data with following status
+        const response = await fetch(`/api/posts/${result.post.id}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch updated post data');
+        }
+        const updatedPost = await response.json();
+        
+        if (updatedPost.id === post.id) {
+          setallLikes(updatedPost);
+        }
+      } catch (error) {
+        console.error('Error updating likes:', error);
+        // Fallback to using the socket data if fetch fails
+        setallLikes(result.post);
       }
     };
 

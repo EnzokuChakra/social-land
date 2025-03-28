@@ -134,8 +134,8 @@ export default function ExplorePage() {
           ))}
         </div>
         {isFetchingNextPage && (
-          <div className="flex justify-center p-4">
-            <CustomLoader size="sm" noPadding />
+          <div className="container max-w-7xl px-4 min-h-[200px] flex items-center justify-center">
+            <CustomLoader size="default" />
           </div>
         )}
       </div>

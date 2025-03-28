@@ -1,87 +1,132 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import prisma from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { put } from "@vercel/blob";
 import { nanoid } from "nanoid";
 
+interface TaggedUser {
+  userId: string;
+  username: string;
+}
+
 export async function POST(req: Request) {
   try {
-    const session = await auth();
-
+    const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
-    const caption = formData.get("caption") as string;
-    const aspectRatio = Number(formData.get("aspectRatio") as string);
-    const location = formData.get("location") as string;
-    const taggedUsersJson = formData.get("taggedUsers") as string;
-
-    if (!file) {
-      return new NextResponse("File is required", { status: 400 });
-    }
-
-    // Upload to blob storage
-    const blob = await put(`posts/${nanoid()}.${file.type.split("/")[1]}`, file, {
-      access: "public",
+    const json = await req.json();
+    console.log("[POST_CREATE] Received request:", {
+      userId: session.user.id,
+      fileUrl: json.fileUrl ? "present" : "missing",
+      caption: json.caption ? "present" : "missing",
+      location: json.location ? "present" : "missing",
+      taggedUsers: json.taggedUsers?.length || 0
     });
 
-    // Create post
+    const { fileUrl, caption, location, taggedUsers, aspectRatio = 1 } = json;
+
+    if (!fileUrl) {
+      return new NextResponse("File URL is required", { status: 400 });
+    }
+
+    // Create the post with required fields
     const post = await prisma.post.create({
       data: {
+        id: nanoid(),
         caption,
-        fileUrl: blob.url,
-        aspectRatio,
         location,
+        fileUrl,
+        aspectRatio,
         user_id: session.user.id,
+        updatedAt: new Date(),
+        createdAt: new Date()
       },
+      include: {
+        user: true,
+        likes: true,
+        savedBy: true,
+        comments: {
+          include: {
+            user: true,
+            likes: true,
+            replies: {
+              include: {
+                user: true,
+                likes: true
+              }
+            }
+          }
+        },
+        tags: {
+          include: {
+            user: true
+          }
+        }
+      }
     });
 
-    // Handle tagged users
-    if (taggedUsersJson) {
-      const taggedUsers = JSON.parse(taggedUsersJson) as { userId: string; username: string }[];
-      
-      // Verify all users are being followed by the post creator
-      const followingUsers = await prisma.follows.findMany({
-        where: {
-          followerId: session.user.id,
-          followingId: {
-            in: taggedUsers.map(u => u.userId)
-          },
-          status: "ACCEPTED"
-        }
-      });
+    console.log("[POST_CREATE] Post created successfully:", { postId: post.id });
 
-      const validUserIds = followingUsers.map((f: { followerId: string; followingId: string; status: string; createdAt: Date }) => f.followingId);
+    // Create PostTag records and notifications for tagged users
+    if (taggedUsers && taggedUsers.length > 0) {
+      try {
+        // Verify all users are being followed by the post creator
+        const followingUsers = await prisma.follows.findMany({
+          where: {
+            followerId: session.user.id,
+            followingId: {
+              in: (taggedUsers as TaggedUser[]).map((u: TaggedUser) => u.userId)
+            },
+            status: "ACCEPTED"
+          }
+        });
 
-      // Only create tags for valid users (those being followed)
-      await prisma.postTag.createMany({
-        data: taggedUsers
-          .filter(user => validUserIds.includes(user.userId))
-          .map(user => ({
-            postId: post.id,
-            userId: user.userId
-          }))
-      });
+        const validUserIds = followingUsers.map(f => f.followingId);
 
-      // Create notifications for tagged users
-      await prisma.notification.createMany({
-        data: taggedUsers
-          .filter(user => validUserIds.includes(user.userId))
-          .map(user => ({
-            type: "TAG",
-            userId: user.userId,
-            sender_id: session.user.id,
-            postId: post.id
-          }))
-      });
+        // Only create tags for valid users (those being followed)
+        await prisma.posttag.createMany({
+          data: (taggedUsers as TaggedUser[])
+            .filter((user: TaggedUser) => validUserIds.includes(user.userId))
+            .map((user: TaggedUser) => ({
+              id: nanoid(),
+              postId: post.id,
+              userId: user.userId
+            }))
+        });
+
+        // Create notifications for tagged users with required id field
+        await prisma.notification.createMany({
+          data: (taggedUsers as TaggedUser[])
+            .filter((user: TaggedUser) => validUserIds.includes(user.userId))
+            .map((user: TaggedUser) => ({
+              id: nanoid(),
+              type: "TAG",
+              userId: user.userId,
+              sender_id: session.user.id,
+              postId: post.id,
+              createdAt: new Date()
+            }))
+        });
+
+        console.log("[POST_CREATE] Tags and notifications created successfully");
+      } catch (tagError) {
+        console.error("[POST_CREATE] Error creating tags/notifications:", tagError);
+        // Don't throw here, as the post was created successfully
+      }
     }
 
-    return NextResponse.json({ post });
+    return NextResponse.json(post);
   } catch (error) {
-    console.error("[POSTS_POST]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    console.error("[POST_CREATE] Error creating post:", error);
+    return new NextResponse(
+      JSON.stringify({ 
+        message: "Failed to create post",
+        error: error instanceof Error ? error.message : "Unknown error"
+      }), 
+      { status: 500 }
+    );
   }
 } 
