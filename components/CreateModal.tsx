@@ -87,6 +87,8 @@ export default function CreateModal({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [reelsEnabled, setReelsEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const uploadInProgressRef = useRef(false);
 
   useEffect(() => {
     // Fetch reels visibility setting when component mounts
@@ -188,12 +190,23 @@ export default function CreateModal({ children }: { children: React.ReactNode })
   };
 
   const handleUpload = async () => {
-    const { state, setState } = getCurrentState();
+    // Prevent duplicate submissions
+    if (isSubmitting || uploadInProgressRef.current) {
+      return;
+    }
+
+    const state = activeTab === "story" 
+      ? storyState 
+      : activeTab === "reel" 
+      ? reelState 
+      : postState;
+
     if (!state.file) return;
 
-    setState(prev => ({ ...prev, isUploading: true }));
-
     try {
+      setIsSubmitting(true);
+      uploadInProgressRef.current = true;
+
       const formData = new FormData();
       formData.append('file', state.file);
       formData.append('type', activeTab === 'story' ? 'stories' : activeTab === 'reel' ? 'reels' : 'posts');
@@ -211,7 +224,7 @@ export default function CreateModal({ children }: { children: React.ReactNode })
         } catch (error) {
           retries--;
           if (retries === 0) throw error;
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
 
@@ -253,12 +266,11 @@ export default function CreateModal({ children }: { children: React.ReactNode })
 
       let createRes;
       retries = 3;
-
+      
       while (retries > 0) {
         try {
           createRes = await fetch(endpoint, {
             method: 'POST',
-            credentials: 'same-origin',
             headers: {
               'Content-Type': 'application/json',
             },
@@ -273,24 +285,65 @@ export default function CreateModal({ children }: { children: React.ReactNode })
       }
 
       if (!createRes?.ok) {
-        const errorData = await createRes?.json().catch(() => ({}));
-        console.error(`[${activeTab.toUpperCase()}_CREATE] Error response:`, errorData);
-        throw new Error(errorData?.message || errorData?.error || `Failed to create ${activeTab}`);
+        const data = await createRes?.json().catch(() => ({}));
+        throw new Error(data?.message || data?.error || 'Failed to create content');
       }
 
-      toast.success(`Your ${activeTab} has been shared!`);
-      handleClose();
+      toast.success(
+        activeTab === "story"
+          ? "Story shared!"
+          : activeTab === "reel"
+          ? "Reel shared!"
+          : "Post shared!"
+      );
+
+      // Reset state and close modal
+      if (activeTab === "story") {
+        setStoryState({
+          file: null,
+          preview: null,
+          caption: "",
+          location: "",
+          tags: [],
+          isUploading: false,
+          scale: 1,
+        });
+      } else if (activeTab === "reel") {
+        setReelState({
+          file: null,
+          preview: null,
+          caption: "",
+          location: "",
+          tags: [],
+          isUploading: false,
+          scale: 1,
+        });
+      } else {
+        setPostState({
+          file: null,
+          preview: null,
+          caption: "",
+          location: "",
+          tags: [],
+          isUploading: false,
+          scale: 1,
+        });
+      }
+
+      setOpen(false);
       router.refresh();
-    } catch (error) {
-      console.error(`Error uploading ${activeTab}:`, error);
-      toast.error(error instanceof Error ? error.message : `Failed to create ${activeTab}`);
+
+    } catch (error: any) {
+      console.error("Error uploading:", error);
+      toast.error(error.message || "Something went wrong!");
     } finally {
-      setState(prev => ({ ...prev, isUploading: false }));
+      setIsSubmitting(false);
+      uploadInProgressRef.current = false;
     }
   };
 
   const handleClose = () => {
-    setOpen(false);
+    // Reset all states first
     setPostState({
       file: null,
       preview: null,
@@ -318,6 +371,13 @@ export default function CreateModal({ children }: { children: React.ReactNode })
       isUploading: false,
       scale: 1,
     });
+    
+    // Reset submission states
+    setIsSubmitting(false);
+    uploadInProgressRef.current = false;
+    
+    // Close the modal last
+    setOpen(false);
   };
 
   const adjustScale = (increment: boolean) => {
@@ -371,11 +431,22 @@ export default function CreateModal({ children }: { children: React.ReactNode })
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog 
+      open={open} 
+      onOpenChange={(open) => {
+        if (!open) {
+          handleClose();
+        } else {
+          setOpen(true);
+        }
+      }}
+    >
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
-      <DialogContentWithoutClose className="max-w-5xl h-[90vh] flex flex-col p-0 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden shadow-xl bg-white dark:bg-neutral-900">
+      <DialogContentWithoutClose 
+        className="max-w-5xl h-[90vh] flex flex-col p-0 border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden shadow-xl bg-white dark:bg-neutral-900"
+      >
         <DialogHeader className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
           <DialogTitle className="text-center text-lg font-semibold">
             Create new {activeTab}

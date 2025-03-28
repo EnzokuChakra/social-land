@@ -646,8 +646,8 @@ export default function StoryModal() {
               <p>{error}</p>
             </div>
           ) : !currentStory ? (
-            <div className="h-full w-full flex items-center justify-center text-white">
-              <p>No stories available</p>
+            <div className="h-full w-full flex items-center justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
             </div>
           ) : (
             <div className="relative h-full w-full flex items-center justify-center">
