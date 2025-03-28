@@ -17,7 +17,7 @@ import { z } from "zod";
 import { useEffect, useState, forwardRef, useImperativeHandle, Ref } from "react";
 import { toast } from "react-hot-toast";
 
-const MAX_COMMENT_LENGTH = 1000;
+const MAX_COMMENT_LENGTH = 100;
 
 // Export the handle type for TypeScript
 export type CommentFormHandle = {

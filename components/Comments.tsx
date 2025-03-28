@@ -520,6 +520,7 @@ function Comments({
           placeholder="Add a comment..."
           className="w-full bg-transparent focus:outline-none"
           disabled={isDisabled}
+          maxLength={100}
         />
         {!user?.verified && cooldownTime > 0 ? (
           <span className="text-sm font-semibold text-neutral-500">

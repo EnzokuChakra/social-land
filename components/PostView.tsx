@@ -306,32 +306,34 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
           </DialogHeader>
 
           <ScrollArea className="flex-1 border-b border-neutral-200 dark:border-neutral-800 scrollbar-hide">
-            <div className={cn("px-4", post.caption ? "py-3" : "py-0")}>
-              <div className="flex gap-3">
-                <Link href={href}>
-                  <UserAvatar user={post.user} className="h-8 w-8" />
-                </Link>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm">
-                    <ProfileHoverCard user={post.user}>
-                      <Link href={href} className="font-semibold hover:underline inline">
-                        {username}
-                      </Link>
-                    </ProfileHoverCard>
-                    {post.user.verified && (
-                      <VerifiedBadge className="h-3.5 w-3.5 fill-blue-500 inline-block ml-1" />
-                    )}
-                    {post.caption && (
+            {post.caption && (
+              <div className="px-4 py-3">
+                <div className="flex gap-3">
+                  <Link href={href}>
+                    <UserAvatar user={post.user} className="h-8 w-8" />
+                  </Link>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm">
+                      <ProfileHoverCard user={post.user}>
+                        <Link href={href} className="font-semibold hover:underline inline">
+                          {username}
+                        </Link>
+                      </ProfileHoverCard>
+                      {post.user.verified && (
+                        <VerifiedBadge className="h-3.5 w-3.5 fill-blue-500 inline-block ml-1" />
+                      )}
                       <span className="text-neutral-800 dark:text-neutral-200 ml-1.5 inline">
                         {post.caption}
                       </span>
-                    )}
+                    </div>
                   </div>
                 </div>
               </div>
+            )}
 
-              {transformedComments.length > 0 && (
-                <div className="mt-3 w-full pt-3 border-t border-neutral-100 dark:border-neutral-800/60">
+            {transformedComments.length > 0 && (
+              <div className={cn("w-full", post.caption ? "px-4" : "px-4 pt-3")}>
+                <div className={cn("w-full", post.caption && "pt-3 border-t border-neutral-100 dark:border-neutral-800/60")}>
                   {transformedComments.map((comment) => (
                     <Comment
                       key={comment.id}
@@ -342,8 +344,8 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                     />
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </ScrollArea>
 
           <div className="px-4 py-2 border-b border-neutral-200 dark:border-neutral-800">

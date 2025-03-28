@@ -158,21 +158,25 @@ function Comment({ comment, inputRef, postUserId, onReply, initialShowReplies = 
             </Link>
           </ProfileHoverCard>
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 max-w-full overflow-hidden">
           <div className="text-sm">
-            <span className="inline-flex items-center">
-              <ProfileHoverCard user={user}>
-                <Link href={href}>
-                  <span className="font-semibold hover:underline">
-                    {username}
-                  </span>
-                </Link>
-              </ProfileHoverCard>
-              {user.verified && <VerifiedBadge className="h-4 w-4 fill-sky-600 flex-shrink-0 ml-1" />}
-            </span>
-            <span className="text-neutral-800 dark:text-neutral-200 ml-1">
-              {comment.body}
-            </span>
+            <div className="flex flex-wrap items-start gap-1">
+              <div className="inline-flex items-center flex-shrink-0">
+                <ProfileHoverCard user={user}>
+                  <Link href={href}>
+                    <span className="font-semibold hover:underline">
+                      {username}
+                    </span>
+                  </Link>
+                </ProfileHoverCard>
+                {user.verified && <VerifiedBadge className="h-4 w-4 fill-sky-600 flex-shrink-0 ml-1" />}
+              </div>
+              <div className="text-neutral-800 dark:text-neutral-200 break-words w-full">
+                <span className="whitespace-pre-line break-all inline-block max-w-full">
+                  {comment.body}
+                </span>
+              </div>
+            </div>
           </div>
           <div className="flex items-center mt-1 space-x-3 text-neutral-500 text-[11px]">
             <Timestamp createdAt={comment.createdAt} className="text-[11px]" />
