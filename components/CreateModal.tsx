@@ -35,6 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { buttonVariants } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import TagPeople from "./TagPeople";
+import { Label } from "@/components/ui/label";
 
 type UploadState = {
   file: File | null;
@@ -46,7 +47,8 @@ type UploadState = {
   scale: number;
 };
 
-const MAX_CAPTION_LENGTH = 2200;
+const MAX_CAPTION_LENGTH = 250;
+const MAX_LOCATION_LENGTH = 20;
 
 export default function CreateModal({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -230,10 +232,10 @@ export default function CreateModal({ children }: { children: React.ReactNode })
 
       // Create post/story/reel based on active tab
       const endpoint = activeTab === "story" 
-        ? "/api/stories?action=create"
+        ? `${window.location.origin}/api/stories?action=create`
         : activeTab === "reel"
-        ? "/api/reels/create"
-        : "/api/posts/create";
+        ? `${window.location.origin}/api/reels/create`
+        : `${window.location.origin}/api/posts/create`;
 
       // Different body for different content types
       const body = {
@@ -272,6 +274,7 @@ export default function CreateModal({ children }: { children: React.ReactNode })
 
       if (!createRes?.ok) {
         const errorData = await createRes?.json().catch(() => ({}));
+        console.error(`[${activeTab.toUpperCase()}_CREATE] Error response:`, errorData);
         throw new Error(errorData?.message || errorData?.error || `Failed to create ${activeTab}`);
       }
 
@@ -334,17 +337,33 @@ export default function CreateModal({ children }: { children: React.ReactNode })
   };
 
   // Add this block for character count display
-  const getCharsRemaining = (text: string) => {
-    return MAX_CAPTION_LENGTH - text.length;
+  const getCharsRemaining = (text: string, maxLength: number) => {
+    return maxLength - text.length;
   };
 
-  const isNearCharLimit = (text: string) => {
-    const remaining = getCharsRemaining(text);
-    return remaining <= 20 && remaining > 0;
+  const isNearCharLimit = (text: string, maxLength: number, isLocation = false) => {
+    const remaining = getCharsRemaining(text, maxLength);
+    return isLocation ? (remaining <= 5 && remaining > 0) : (remaining <= 20 && remaining > 0);
   };
 
-  const isAtCharLimit = (text: string) => {
-    return text.length >= MAX_CAPTION_LENGTH;
+  const isAtCharLimit = (text: string, maxLength: number) => {
+    return text.length >= maxLength;
+  };
+
+  const handleCaptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const { state, setState } = getCurrentState();
+    const value = e.target.value;
+    if (value.length <= MAX_CAPTION_LENGTH) {
+      setState(prev => ({ ...prev, caption: value }));
+    }
+  };
+
+  const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { state, setState } = getCurrentState();
+    const value = e.target.value;
+    if (value.length <= MAX_LOCATION_LENGTH) {
+      setState(prev => ({ ...prev, location: value }));
+    }
   };
 
   if (isLoading) {
@@ -590,24 +609,20 @@ export default function CreateModal({ children }: { children: React.ReactNode })
                                   placeholder="Write a caption..."
                                   className="min-h-[120px] resize-none bg-transparent border-none text-sm text-neutral-800 dark:text-neutral-200 placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
                                   value={state.caption}
-                                  onChange={(e) => {
-                                    if (e.target.value.length <= MAX_CAPTION_LENGTH) {
-                                      setState(prev => ({ ...prev, caption: e.target.value }));
-                                    }
-                                  }}
+                                  onChange={handleCaptionChange}
                                   maxLength={MAX_CAPTION_LENGTH}
                                 />
                               </div>
                               <div className="flex justify-end mt-1">
                                 <span className={cn(
                                   "text-xs", 
-                                  isAtCharLimit(state.caption) 
+                                  isAtCharLimit(state.caption, MAX_CAPTION_LENGTH) 
                                     ? "text-red-500" 
-                                    : isNearCharLimit(state.caption) 
+                                    : isNearCharLimit(state.caption, MAX_CAPTION_LENGTH) 
                                       ? "text-amber-500" 
                                       : "text-neutral-500"
                                 )}>
-                                  {getCharsRemaining(state.caption)} characters remaining
+                                  {getCharsRemaining(state.caption, MAX_CAPTION_LENGTH)} characters remaining
                                 </span>
                               </div>
                             </div>
@@ -625,10 +640,21 @@ export default function CreateModal({ children }: { children: React.ReactNode })
                                     placeholder="Add location"
                                     className="w-full bg-transparent border-none text-sm text-neutral-800 dark:text-neutral-200 placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
                                     value={state.location}
-                                    onChange={(e) => {
-                                      setState(prev => ({ ...prev, location: e.target.value }));
-                                    }}
+                                    onChange={handleLocationChange}
+                                    maxLength={MAX_LOCATION_LENGTH}
                                   />
+                                </div>
+                                <div className="flex justify-end mt-1">
+                                  <span className={cn(
+                                    "text-xs", 
+                                    isAtCharLimit(state.location, MAX_LOCATION_LENGTH) 
+                                      ? "text-red-500" 
+                                      : isNearCharLimit(state.location, MAX_LOCATION_LENGTH, true) 
+                                        ? "text-amber-500" 
+                                        : "text-neutral-500"
+                                  )}>
+                                    {getCharsRemaining(state.location, MAX_LOCATION_LENGTH)} characters remaining
+                                  </span>
                                 </div>
                               </div>
 

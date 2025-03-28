@@ -148,10 +148,10 @@ model post {
   id          String   @id
   createdAt   DateTime @default(now())
   updatedAt   DateTime
-  caption     String?
+  caption     String?  @db.VarChar(250)
   fileUrl     String   @unique(map: "Post_fileUrl_key")
   aspectRatio Float    @default(1)
-  location    String?
+  location    String?  @db.VarChar(20)
   user_id     String
 
   user        user     @relation(fields: [user_id], references: [id])
