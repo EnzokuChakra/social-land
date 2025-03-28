@@ -54,7 +54,7 @@ export async function POST(req: Request) {
         }
       });
 
-      const validUserIds = followingUsers.map(f => f.followingId);
+      const validUserIds = followingUsers.map((f: { followerId: string; followingId: string; status: string; createdAt: Date }) => f.followingId);
 
       // Only create tags for valid users (those being followed)
       await prisma.postTag.createMany({

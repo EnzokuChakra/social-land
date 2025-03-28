@@ -85,6 +85,7 @@ export async function POST(req: Request) {
           data: taggedUsers
             .filter(user => validUserIds.includes(user.userId))
             .map(user => ({
+              id: nanoid(),
               postId: post.id,
               userId: user.userId
             }))

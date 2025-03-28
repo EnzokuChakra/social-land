@@ -10,8 +10,8 @@ const app = express();
 // Express CORS middleware
 app.use(
   cors({
-    origin: ["http://localhost:3000", process.env.APP_URL, "https://social-land.ro"],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    origin: process.env.APP_URL,
+    methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
@@ -24,22 +24,20 @@ const server = http.createServer(app);
 // Configure Socket.IO with CORS
 const io = socketIo(server, {
   cors: {
-    origin: ["http://localhost:3000", process.env.APP_URL, "https://social-land.ro", "https://www.social-land.ro"],
-    methods: ["GET", "POST", "OPTIONS"],
+    origin: process.env.APP_URL,
+    methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   },
-  path: '/socket.io/',
-  allowEIO3: true,
+  transports: ['websocket', 'polling'],
+  allowUpgrades: true,
   pingTimeout: 60000,
   pingInterval: 25000,
   connectTimeout: 45000,
-  transports: ['websocket', 'polling'],
-  allowUpgrades: true,
-  cookie: false,
-  maxHttpBufferSize: 1e8,
-  connectTimeout: 45000,
-  timeout: 45000,
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000
 });
 
 const PORT = process.env.PORT || 5002;
@@ -50,36 +48,32 @@ const activeClients = new Map();
 // Socket event handling
 io.on("connection", (socket) => {
   console.log("[SOCKET] New Connection ID:", socket.id);
-  let currentClient = null;
+  activeClients.set(socket.id, socket);
 
-  // Set up ping/pong monitoring
-  socket.conn.on('ping', () => {
-    console.log('[SOCKET] Ping received from', socket.id);
-  });
-
-  socket.conn.on('pong', (latency) => {
-    console.log('[SOCKET] Pong received from', socket.id, 'latency:', latency);
-  });
-
-  // Changed from io.on to socket.on for likeUpdate
+  // Handle like updates
   socket.on("likeUpdate", (data) => {
-    console.log("[SOCKET] Like update received from", socket.id, ":", data);
-    io.emit("likeUpdate", data);
+    try {
+      console.log("[SOCKET] Like update received from", socket.id, ":", data);
+      io.emit("likeUpdate", data);
+    } catch (error) {
+      console.error("[SOCKET] Error handling likeUpdate:", error);
+    }
   });
 
   // Handle profile updates
   socket.on("profileUpdate", (data) => {
-    console.log("[SOCKET] Profile update received from", socket.id, ":", data);
-    io.emit("profileUpdate", data);
+    try {
+      console.log("[SOCKET] Profile update received from", socket.id, ":", data);
+      io.emit("profileUpdate", data);
+    } catch (error) {
+      console.error("[SOCKET] Error handling profileUpdate:", error);
+    }
   });
 
   // Handle disconnection
-  socket.on("disconnect", async (reason) => {
+  socket.on("disconnect", () => {
     try {
-      console.log("[SOCKET] Client disconnected:", socket.id, "Reason:", reason);
-      if (currentClient) {
-        await currentClient.destroy();
-      }
+      console.log("[SOCKET] Client disconnected:", socket.id);
       activeClients.delete(socket.id);
     } catch (error) {
       console.error("[SOCKET] Disconnect error:", error);
@@ -88,7 +82,7 @@ io.on("connection", (socket) => {
 
   // Handle errors
   socket.on("error", (error) => {
-    console.error("[SOCKET] Error:", error);
+    console.error("[SOCKET] Error for client", socket.id, ":", error);
   });
 });
 
@@ -103,8 +97,6 @@ io.on('error', (error) => {
 });
 
 // Start server
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, () => {
   console.log(`[SERVER] Socket running on port ${PORT}`);
-  console.log(`[SERVER] WebSocket path: /socket.io/`);
-  console.log(`[SERVER] Allowed origins: ${["http://localhost:3000", process.env.APP_URL, "https://social-land.ro"].join(', ')}`);
 });

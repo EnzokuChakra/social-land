@@ -61,7 +61,7 @@ function Post({ post }: { post: PostWithExtras }) {
               <UserAvatar user={post.user} />
             </Link>
             <div className="text-sm">
-              <div className="space-x-1 flex items-center flex-wrap">
+              <div className="flex items-center gap-1 flex-wrap">
                 <ProfileHoverCard user={post.user}>
                   <Link
                     href={`/dashboard/${username}`}

@@ -79,8 +79,10 @@ export default async function ProfilePage({ params }: Props) {
       redirect("/login");
     }
 
-    const username = decodeURIComponent(params.username);
-    const profile = await fetchProfile(username);
+    // Await the params before using them
+    const { username } = await params;
+    const decodedUsername = decodeURIComponent(username);
+    const profile = await fetchProfile(decodedUsername);
     
     if (!profile) {
       notFound();

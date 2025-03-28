@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import { unstable_noStore as noStore } from "next/cache";
 import { Suspense, ReactNode } from "react";
 import PageLayout from "@/components/PageLayout";
+import { NavbarProvider } from "@/components/NavbarProvider";
 
 interface Props {
   children: ReactNode;
@@ -17,8 +18,9 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   noStore();
   try {
-    const username = decodeURIComponent(params.username);
-    const profile = await fetchProfile(username);
+    const { username } = await params;
+    const decodedUsername = decodeURIComponent(username);
+    const profile = await fetchProfile(decodedUsername);
     
     if (!profile) {
       return {
@@ -44,22 +46,25 @@ function ProfileHeader() {
 export default async function ProfileLayout({ children, params }: Props) {
   noStore();
   try {
-    const username = decodeURIComponent(params.username);
-    const profile = await fetchProfile(username);
+    const { username } = await params;
+    const decodedUsername = decodeURIComponent(username);
+    const profile = await fetchProfile(decodedUsername);
 
     if (!profile) {
       notFound();
     }
 
     return (
-      <PageLayout>
-        <div className="flex flex-col min-h-screen bg-white dark:bg-black">
-          <Suspense fallback={<div>Loading...</div>}>
-            <ProfileHeader />
-          </Suspense>
-          {children}
-        </div>
-      </PageLayout>
+      <NavbarProvider>
+        <PageLayout>
+          <div className="flex flex-col min-h-screen bg-white dark:bg-black">
+            <Suspense fallback={<div>Loading...</div>}>
+              <ProfileHeader />
+            </Suspense>
+            {children}
+          </div>
+        </PageLayout>
+      </NavbarProvider>
     );
   } catch (error) {
     console.error('[ProfileLayout] Error:', error);
