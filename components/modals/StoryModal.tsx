@@ -266,7 +266,6 @@ export default function StoryModal() {
     
     let pollInterval: NodeJS.Timeout | null = null;
     let pollTimeout: NodeJS.Timeout | null = null;
-    let cleanupTimeout: NodeJS.Timeout | null = null;
     
     if (storyModal.isOpen) {
       // Initial fetch
@@ -286,26 +285,23 @@ export default function StoryModal() {
         pollInterval = setTimeout(debouncedPoll, 15000);
       }
     } else {
-      // Delay the cleanup until after the modal animation (300ms)
-      cleanupTimeout = setTimeout(() => {
-        setStories([]);
-        setCurrentStoryIndex(0);
-        setError(null);
-        setShowViewersList(false);
-        lastFetchRef.current = 0;
-      }, 300);
+      // Reset state when modal closes
+      setStories([]);
+      setCurrentStoryIndex(0);
+      setError(null);
+      setShowViewersList(false);
+      lastFetchRef.current = 0;
     }
 
     // Cleanup function
     return () => {
       if (pollInterval) {
         clearTimeout(pollInterval);
+        pollInterval = null;
       }
       if (pollTimeout) {
         clearTimeout(pollTimeout);
-      }
-      if (cleanupTimeout) {
-        clearTimeout(cleanupTimeout);
+        pollTimeout = null;
       }
     };
   }, [storyModal.isOpen, storyModal.userId, mount, showViewersList]);
@@ -449,6 +445,9 @@ export default function StoryModal() {
   const addView = useCallback(async (storyId: string) => {
     if (!storyId || !session?.user?.id) return;
     
+    // Don't record view if the user is viewing their own story
+    if (currentStory && session.user.id === currentStory.user.id) return;
+    
     const maxRetries = 3;
     const timeoutDuration = 10000; // 10 seconds
     let retryCount = 0;
@@ -456,6 +455,11 @@ export default function StoryModal() {
     const attemptAddView = async (): Promise<void> => {
       try {
         setError(null);
+        
+        // Check if view already exists before making the API call
+        const viewExists = currentStory?.views.some(view => view.user.id === session?.user?.id);
+        if (viewExists) return;
+
         const response = await axios.post('/api/stories/view', {
           storyId: storyId
         }, {
@@ -473,7 +477,7 @@ export default function StoryModal() {
         setStories((prevStories) => {
           return prevStories.map((story) => {
             if (story.id === storyId) {
-              // Check if view already exists
+              // Double check if view already exists
               const viewExists = story.views.some(view => view.user.id === session?.user?.id);
               if (viewExists) return story;
 
@@ -512,22 +516,24 @@ export default function StoryModal() {
           progressToNextStory();
         } else if (error.response?.status === 500) {
           console.error('Critical error adding view:', error.response?.data?.error);
-          toast.error('Failed to record view');
-        }
-        // For network errors or timeouts after retries, log but don't disrupt user experience
-        else if (error.code === 'ECONNABORTED') {
-          console.error('View tracking timed out after retries');
-          toast.error('Failed to record view due to timeout');
+          // Don't show error toast for view recording issues to avoid disrupting user experience
         }
       }
     };
 
     await attemptAddView();
-  }, [session?.user?.id, progressToNextStory]);
+  }, [session?.user?.id, progressToNextStory, currentStory]);
 
   // Effect to handle story view with debouncing
   useEffect(() => {
     if (!currentStory || !session?.user?.id || isPaused) return;
+    
+    // Don't record view if the user is viewing their own story
+    if (session.user.id === currentStory.user.id) return;
+    
+    // Check if view already exists
+    const viewExists = currentStory.views.some(view => view.user.id === session?.user?.id);
+    if (viewExists) return;
 
     let timeoutId: NodeJS.Timeout;
     const debounceTime = 2000; // 2 second debounce to prevent rapid requests
@@ -608,13 +614,15 @@ export default function StoryModal() {
     toast.success('Story reported');
   };
 
-  const sortedViewers = currentStory ? [...currentStory.views].sort((a: StoryView, b: StoryView) => {
-    const aLiked = currentStory.likes.some((like: StoryLike) => like.user.id === a.user.id);
-    const bLiked = currentStory.likes.some((like: StoryLike) => like.user.id === b.user.id);
-    if (aLiked && !bLiked) return -1;
-    if (!aLiked && bLiked) return 1;
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  }) : [];
+  const sortedViewers = currentStory ? [...currentStory.views]
+    .filter((view: StoryView) => view.user.id !== currentStory.user.id) // Filter out the story owner
+    .sort((a: StoryView, b: StoryView) => {
+      const aLiked = currentStory.likes.some((like: StoryLike) => like.user.id === a.user.id);
+      const bLiked = currentStory.likes.some((like: StoryLike) => like.user.id === b.user.id);
+      if (aLiked && !bLiked) return -1;
+      if (!aLiked && bLiked) return 1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }) : [];
 
   if (!mount) return null;
 
@@ -637,11 +645,11 @@ export default function StoryModal() {
             <div className="h-full w-full flex items-center justify-center text-white">
               <p>{error}</p>
             </div>
-          ) : (!currentStory && storyModal.isOpen) ? (
+          ) : !currentStory ? (
             <div className="h-full w-full flex items-center justify-center text-white">
               <p>No stories available</p>
             </div>
-          ) : currentStory ? (
+          ) : (
             <div className="relative h-full w-full flex items-center justify-center">
               {/* Story image with click handler */}
               <div
@@ -658,7 +666,7 @@ export default function StoryModal() {
 
               {/* Progress bar */}
               <div className="absolute top-4 left-4 right-4 flex gap-1">
-                {currentUserStories?.stories.map((_, index) => (
+                {currentUserStories.stories.map((_, index) => (
                   <div
                     key={index}
                     className="h-0.5 bg-white/50 flex-1 rounded-full overflow-hidden"
@@ -794,46 +802,54 @@ export default function StoryModal() {
                     </Button>
 
                     {showViewersList && (
-                      <div className="absolute left-0 bottom-full mb-2 w-72 bg-black/90 rounded-lg overflow-hidden border border-neutral-700">
-                        <div className="p-4 border-b border-neutral-700">
-                          <h4 className="font-semibold text-white">Story views · {currentStory.views.length}</h4>
-                        </div>
-                        <ScrollArea className="h-[300px]">
-                          <div className="p-4 space-y-4">
-                            {sortedViewers.map((view: StoryView) => (
-                              <ViewerListItem
-                                key={view.id}
-                                user={view.user}
-                                hasLiked={currentStory.likes.some((like: StoryLike) => like.user.id === view.user.id)}
-                              />
-                            ))}
+                      <>
+                        <div 
+                          className="fixed inset-0 z-40"
+                          onClick={() => setShowViewersList(false)}
+                        />
+                        <div className="absolute left-0 bottom-full mb-2 w-72 bg-black/90 rounded-lg overflow-hidden border border-neutral-700 z-50">
+                          <div className="p-4 border-b border-neutral-700">
+                            <h4 className="font-semibold text-white">Story views · {currentStory.views.length}</h4>
                           </div>
-                        </ScrollArea>
-                      </div>
+                          <ScrollArea className="h-[300px]">
+                            <div className="p-4 space-y-4">
+                              {sortedViewers.map((view: StoryView) => (
+                                <ViewerListItem
+                                  key={view.id}
+                                  user={view.user}
+                                  hasLiked={currentStory.likes.some((like: StoryLike) => like.user.id === view.user.id)}
+                                />
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </div>
+                      </>
                     )}
                   </div>
                 </>
               )}
 
-              {/* Like button */}
-              <Button
-                onClick={handleLike}
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "absolute bottom-4 right-4 text-white hover:text-white transition-colors",
-                  isLiked && "text-red-500 hover:text-red-600"
-                )}
-              >
-                <Heart
+              {/* Like button - Only show for non-owners */}
+              {session?.user?.id !== currentStory?.user.id && (
+                <Button
+                  onClick={handleLike}
+                  variant="ghost"
+                  size="icon"
                   className={cn(
-                    "w-8 h-8",
-                    isLiked && "fill-red-500 text-red-500"
+                    "absolute bottom-4 right-4 text-white hover:text-white transition-colors",
+                    isLiked && "text-red-500 hover:text-red-600"
                   )}
-                />
-              </Button>
+                >
+                  <Heart
+                    className={cn(
+                      "w-8 h-8",
+                      isLiked && "fill-red-500 text-red-500"
+                    )}
+                  />
+                </Button>
+              )}
             </div>
-          ) : null}
+          )}
         </DialogContentWithoutClose>
       </Dialog>
     </>
