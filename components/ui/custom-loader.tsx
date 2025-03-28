@@ -1,49 +1,26 @@
-export function CustomLoader() {
+import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface CustomLoaderProps {
+  className?: string;
+  size?: "sm" | "default" | "lg";
+  noPadding?: boolean;
+}
+
+export function CustomLoader({ className = "", size = "default", noPadding = false }: CustomLoaderProps) {
+  const sizeClasses = {
+    sm: "h-6 w-6",
+    default: "h-8 w-8",
+    lg: "h-12 w-12"
+  };
+
   return (
-    <div className="flex items-center justify-center w-full h-full">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" className="w-16 h-16">
-        <radialGradient id="a2" cx=".66" fx=".66" cy=".3125" fy=".3125" gradientTransform="scale(1.5)">
-          <stop offset="0" stopColor="#FFFFFF"></stop>
-          <stop offset=".3" stopColor="#FFFFFF" stopOpacity=".9"></stop>
-          <stop offset=".6" stopColor="#FFFFFF" stopOpacity=".6"></stop>
-          <stop offset=".8" stopColor="#FFFFFF" stopOpacity=".3"></stop>
-          <stop offset="1" stopColor="#FFFFFF" stopOpacity="0"></stop>
-        </radialGradient>
-        <circle 
-          style={{ transformOrigin: 'center' }}
-          fill="none" 
-          stroke="url(#a2)" 
-          strokeWidth="14" 
-          strokeLinecap="round" 
-          strokeDasharray="200 1000" 
-          strokeDashoffset="0" 
-          cx="100" 
-          cy="100" 
-          r="70"
-        >
-          <animateTransform 
-            type="rotate" 
-            attributeName="transform" 
-            calcMode="spline" 
-            dur="2" 
-            values="360;0" 
-            keyTimes="0;1" 
-            keySplines="0 0 1 1" 
-            repeatCount="indefinite"
-          />
-        </circle>
-        <circle 
-          style={{ transformOrigin: 'center' }}
-          fill="none" 
-          opacity=".2" 
-          stroke="#FFFFFF" 
-          strokeWidth="14" 
-          strokeLinecap="round" 
-          cx="100" 
-          cy="100" 
-          r="70"
-        />
-      </svg>
+    <div className={cn(
+      "flex items-center justify-center w-full h-full",
+      !noPadding && "pl-[88px]",
+      className
+    )}>
+      <Loader2 className={`${sizeClasses[size]} animate-spin`} />
     </div>
   );
 } 

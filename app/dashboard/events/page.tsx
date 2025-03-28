@@ -21,6 +21,7 @@ import { format, isToday, isPast, isFuture } from "date-fns";
 import PageLayout from "@/components/PageLayout";
 import Image from "next/image";
 import { formatCurrency } from "@/lib/utils";
+import { CustomLoader } from "@/components/ui/custom-loader";
 
 const eventTypes = [
   "All Types",
@@ -148,23 +149,8 @@ export default function EventsPage() {
   if (isLoading) {
     return (
       <PageLayout>
-        <div className="mt-20">
-          <div className="container max-w-5xl py-10 space-y-8 bg-white dark:bg-black" suppressHydrationWarning>
-            <div className="space-y-4" suppressHydrationWarning>
-              <Skeleton className="h-8 w-48" />
-              <Skeleton className="h-[400px] w-full rounded-2xl" />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8" suppressHydrationWarning>
-                <div className="space-y-4" suppressHydrationWarning>
-                  <Skeleton className="h-8 w-full" />
-                  <Skeleton className="h-24 w-full" />
-                </div>
-                <div className="space-y-4" suppressHydrationWarning>
-                  <Skeleton className="h-8 w-full" />
-                  <Skeleton className="h-24 w-full" />
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="container max-w-5xl px-4 min-h-[calc(100vh-80px)] flex items-center justify-center">
+          <CustomLoader size="default" />
         </div>
       </PageLayout>
     );

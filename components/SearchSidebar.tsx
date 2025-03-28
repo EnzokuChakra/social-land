@@ -183,20 +183,20 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
                     >
                       <div className="relative h-12 w-12">
                         <Image
-                          src={search.searchedUser.image || "/images/profile_placeholder.webp"}
-                          alt={search.searchedUser.username}
+                          src={search.searchedUser?.image || "/images/profile_placeholder.webp"}
+                          alt={search.searchedUser?.username || "User"}
                           fill
                           className="rounded-full object-cover"
                         />
                       </div>
                       <div>
                         <div className="flex items-center gap-1">
-                          <p className="font-semibold">{search.searchedUser.username}</p>
-                          {search.searchedUser.verified && (
+                          <p className="font-semibold">{search.searchedUser?.username || "Unknown User"}</p>
+                          {search.searchedUser?.verified && (
                             <Badge variant="secondary" className="h-4 w-4 p-0" />
                           )}
                         </div>
-                        {search.searchedUser.name && (
+                        {search.searchedUser?.name && (
                           <p className="text-sm text-neutral-600 dark:text-neutral-400">
                             {search.searchedUser.name}
                           </p>
@@ -233,20 +233,20 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
                   >
                     <div className="relative h-12 w-12">
                       <Image
-                        src={user.image || "/images/profile_placeholder.webp"}
-                        alt={user.username}
+                        src={user?.image || "/images/profile_placeholder.webp"}
+                        alt={user?.username || "User"}
                         fill
                         className="rounded-full object-cover"
                       />
                     </div>
                     <div>
                       <div className="flex items-center gap-1">
-                        <p className="font-semibold">{user.username}</p>
-                        {user.verified && (
+                        <p className="font-semibold">{user?.username || "Unknown User"}</p>
+                        {user?.verified && (
                           <Badge variant="secondary" className="h-4 w-4 p-0" />
                         )}
                       </div>
-                      {user.name && (
+                      {user?.name && (
                         <p className="text-sm text-neutral-600 dark:text-neutral-400">
                           {user.name}
                         </p>

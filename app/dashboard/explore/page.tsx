@@ -7,10 +7,11 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { Post } from "@prisma/client";
 import Image from "next/image";
 import Link from "next/link";
-import { Loader2, MessageCircle, Heart } from "lucide-react";
+import { MessageCircle, Heart } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import PageLayout from "@/components/PageLayout";
+import { CustomLoader } from "@/components/ui/custom-loader";
 
 type PostWithUser = Post & {
   user: {
@@ -72,8 +73,8 @@ export default function ExplorePage() {
   if (status === "pending") {
     return (
       <PageLayout>
-        <div className="flex items-center justify-center min-h-screen">
-          <Loader2 className="h-8 w-8 animate-spin" />
+        <div className="container max-w-7xl px-4 min-h-[calc(100vh-80px)] flex items-center justify-center">
+          <CustomLoader size="default" />
         </div>
       </PageLayout>
     );
@@ -82,7 +83,7 @@ export default function ExplorePage() {
   if (status === "error") {
     return (
       <PageLayout>
-        <div className="flex items-center justify-center min-h-screen">
+        <div className="container max-w-7xl px-4 min-h-[calc(100vh-80px)] flex items-center justify-center">
           <p className="text-red-500">Error loading posts</p>
         </div>
       </PageLayout>
@@ -134,7 +135,7 @@ export default function ExplorePage() {
         </div>
         {isFetchingNextPage && (
           <div className="flex justify-center p-4">
-            <Loader2 className="h-6 w-6 animate-spin" />
+            <CustomLoader size="sm" noPadding />
           </div>
         )}
       </div>
