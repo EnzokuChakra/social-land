@@ -7,6 +7,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import Image from "next/image";
 
 interface User {
   id: string;
@@ -122,10 +123,16 @@ export default function SearchUsers({ onClose }: SearchUsersProps) {
                     handleUserClick(user.username);
                   }}
                 >
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user.image || ""} alt={user.username} />
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={user.image || "/images/profile_placeholder.webp"} alt={user.username || ""} />
                     <AvatarFallback>
-                      {user.name?.charAt(0) || user.username.charAt(0)}
+                      <Image
+                        src="/images/profile_placeholder.webp"
+                        alt={user.username || ""}
+                        width={40}
+                        height={40}
+                        className="object-cover"
+                      />
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex flex-col items-start">

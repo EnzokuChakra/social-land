@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Heart, MessageCircle, Share2, MoreVertical, Music2, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { Reel } from "@/lib/definitions";
+import Image from "next/image";
 
 interface ReelItemProps {
   reel: Reel;
@@ -59,10 +60,16 @@ export default function ReelItem({ reel, isActive }: ReelItemProps) {
         {/* User Info */}
         <div className="flex items-center gap-3 mb-4">
           <Link href={`/dashboard/${reel.user.username}`}>
-            <Avatar className="h-10 w-10 border-2 border-white">
-              <AvatarImage src={reel.user.image} />
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={reel.user.image || "/images/profile_placeholder.webp"} alt={reel.user.username} />
               <AvatarFallback>
-                {reel.user.username[0].toUpperCase()}
+                <Image
+                  src="/images/profile_placeholder.webp"
+                  alt={reel.user.username}
+                  width={32}
+                  height={32}
+                  className="object-cover"
+                />
               </AvatarFallback>
             </Avatar>
           </Link>

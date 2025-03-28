@@ -11,6 +11,7 @@ import { useState, useEffect, useCallback, memo } from "react";
 import FollowButton from "@/components/FollowButton";
 import { cn } from "@/lib/utils";
 import { toast } from "react-hot-toast";
+import Image from "next/image";
 
 function NotificationsList({ notifications: initialNotifications }: { notifications: NotificationWithExtras[] }) {
   const [notifications, setNotifications] = useState(() => initialNotifications);
@@ -147,10 +148,16 @@ function NotificationsList({ notifications: initialNotifications }: { notificati
           >
             <div className="flex items-center gap-3 flex-1">
               <Link href={`/dashboard/${notification.sender.username}`}>
-                <Avatar className="h-11 w-11 border border-neutral-200 dark:border-neutral-700">
-                  <AvatarImage src={notification.sender.image ?? undefined} />
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={notification.sender.image || "/images/profile_placeholder.webp"} alt={notification.sender.username || ""} />
                   <AvatarFallback>
-                    {notification.sender.username?.[0]?.toUpperCase() ?? '?'}
+                    <Image
+                      src="/images/profile_placeholder.webp"
+                      alt={notification.sender.username || ""}
+                      width={32}
+                      height={32}
+                      className="object-cover"
+                    />
                   </AvatarFallback>
                 </Avatar>
               </Link>

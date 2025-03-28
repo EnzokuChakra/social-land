@@ -16,6 +16,7 @@ import { User, UserWithExtras } from "@/lib/definitions";
 import FollowButton from "./FollowButton";
 import { cn } from "@/lib/utils";
 import VerifiedBadge from "./VerifiedBadge";
+import Image from "next/image";
 
 interface Props {
   user: User | UserWithExtras;
@@ -113,9 +114,15 @@ export default function ProfileHoverCard({ user, children, align = "center" }: P
           <div className="flex items-center gap-3">
             <Link href={`/dashboard/${user.username}`}>
               <Avatar className="h-16 w-16 border">
-                <AvatarImage src={user.image || ""} alt={user.username || ""} />
+                <AvatarImage src={user.image || "/images/profile_placeholder.webp"} alt={user.username || ""} />
                 <AvatarFallback>
-                  {user.name?.charAt(0) || user.username?.charAt(0)}
+                  <Image
+                    src="/images/profile_placeholder.webp"
+                    alt={user.username || ""}
+                    width={64}
+                    height={64}
+                    className="object-cover"
+                  />
                 </AvatarFallback>
               </Avatar>
             </Link>

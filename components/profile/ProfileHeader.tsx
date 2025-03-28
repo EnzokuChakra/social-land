@@ -8,6 +8,7 @@ import VerifiedBadge from "@/components/VerifiedBadge";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 interface ProfileHeaderProps {
   user: {
@@ -45,12 +46,18 @@ export default function ProfileHeader({
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
             <Avatar className="h-32 w-32">
               <AvatarImage
-                src={user.image || "/images/placeholder-avatar.png"}
+                src={user.image || "/images/profile_placeholder.webp"}
                 alt={user.username}
                 className="object-cover"
               />
               <AvatarFallback>
-                {user.username.charAt(0).toUpperCase()}
+                <Image
+                  src="/images/profile_placeholder.webp"
+                  alt={user.username}
+                  width={128}
+                  height={128}
+                  className="object-cover"
+                />
               </AvatarFallback>
             </Avatar>
           </div>

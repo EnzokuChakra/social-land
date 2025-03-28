@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import Image from "next/image";
 
 interface User {
   id: string;
@@ -38,12 +39,15 @@ export function CommentList({ comments }: CommentListProps) {
       {comments.map((comment) => (
         <div key={comment.id} className="flex gap-3">
           <Avatar className="h-8 w-8">
-            <AvatarImage 
-              src={comment.user.image || "/images/placeholder-avatar.png"} 
-              alt={comment.user.username} 
-            />
+            <AvatarImage src={comment.user.image || "/images/profile_placeholder.webp"} alt={comment.user.username || ""} />
             <AvatarFallback>
-              {comment.user.username.charAt(0).toUpperCase()}
+              <Image
+                src="/images/profile_placeholder.webp"
+                alt={comment.user.username || ""}
+                width={32}
+                height={32}
+                className="object-cover"
+              />
             </AvatarFallback>
           </Avatar>
           <div className="flex-1">

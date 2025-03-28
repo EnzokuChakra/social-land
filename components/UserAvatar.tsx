@@ -20,7 +20,7 @@ interface Props extends AvatarProps {
   priority?: boolean;
 }
 
-function UserAvatar({ user, priority = false, className, ...avatarProps }: Props) {
+export function UserAvatar({ user, priority = false, className, ...avatarProps }: Props) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -33,9 +33,8 @@ function UserAvatar({ user, priority = false, className, ...avatarProps }: Props
       : user.image.startsWith('/')
         ? user.image
         : `/uploads/${user.image}`
-    : null;
+    : "/images/profile_placeholder.webp";
 
-  const fallbackText = user?.name?.charAt(0) || user?.username?.charAt(0) || '?';
   const altText = user ? `${user.name || user.username || 'User'}'s profile picture` : 'User profile picture';
 
   if (!isMounted) {
@@ -44,24 +43,17 @@ function UserAvatar({ user, priority = false, className, ...avatarProps }: Props
 
   return (
     <Avatar className={cn(className)} {...avatarProps}>
-      {imageUrl ? (
-        <div className="relative aspect-square h-full w-full">
-          <Image
-            src={imageUrl}
-            alt={altText}
-            referrerPolicy="no-referrer"
-            priority={priority}
-            fill
-            sizes="(max-width: 768px) 77px, 150px"
-            className="object-cover"
-          />
-        </div>
-      ) : null}
-      <AvatarFallback className="uppercase">
-        {fallbackText}
-      </AvatarFallback>
+      <div className="relative aspect-square h-full w-full">
+        <Image
+          src={imageUrl}
+          alt={altText}
+          referrerPolicy="no-referrer"
+          priority={priority}
+          fill
+          sizes="(max-width: 768px) 77px, 150px"
+          className="object-cover"
+        />
+      </div>
     </Avatar>
   );
 }
-
-export default UserAvatar;

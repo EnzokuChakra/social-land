@@ -12,6 +12,7 @@ import Link from "next/link";
 import { CommentForm } from "@/components/comments/CommentForm";
 import { CommentList } from "@/components/comments/CommentList";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import Image from "next/image";
 
 interface User {
   id: string;
@@ -205,9 +206,17 @@ export default function ReelView({ reel }: ReelViewProps) {
       >
         {/* Header */}
         <div className="p-4 flex items-center gap-3">
-          <Avatar>
-            <AvatarImage src={reel.user.image || "/images/placeholder-avatar.png"} alt={reel.user.username} />
-            <AvatarFallback>{reel.user.username.charAt(0).toUpperCase()}</AvatarFallback>
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={reel.user.image || "/images/profile_placeholder.webp"} alt={reel.user.username} />
+            <AvatarFallback>
+              <Image
+                src="/images/profile_placeholder.webp"
+                alt={reel.user.username}
+                width={32}
+                height={32}
+                className="object-cover"
+              />
+            </AvatarFallback>
           </Avatar>
           <div>
             <div className="flex items-center gap-1">
