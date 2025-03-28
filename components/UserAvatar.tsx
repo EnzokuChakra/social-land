@@ -20,7 +20,7 @@ interface Props extends AvatarProps {
   priority?: boolean;
 }
 
-export function UserAvatar({ user, priority = false, className, ...avatarProps }: Props) {
+export default function UserAvatar({ user, priority = false, className, ...avatarProps }: Props) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
