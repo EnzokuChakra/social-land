@@ -2,16 +2,19 @@
 
 import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { toast } from 'sonner';
+
+// Create a single socket instance that can be reused
+let globalSocket: Socket | null = null;
 
 export function useSocket() {
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    // Initialize socket connection
-    if (!socketRef.current) {
+    if (!globalSocket) {
       const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5002';
       
-      socketRef.current = io(socketUrl, {
+      globalSocket = io(socketUrl, {
         transports: ['websocket', 'polling'],
         autoConnect: true,
         reconnection: true,
@@ -19,7 +22,7 @@ export function useSocket() {
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 45000,
-        forceNew: true,
+        forceNew: false, // Don't create a new connection if one exists
         withCredentials: true,
         path: '/socket.io/',
         secure: true,
@@ -29,26 +32,19 @@ export function useSocket() {
         },
         upgrade: true,
         rememberUpgrade: true,
-        query: {
-          timestamp: Date.now(),
-          EIO: 4
-        },
-        extraHeaders: {
-          'Access-Control-Allow-Origin': '*'
-        }
       });
 
       // Handle connection events
-      socketRef.current.on('connect', () => {
+      globalSocket.on('connect', () => {
         console.log('[SOCKET_CONNECTED]', {
-          socketId: socketRef.current?.id,
-          transport: socketRef.current?.io?.engine?.transport?.name,
+          socketId: globalSocket?.id,
+          transport: globalSocket?.io?.engine?.transport?.name,
           url: socketUrl,
           timestamp: new Date().toISOString()
         });
       });
 
-      socketRef.current.on('connect_error', (error) => {
+      globalSocket.on('connect_error', (error) => {
         console.error('[SOCKET_CONNECT_ERROR]', {
           error: error instanceof Error ? {
             message: error.message,
@@ -59,32 +55,23 @@ export function useSocket() {
           timestamp: new Date().toISOString()
         });
         
-        // Attempt to reconnect on connection error
-        setTimeout(() => {
-          if (!socketRef.current?.connected) {
-            socketRef.current?.connect();
-          }
-        }, 1000);
+        toast.error('Connection error. Retrying...');
       });
 
-      socketRef.current.on('disconnect', (reason) => {
+      globalSocket.on('disconnect', (reason) => {
         console.log('[SOCKET_DISCONNECT]', {
           reason,
           url: socketUrl,
           timestamp: new Date().toISOString()
         });
         
-        // Attempt to reconnect on certain disconnect reasons
         if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
-          setTimeout(() => {
-            if (!socketRef.current?.connected) {
-              socketRef.current?.connect();
-            }
-          }, 1000);
+          toast.error('Connection lost. Reconnecting...');
+          globalSocket?.connect();
         }
       });
 
-      socketRef.current.on('error', (error) => {
+      globalSocket.on('error', (error) => {
         console.error('[SOCKET_ERROR]', {
           error: error instanceof Error ? {
             message: error.message,
@@ -94,29 +81,16 @@ export function useSocket() {
           url: socketUrl,
           timestamp: new Date().toISOString()
         });
-      });
-
-      // Add transport error handler
-      socketRef.current.io?.engine?.on('error', (error) => {
-        console.error('[SOCKET_ENGINE_ERROR]', {
-          error: error instanceof Error ? {
-            message: error.message,
-            stack: error.stack,
-            name: error.name
-          } : String(error),
-          url: socketUrl,
-          timestamp: new Date().toISOString()
-        });
+        toast.error('Socket error occurred');
       });
     }
 
-    // Cleanup on unmount
+    socketRef.current = globalSocket;
+
+    // Cleanup function
     return () => {
-      if (socketRef.current) {
-        socketRef.current.removeAllListeners();
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+      // Don't disconnect the global socket, just remove the reference
+      socketRef.current = null;
     };
   }, []);
 

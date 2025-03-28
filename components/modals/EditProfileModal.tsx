@@ -24,6 +24,7 @@ import { Camera, ImageIcon, Trash2 } from "lucide-react";
 import { ChangeEvent } from "react";
 import { updateProfile } from "@/lib/actions";
 import Image from "next/image";
+import { useSocket } from "@/hooks/use-socket";
 
 export default function EditProfileModal() {
   const { data: session } = useSession();
@@ -35,6 +36,7 @@ export default function EditProfileModal() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const router = useRouter();
+  const socket = useSocket();
 
   const form = useForm<z.infer<typeof UpdateUser>>({
     resolver: zodResolver(UpdateUser),
@@ -142,6 +144,7 @@ export default function EditProfileModal() {
     formData.append('file', blob, selectedFile.name);
 
     try {
+      console.log('[EditProfileModal] Starting profile photo update');
       // Step 1: Upload the image
       const uploadResponse = await fetch('/api/upload', {
         method: 'POST',
@@ -154,6 +157,7 @@ export default function EditProfileModal() {
       }
 
       const uploadData = await uploadResponse.json();
+      console.log('[EditProfileModal] Image uploaded successfully:', uploadData.fileUrl);
       
       // Step 2: Update the profile with the new image URL
       const { message } = await updateProfile({
@@ -162,6 +166,20 @@ export default function EditProfileModal() {
       });
 
       if (message) {
+        // Emit profile update event
+        if (socket && session?.user?.id) {
+          console.log('[EditProfileModal] Emitting profile update event:', {
+            userId: session.user.id,
+            image: uploadData.fileUrl
+          });
+          socket.emit('profileUpdate', {
+            userId: session.user.id,
+            image: uploadData.fileUrl
+          });
+        } else {
+          console.warn('[EditProfileModal] Socket or user ID not available for update event');
+        }
+        
         toast.success(message);
         router.refresh();
         editProfileModal.onClose();
@@ -169,25 +187,40 @@ export default function EditProfileModal() {
         setSelectedFile(null);
       }
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('[EditProfileModal] Upload error:', error);
       toast.error(error instanceof Error ? error.message : "Error uploading profile photo");
     }
   };
 
   const handleRemovePhoto = async () => {
     try {
+      console.log('[EditProfileModal] Starting profile photo removal');
       const { message } = await updateProfile({
         id: session?.user?.id as string,
         image: "",
       });
 
       if (message) {
+        // Emit profile update event
+        if (socket && session?.user?.id) {
+          console.log('[EditProfileModal] Emitting profile remove event:', {
+            userId: session.user.id,
+            image: null
+          });
+          socket.emit('profileUpdate', {
+            userId: session.user.id,
+            image: null
+          });
+        } else {
+          console.warn('[EditProfileModal] Socket or user ID not available for remove event');
+        }
+        
         toast.success(message);
         router.refresh();
         editProfileModal.onClose();
       }
     } catch (error) {
-      console.error('Remove photo error:', error);
+      console.error('[EditProfileModal] Remove photo error:', error);
       toast.error(error instanceof Error ? error.message : "Error removing profile photo");
     }
   };

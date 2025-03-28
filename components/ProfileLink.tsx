@@ -8,6 +8,7 @@ import UserAvatar from "./UserAvatar";
 import { useEffect, useState } from "react";
 import { UserWithExtras } from "@/lib/definitions";
 import { useNavbar } from "@/lib/hooks/use-navbar";
+import { useSocket } from "@/hooks/use-socket";
 
 interface ProfileLinkProps {
   user: {
@@ -27,6 +28,7 @@ export default function ProfileLink({ user, className }: ProfileLinkProps) {
   const isActive = pathname === href;
   const [profile, setProfile] = useState<UserWithExtras | null>(null);
   const { isCollapsed } = useNavbar();
+  const socket = useSocket();
 
   useEffect(() => {
     async function loadProfile() {
@@ -37,6 +39,7 @@ export default function ProfileLink({ user, className }: ProfileLinkProps) {
             throw new Error('Failed to fetch profile');
           }
           const data = await response.json();
+          console.log('[ProfileLink] Initial profile loaded:', data);
           setProfile(data);
         } catch (error) {
           console.error('Error loading profile:', error);
@@ -45,6 +48,28 @@ export default function ProfileLink({ user, className }: ProfileLinkProps) {
     }
     loadProfile();
   }, [user?.username]);
+
+  useEffect(() => {
+    if (!socket || !user?.id) return;
+
+    const handleProfileUpdate = (data: { userId: string; image: string | null }) => {
+      console.log('[ProfileLink] Received profile update:', { data, userId: user.id });
+      if (data.userId === user.id) {
+        console.log('[ProfileLink] Updating profile image');
+        setProfile(prev => {
+          if (!prev) return null;
+          const updated = { ...prev, image: data.image };
+          console.log('[ProfileLink] Updated profile:', updated);
+          return updated;
+        });
+      }
+    };
+
+    socket.on('profileUpdate', handleProfileUpdate);
+    return () => {
+      socket.off('profileUpdate', handleProfileUpdate);
+    };
+  }, [socket, user?.id]);
 
   // Use profile data if available, otherwise fallback to user data
   const avatarUser = profile || user;

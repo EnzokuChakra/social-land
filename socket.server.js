@@ -67,6 +67,12 @@ io.on("connection", (socket) => {
     io.emit("likeUpdate", data);
   });
 
+  // Handle profile updates
+  socket.on("profileUpdate", (data) => {
+    console.log("[SOCKET] Profile update received from", socket.id, ":", data);
+    io.emit("profileUpdate", data);
+  });
+
   // Handle disconnection
   socket.on("disconnect", async (reason) => {
     try {

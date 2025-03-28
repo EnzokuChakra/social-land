@@ -16,18 +16,25 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   noStore();
-  const username = decodeURIComponent(params.username);
-  const profile = await fetchProfile(username);
-  
-  if (!profile) {
+  try {
+    const username = decodeURIComponent(params.username);
+    const profile = await fetchProfile(username);
+    
+    if (!profile) {
+      return {
+        title: "User not found • Social Land",
+      };
+    }
+    
     return {
-      title: "User not found • Social Land",
+      title: `${profile.username} • Social Land`,
+    };
+  } catch (error) {
+    console.error('[generateMetadata] Error:', error);
+    return {
+      title: "Social Land",
     };
   }
-  
-  return {
-    title: `${profile.username} • Social Land`,
-  };
 }
 
 function ProfileHeader() {
@@ -36,21 +43,26 @@ function ProfileHeader() {
 
 export default async function ProfileLayout({ children, params }: Props) {
   noStore();
-  const username = decodeURIComponent(params.username);
-  const profile = await fetchProfile(username);
+  try {
+    const username = decodeURIComponent(params.username);
+    const profile = await fetchProfile(username);
 
-  if (!profile) {
+    if (!profile) {
+      notFound();
+    }
+
+    return (
+      <PageLayout>
+        <div className="flex flex-col min-h-screen bg-white dark:bg-black">
+          <Suspense fallback={<div>Loading...</div>}>
+            <ProfileHeader />
+          </Suspense>
+          {children}
+        </div>
+      </PageLayout>
+    );
+  } catch (error) {
+    console.error('[ProfileLayout] Error:', error);
     notFound();
   }
-
-  return (
-    <PageLayout>
-      <div className="flex flex-col min-h-screen bg-white dark:bg-black">
-        <Suspense fallback={<div>Loading...</div>}>
-          <ProfileHeader />
-        </Suspense>
-        {children}
-      </div>
-    </PageLayout>
-  );
 }

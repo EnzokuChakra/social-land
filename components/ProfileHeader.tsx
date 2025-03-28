@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
 import Link from "next/link";
+import UserAvatar from "./UserAvatar";
 
 interface Props {
   profile: {
@@ -50,12 +51,11 @@ export default function ProfileHeader({ profile, hasStories = false, stories = [
         disabled={!hasStories}
       >
         <div className={cn("rounded-full", hasStories && "p-0.5 bg-white")}>
-          <Avatar className="h-20 w-20 border-2">
-            <AvatarImage src={profile.image || ""} alt={profile.username} />
-            <AvatarFallback>
-              {profile.name?.charAt(0) || profile.username?.charAt(0)}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar
+            user={profile}
+            className="h-20 w-20 border-2"
+            priority={true}
+          />
         </div>
       </button>
 
@@ -106,12 +106,11 @@ export default function ProfileHeader({ profile, hasStories = false, stories = [
 
               {/* User info */}
               <div className="absolute top-8 left-4 flex items-center gap-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={profile.image || ""} alt={profile.username} />
-                  <AvatarFallback>
-                    {profile.name?.charAt(0) || profile.username?.charAt(0)}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar
+                  user={profile}
+                  className="h-8 w-8"
+                  priority={true}
+                />
                 <span className="text-white font-semibold">{profile.username}</span>
               </div>
 

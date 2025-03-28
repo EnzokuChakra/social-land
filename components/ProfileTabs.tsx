@@ -4,8 +4,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { UserWithExtras, SavedPostWithExtras, PostWithExtras, Post, Like, SavedPost, CommentWithExtras, PostTag, User } from "@/lib/definitions";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { Bookmark, Contact, Grid3X3 } from "lucide-react";
-import { Lock } from "lucide-react";
+import { Bookmark, Contact, Grid3X3, Lock, ImageIcon, BookmarkX, UserX2 } from "lucide-react";
 import PostsGrid from "./PostsGrid";
 
 const profileTabs = [
@@ -92,7 +91,7 @@ function ProfileTabs({
         <TabsContent value="posts" className="mt-6">
           {(!ownPosts || ownPosts.length === 0) ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
-              <Lock className="w-12 h-12 text-neutral-500 mb-4" />
+              <ImageIcon className="w-12 h-12 text-neutral-500 mb-4" />
               <h1 className="text-2xl font-semibold mb-2">No Posts Yet</h1>
               <p className="text-neutral-500 max-w-sm">
                 When you share photos, they will appear here.
@@ -106,7 +105,7 @@ function ProfileTabs({
         <TabsContent value="saved" className="mt-6">
           {(!uniqueSavedPosts || uniqueSavedPosts.length === 0) ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
-              <Lock className="w-12 h-12 text-neutral-500 mb-4" />
+              <BookmarkX className="w-12 h-12 text-neutral-500 mb-4" />
               <h1 className="text-2xl font-semibold mb-2">No Saved Posts</h1>
               <p className="text-neutral-500 max-w-sm">
                 Save photos and videos that you want to see again.
@@ -120,7 +119,7 @@ function ProfileTabs({
         <TabsContent value="tagged" className="mt-6">
           {(!taggedPosts || taggedPosts.length === 0) ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
-              <Lock className="w-12 h-12 text-neutral-500 mb-4" />
+              <UserX2 className="w-12 h-12 text-neutral-500 mb-4" />
               <h1 className="text-2xl font-semibold mb-2">No Tagged Posts</h1>
               <p className="text-neutral-500 max-w-sm">
                 When people tag you in posts, they'll appear here.
