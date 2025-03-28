@@ -266,6 +266,7 @@ export default function StoryModal() {
     
     let pollInterval: NodeJS.Timeout | null = null;
     let pollTimeout: NodeJS.Timeout | null = null;
+    let cleanupTimeout: NodeJS.Timeout | null = null;
     
     if (storyModal.isOpen) {
       // Initial fetch
@@ -285,23 +286,26 @@ export default function StoryModal() {
         pollInterval = setTimeout(debouncedPoll, 15000);
       }
     } else {
-      // Reset state when modal closes
-      setStories([]);
-      setCurrentStoryIndex(0);
-      setError(null);
-      setShowViewersList(false);
-      lastFetchRef.current = 0;
+      // Delay the cleanup until after the modal animation (300ms)
+      cleanupTimeout = setTimeout(() => {
+        setStories([]);
+        setCurrentStoryIndex(0);
+        setError(null);
+        setShowViewersList(false);
+        lastFetchRef.current = 0;
+      }, 300);
     }
 
     // Cleanup function
     return () => {
       if (pollInterval) {
         clearTimeout(pollInterval);
-        pollInterval = null;
       }
       if (pollTimeout) {
         clearTimeout(pollTimeout);
-        pollTimeout = null;
+      }
+      if (cleanupTimeout) {
+        clearTimeout(cleanupTimeout);
       }
     };
   }, [storyModal.isOpen, storyModal.userId, mount, showViewersList]);
@@ -633,11 +637,11 @@ export default function StoryModal() {
             <div className="h-full w-full flex items-center justify-center text-white">
               <p>{error}</p>
             </div>
-          ) : !currentStory ? (
+          ) : (!currentStory && storyModal.isOpen) ? (
             <div className="h-full w-full flex items-center justify-center text-white">
               <p>No stories available</p>
             </div>
-          ) : (
+          ) : currentStory ? (
             <div className="relative h-full w-full flex items-center justify-center">
               {/* Story image with click handler */}
               <div
@@ -654,7 +658,7 @@ export default function StoryModal() {
 
               {/* Progress bar */}
               <div className="absolute top-4 left-4 right-4 flex gap-1">
-                {currentUserStories.stories.map((_, index) => (
+                {currentUserStories?.stories.map((_, index) => (
                   <div
                     key={index}
                     className="h-0.5 bg-white/50 flex-1 rounded-full overflow-hidden"
@@ -829,7 +833,7 @@ export default function StoryModal() {
                 />
               </Button>
             </div>
-          )}
+          ) : null}
         </DialogContentWithoutClose>
       </Dialog>
     </>
