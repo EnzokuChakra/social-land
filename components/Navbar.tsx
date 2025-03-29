@@ -327,6 +327,15 @@ export default function Navbar() {
     }));
   };
 
+  const toggleCollapse = () => {
+    if (!isMobile && !isNotificationsOpen) {
+      setStates(prev => ({
+        ...prev,
+        isCollapsed: !prev.isCollapsed
+      }));
+    }
+  };
+
   // Close panels on navigation
   useEffect(() => {
     setStates({
