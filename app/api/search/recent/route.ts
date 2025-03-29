@@ -21,30 +21,54 @@ export async function GET() {
       },
       distinct: ['searchedId'],
       take: 10,
-      include: {
-        searchedUser: {
-          select: {
-            id: true,
-            username: true,
-            name: true,
-            image: true,
-            verified: true,
-          },
-        },
-      },
     });
 
-    console.log("[RECENT_SEARCHES] Found searches:", recentSearches.length);
-    return NextResponse.json(recentSearches.map(search => ({
-      ...search,
-      searchedUser: search.searchedUser || {
-        id: search.searchedId,
-        username: "Unknown User",
-        name: null,
-        image: null,
-        verified: false
+    // Get all unique searched IDs
+    const searchedIds = [...new Set(recentSearches.map(search => search.searchedId))];
+
+    // Fetch all users in a single query
+    const users = await prisma.user.findMany({
+      where: {
+        id: {
+          in: searchedIds
+        }
+      },
+      select: {
+        id: true,
+        username: true,
+        name: true,
+        image: true,
+        verified: true,
       }
-    })));
+    });
+
+    // Create a map of users for quick lookup
+    const userMap = new Map(users.map(user => [user.id, user]));
+
+    // Map the searches with user data
+    const validSearches = recentSearches
+      .map(search => {
+        const user = userMap.get(search.searchedId);
+        if (!user) return null;
+
+        return {
+          id: search.id,
+          userId: search.userId,
+          searchedId: search.searchedId,
+          createdAt: search.createdAt,
+          searchedUser: {
+            id: user.id,
+            username: user.username || "Unknown User",
+            name: user.name,
+            image: user.image,
+            verified: user.verified
+          }
+        };
+      })
+      .filter((search): search is NonNullable<typeof search> => search !== null);
+
+    console.log("[RECENT_SEARCHES] Found searches:", validSearches.length);
+    return NextResponse.json(validSearches);
   } catch (error: any) {
     console.error("[RECENT_SEARCHES] Error details:", {
       message: error.message,
@@ -82,12 +106,30 @@ export async function POST(request: Request) {
       return new NextResponse("User ID is required", { status: 400 });
     }
 
+    // Check if the searched user exists
+    const searchedUser = await prisma.user.findUnique({
+      where: {
+        id: searchedId
+      },
+      select: {
+        id: true,
+        username: true,
+        name: true,
+        image: true,
+        verified: true,
+      }
+    });
+
+    if (!searchedUser) {
+      return new NextResponse("User not found", { status: 404 });
+    }
+
     // Check if this search already exists
     const existingSearch = await prisma.recentsearch.findFirst({
       where: {
         userId: session.user.id,
         searchedId: searchedId,
-      },
+      }
     });
 
     if (existingSearch) {
@@ -98,20 +140,22 @@ export async function POST(request: Request) {
         },
         data: {
           createdAt: new Date(),
-        },
-        include: {
-          searchedUser: {
-            select: {
-              id: true,
-              username: true,
-              name: true,
-              image: true,
-              verified: true,
-            },
-          },
-        },
+        }
       });
-      return NextResponse.json(updatedSearch);
+
+      return NextResponse.json({
+        id: updatedSearch.id,
+        userId: updatedSearch.userId,
+        searchedId: updatedSearch.searchedId,
+        createdAt: updatedSearch.createdAt,
+        searchedUser: {
+          id: searchedUser.id,
+          username: searchedUser.username || "Unknown User",
+          name: searchedUser.name,
+          image: searchedUser.image,
+          verified: searchedUser.verified
+        }
+      });
     }
 
     // If no existing search, check if we need to remove the oldest one
@@ -146,21 +190,22 @@ export async function POST(request: Request) {
         id: `${session.user.id}-${searchedId}-${Date.now()}`,
         userId: session.user.id,
         searchedId,
-      },
-      include: {
-        searchedUser: {
-          select: {
-            id: true,
-            username: true,
-            name: true,
-            image: true,
-            verified: true,
-          },
-        },
-      },
+      }
     });
 
-    return NextResponse.json(recentSearch);
+    return NextResponse.json({
+      id: recentSearch.id,
+      userId: recentSearch.userId,
+      searchedId: recentSearch.searchedId,
+      createdAt: recentSearch.createdAt,
+      searchedUser: {
+        id: searchedUser.id,
+        username: searchedUser.username || "Unknown User",
+        name: searchedUser.name,
+        image: searchedUser.image,
+        verified: searchedUser.verified
+      }
+    });
   } catch (error) {
     console.error("[RECENT_SEARCH_CREATE]", error);
     return new NextResponse("Internal Error", { status: 500 });

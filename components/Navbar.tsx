@@ -163,20 +163,12 @@ export default function Navbar() {
 
       // Only close search if click is outside both navbar and search sidebar
       if (isSearchOpen && navbar && !navbar.contains(target) && searchSidebar && !searchSidebar.contains(target)) {
-        setStates(prev => ({
-          ...prev,
-          isSearchOpen: false,
-          isCollapsed: !isMobile ? false : prev.isCollapsed
-        }));
+        handleSearchClose();
       }
 
       // Only close notifications if click is outside both navbar and notifications sidebar
       if (isNotificationsOpen && navbar && !navbar.contains(target) && notificationSidebar && !notificationSidebar.contains(target)) {
-        setStates(prev => ({
-          ...prev,
-          isNotificationsOpen: false,
-          isCollapsed: !isMobile ? false : prev.isCollapsed
-        }));
+        handleNotificationsClose();
       }
 
       if (dropdownRef.current && !dropdownRef.current.contains(target as Node)) {
@@ -259,24 +251,32 @@ export default function Navbar() {
 
   const handleNotificationsClick = async () => {
     try {
-      // Use a single state update for better performance
-      setStates(prev => {
-        const newStates = {
-          isSearchOpen: false,
-          isNotificationsOpen: !prev.isNotificationsOpen,
-          isCollapsed: true
-        };
-
-        // Only update collapse state if not mobile
-        if (!isMobile && !newStates.isNotificationsOpen) {
-          newStates.isCollapsed = false;
+      // If notifications are already open, just close them
+      if (isNotificationsOpen) {
+        setStates(prev => ({
+          ...prev,
+          isNotificationsOpen: false
+        }));
+        if (!isMobile) {
+          setIsCollapsed(false);
         }
+        return;
+      }
 
-        return newStates;
-      });
+      // Close search if it's open
+      setStates(prev => ({
+        ...prev,
+        isSearchOpen: false,
+        isNotificationsOpen: true
+      }));
+
+      // Update collapse state using the navbar hook
+      if (!isMobile) {
+        setIsCollapsed(true);
+      }
 
       // Mark notifications as read if there are unread ones
-      if (!isNotificationsOpen && notifications?.some(n => !n.isRead)) {
+      if (notifications?.some(n => !n.isRead)) {
         const response = await fetch("/api/notifications/mark-read", {
           method: "POST",
         });
@@ -294,64 +294,79 @@ export default function Navbar() {
   };
 
   const handleSearchClick = () => {
-    // Use a single state update for better performance
-    setStates(prev => {
-      const newStates = {
-        isNotificationsOpen: false,
-        isSearchOpen: !prev.isSearchOpen,
-        isCollapsed: true
-      };
-
-      // Only update collapse state if not mobile
-      if (!isMobile && !newStates.isSearchOpen) {
-        newStates.isCollapsed = false;
+    // If search is already open, just close it
+    if (isSearchOpen) {
+      setStates(prev => ({
+        ...prev,
+        isSearchOpen: false
+      }));
+      if (!isMobile) {
+        setIsCollapsed(false);
       }
+      return;
+    }
 
-      return newStates;
-    });
+    // Close notifications if it's open
+    setStates(prev => ({
+      ...prev,
+      isNotificationsOpen: false,
+      isSearchOpen: true
+    }));
+
+    // Update collapse state using the navbar hook
+    if (!isMobile) {
+      setIsCollapsed(true);
+    }
   };
 
   const handleNotificationsClose = () => {
     setStates(prev => ({
       ...prev,
-      isNotificationsOpen: false,
-      isCollapsed: !isMobile ? false : prev.isCollapsed
+      isNotificationsOpen: false
     }));
+
+    // Update collapse state using the navbar hook
+    if (!isMobile) {
+      setIsCollapsed(false);
+    }
   };
 
   const handleSearchClose = () => {
     setStates(prev => ({
       ...prev,
-      isSearchOpen: false,
-      isCollapsed: !isMobile ? false : prev.isCollapsed
+      isSearchOpen: false
     }));
+
+    // Update collapse state using the navbar hook
+    if (!isMobile) {
+      setIsCollapsed(false);
+    }
   };
 
   const toggleCollapse = () => {
     if (!isMobile && !isNotificationsOpen) {
-      setStates(prev => ({
-        ...prev,
-        isCollapsed: !prev.isCollapsed
-      }));
+      setIsCollapsed(!isCollapsed);
     }
   };
 
   // Close panels on navigation
   useEffect(() => {
-    setStates({
+    setStates(prev => ({
+      ...prev,
       isNotificationsOpen: false,
-      isSearchOpen: false,
-      isCollapsed: isMobile
-    });
+      isSearchOpen: false
+    }));
+
+    // Update collapse state using the navbar hook
+    if (!isMobile) {
+      setIsCollapsed(false);
+    }
   }, [pathname, isMobile]);
 
   // Auto collapse on mobile
   useEffect(() => {
     if (isMobile) {
-      setStates(prev => ({
-        ...prev,
-        isCollapsed: true
-      }));
+      setIsCollapsed(true);
     }
   }, [isMobile]);
 
