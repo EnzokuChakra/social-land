@@ -37,6 +37,7 @@ import { authOptions } from "@/lib/auth";
 import ProfileHeader from "@/components/ProfileHeader";
 import MobileNavbar from "@/components/MobileNavbar";
 import ProfileMenu from "@/components/ProfileMenu";
+import PageLayout from "@/components/PageLayout";
 
 interface Props {
   params: {
@@ -278,133 +279,86 @@ export default async function ProfilePage({ params }: Props) {
     })) as ProfileAvatarStory[];
 
     return (
-      <div className="flex flex-col min-h-screen">
-        <main className="flex-1 pb-[72px] md:pb-0 bg-white dark:bg-black" suppressHydrationWarning>
-          <div className="max-w-[935px] mx-auto pt-4" suppressHydrationWarning>
-            <section className="flex flex-col md:flex-row gap-y-4 px-4 pb-6 md:pt-8" suppressHydrationWarning>
-              <div className="shrink-0 md:w-[290px] md:mr-7 flex justify-center md:justify-center" suppressHydrationWarning>
-                <ProfileAvatar user={profileWithExtras} stories={validStories} showModal={true}>
+      <PageLayout>
+        <main className="flex-1">
+          <div className="max-w-[935px] mx-auto pt-8">
+            <section className="flex flex-col md:flex-row gap-y-4 px-4 pb-6 md:pt-4">
+              <div className="shrink-0 md:w-[290px] md:mr-7 flex justify-center md:justify-center">
+                <ProfileAvatar user={profile as UserWithExtras} stories={validStories} showModal={true}>
                   <UserAvatar
-                    user={profileWithExtras}
+                    user={profile}
                     className="w-[77px] h-[77px] md:w-[150px] md:h-[150px] cursor-pointer"
                     priority={true}
                   />
                 </ProfileAvatar>
               </div>
 
-              <div className="flex flex-col flex-1 max-w-full gap-y-3 md:pt-3" suppressHydrationWarning>
-                <div className="flex flex-col gap-y-3" suppressHydrationWarning>
-                  <div className="flex flex-col items-center md:items-start md:flex-row md:gap-x-2" suppressHydrationWarning>
-                    <h2 className="inline-flex items-center gap-x-1.5 text-lg md:text-xl" suppressHydrationWarning>
-                      <span className="font-normal">{profileWithExtras.username}</span>
-                      {profileWithExtras.verified && <VerifiedBadge />}
-                    </h2>
-                    {profileWithExtras.isPrivate && !isCurrentUser && (
-                      <Lock className="w-4 h-4 text-neutral-500" />
-                    )}
-                  </div>
-
-                  <div className="flex flex-col items-center md:items-start gap-y-3" suppressHydrationWarning>
-                    <div className="flex items-center justify-center gap-x-6 text-sm w-full md:w-auto" suppressHydrationWarning>
-                      {(!profileWithExtras.isPrivate || isCurrentUser || isFollowing) ? (
-                        <Link href={`/dashboard/${profileWithExtras.username}/followers`}>
-                          <span className="hover:opacity-75 transition" suppressHydrationWarning>
-                            <strong className="font-semibold">
-                              {profileWithExtras.followers.filter(f => f.status === "ACCEPTED").length}
-                            </strong>{" "}
-                            {profileWithExtras.followers.filter(f => f.status === "ACCEPTED").length === 1 ? "follower" : "followers"}
-                          </span>
-                        </Link>
-                      ) : (
-                        <span className="cursor-default" suppressHydrationWarning>
-                          <strong className="font-semibold">
-                            {profileWithExtras.followers.filter(f => f.status === "ACCEPTED").length}
-                          </strong>{" "}
-                          {profileWithExtras.followers.filter(f => f.status === "ACCEPTED").length === 1 ? "follower" : "followers"}
-                        </span>
-                      )}
-                      {(!profileWithExtras.isPrivate || isCurrentUser || isFollowing) ? (
-                        <Link href={`/dashboard/${profileWithExtras.username}/following`}>
-                          <span className="hover:opacity-75 transition" suppressHydrationWarning>
-                            <strong className="font-semibold">
-                              {profileWithExtras.following.filter(f => f.status === "ACCEPTED").length}
-                            </strong>{" "}
-                            following
-                          </span>
-                        </Link>
-                      ) : (
-                        <span className="cursor-default" suppressHydrationWarning>
-                          <strong className="font-semibold">
-                            {profileWithExtras.following.filter(f => f.status === "ACCEPTED").length}
-                          </strong>{" "}
-                          following
-                        </span>
-                      )}
+              <div className="flex flex-col flex-1 max-w-full gap-y-3 md:pt-3">
+                <div className="flex flex-col gap-y-3">
+                  <div className="flex flex-col gap-y-2 md:flex-row md:items-center md:gap-x-4">
+                    <div className="flex items-center gap-x-2">
+                      <h2 className="inline-flex items-center gap-x-1.5 text-xl">
+                        <span className="font-normal">{profile.username}</span>
+                        {profile.verified && <VerifiedBadge />}
+                      </h2>
                     </div>
 
-                    {isCurrentUser ? (
-                      <div className="flex items-center justify-center w-full md:w-auto" suppressHydrationWarning>
-                        <Link
-                          href="/dashboard/edit-profile"
-                          className={buttonVariants({
-                            className: "!font-semibold text-sm h-8 px-4 w-[200px] md:w-auto",
-                            variant: "secondary",
-                            size: "sm",
-                          })}
-                        >
-                          Edit profile
-                        </Link>
-                      </div>
-                    ) : profileWithExtras.status === "BANNED" ? (
-                      <div className="flex items-center justify-center w-full md:w-auto" suppressHydrationWarning>
-                        <ProfileMenu 
-                          userId={profileWithExtras.id} 
-                          username={profileWithExtras.username}
-                          userStatus={profileWithExtras.status}
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center w-full md:w-auto" suppressHydrationWarning>
-                        <FollowButton
-                          followingId={profileWithExtras.id}
-                          isFollowing={isFollowing}
-                          hasPendingRequest={hasPendingRequest}
-                          isPrivate={profileWithExtras.isPrivate}
-                          isCurrentUser={isCurrentUser}
-                        />
-                      </div>
+                    {isCurrentUser && (
+                      <Link
+                        href="/dashboard/edit"
+                        className={buttonVariants({
+                          variant: "secondary",
+                          className: "w-full md:w-auto text-sm"
+                        })}
+                      >
+                        Edit profile
+                      </Link>
                     )}
                   </div>
 
-                  {profileWithExtras.name && (
-                    <span className="font-semibold text-sm text-center md:text-left" suppressHydrationWarning>{profileWithExtras.name}</span>
+                  <div className="flex items-center gap-x-7">
+                    <span>
+                      <strong className="font-semibold">{profile.posts.length}</strong>{" "}
+                      posts
+                    </span>
+                    <Link href={`/dashboard/${profile.username}/followers`}>
+                      <span>
+                        <strong className="font-semibold">
+                          {profile.followers.filter(f => f.status === "ACCEPTED").length}
+                        </strong>{" "}
+                        followers
+                      </span>
+                    </Link>
+                    <Link href={`/dashboard/${profile.username}/following`}>
+                      <span>
+                        <strong className="font-semibold">
+                          {profile.following.filter(f => f.status === "ACCEPTED").length}
+                        </strong>{" "}
+                        following
+                      </span>
+                    </Link>
+                  </div>
+
+                  {profile.name && (
+                    <span className="font-semibold">{profile.name}</span>
                   )}
-                  {profileWithExtras.bio && (
-                    <span className="text-sm whitespace-pre-line text-center md:text-left" suppressHydrationWarning>{profileWithExtras.bio}</span>
-                  )}
+                  {profile.bio && <span>{profile.bio}</span>}
                 </div>
               </div>
             </section>
 
-            {!isCurrentUser && profileWithExtras.isPrivate && !isFollowing ? (
-              <div className="px-4 py-8 text-center">
-                <p className="text-sm text-neutral-500">This account is private</p>
-                <p className="text-sm text-neutral-500">Follow this user to see their content</p>
-              </div>
-            ) : (
-              <Suspense fallback={<ProfileTabsSkeleton />}>
-                <ProfileTabs
-                  posts={profileWithExtras.posts || []}
-                  reels={profileWithExtras.stories || []}
-                  reelsEnabled={reelsEnabled}
-                  isCurrentUser={isCurrentUser}
-                  username={profileWithExtras.username}
-                />
-              </Suspense>
-            )}
+            <Suspense fallback={<ProfileTabsSkeleton />}>
+              <ProfileTabs
+                posts={profileWithExtras.posts}
+                reels={profileWithExtras.stories}
+                reelsEnabled={reelsEnabled}
+                isCurrentUser={isCurrentUser}
+                username={profile.username}
+              />
+            </Suspense>
           </div>
         </main>
-      </div>
+      </PageLayout>
     );
   } catch (error) {
     console.error('[ProfilePage] Error:', error);

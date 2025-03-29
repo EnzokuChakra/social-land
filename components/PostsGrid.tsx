@@ -44,10 +44,10 @@ export function PostsGrid({ posts: initialPosts }: { posts: PostWithExtras[] | u
     return null;
   }
 
-  if (!posts || posts.length === 0) {
+  if (!posts?.length) {
     return (
       <div className="flex flex-col items-center justify-center space-y-3 max-w-3xl lg:max-w-4xl mx-auto pb-20">
-        <p className="font-semibold text-sm text-neutral-400">No more posts.</p>
+        <p className="font-semibold text-sm text-neutral-400">No posts to display.</p>
       </div>
     );
   }
@@ -67,6 +67,10 @@ export function PostsGrid({ posts: initialPosts }: { posts: PostWithExtras[] | u
             priority={index === 0}
             sizes="(max-width: 768px) 33vw, 25vw"
             className="object-cover"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = '/images/placeholder.png';
+            }}
           />
 
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200">

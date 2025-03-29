@@ -49,8 +49,8 @@ function ProfileTabs({
   });
 
   // Filter posts for each tab
-  const ownPosts = posts.filter(post => post.user_id === username);
-  const savedPosts = posts.filter(post => post.savedBy?.some(save => save.user_id === username));
+  const ownPosts = posts.filter(post => post.user.username === username);
+  const savedPosts = posts.filter(post => post.savedBy?.some(save => save.user_id === post.user_id));
   const taggedPosts = posts.filter(post => post.tags?.some(tag => tag.userId === username));
 
   return (
