@@ -47,17 +47,20 @@ function ProfileTabs({
   const ownPosts = profile.posts.filter(post => post.user_id === profile.id);
   
   // Transform saved posts and remove duplicates
-  const uniqueSavedPosts = (profile.saved || []).map((savedPost: SavedPostWithExtras) => {
-    const post = savedPost.post as PostWithExtras;
+  const uniqueSavedPosts = profile.savedPosts?.map(savedPost => {
+    const post = savedPost.post;
+    if (!post) return null;
+    
     return {
       ...post,
       user: post.user || profile,
       likes: post.likes || [],
       comments: post.comments || [],
       savedBy: post.savedBy || [],
-      tags: post.tags || []
+      tags: post.tags || [],
+      savedAt: savedPost.createdAt
     } as PostWithExtras;
-  });
+  }).filter((post): post is PostWithExtras => post !== null) || [];
 
   // Get tagged posts (posts where the user is tagged)
   const taggedPosts = profile.posts.filter(post => 

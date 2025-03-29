@@ -32,45 +32,45 @@ function BookmarkButton({ post, userId }: Props) {
         : [...state, newBookmark]
   );
 
+  const handleBookmark = async (formData: FormData) => {
+    if (!userId) {
+      toast.error("You must be logged in to bookmark posts");
+      return;
+    }
+    
+    setIsPending(true);
+    const postId = formData.get("postId");
+    const currentState = [...post.savedBy];
+    
+    // Optimistically update the UI
+    addOptimisticBookmark({ 
+      postId: post.id, 
+      user_id: userId,
+      id: Date.now().toString(),
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+    
+    try {
+      await bookmarkPost(postId);
+      toast.success(isBookmarked ? "Post removed from saved" : "Post saved");
+    } catch (error) {
+      toast.error("Something went wrong");
+      // Revert to the original state on error
+      addOptimisticBookmark(currentState[0] || { 
+        postId: post.id, 
+        user_id: userId,
+        id: Date.now().toString(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+    } finally {
+      setIsPending(false);
+    }
+  };
+
   return (
-    <form
-      action={async (formData: FormData) => {
-        if (!userId) {
-          toast.error("You must be logged in to bookmark posts");
-          return;
-        }
-        
-        setIsPending(true);
-        const postId = formData.get("postId");
-        
-        // Optimistically update the UI
-        addOptimisticBookmark({ 
-          postId: post.id, 
-          user_id: userId,
-          id: Date.now().toString(),
-          createdAt: new Date(),
-          updatedAt: new Date()
-        });
-        
-        try {
-          await bookmarkPost(postId);
-          toast.success(isBookmarked ? "Post removed from saved" : "Post saved");
-        } catch (error) {
-          toast.error("Something went wrong");
-          // Revert optimistic update on error
-          addOptimisticBookmark({ 
-            postId: post.id, 
-            user_id: userId,
-            id: Date.now().toString(),
-            createdAt: new Date(),
-            updatedAt: new Date()
-          });
-        } finally {
-          setIsPending(false);
-        }
-      }}
-      className="ml-auto"
-    >
+    <form action={handleBookmark} className="ml-auto">
       <input type="hidden" name="postId" value={post.id} />
 
       <ActionIcon disabled={isPending}>

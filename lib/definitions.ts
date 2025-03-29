@@ -147,15 +147,16 @@ export type UserWithFollows = User & {
 
 export type UserWithExtras = User & {
   posts: PostWithExtras[];
-  saved: SavedPostWithExtras[];
+  savedPosts: SavedPostWithExtras[];
   followers: FollowerWithExtras[];
   following: FollowingWithExtras[];
   stories: StoryWithExtras[];
-  followersCount?: number;
-  followingCount?: number;
+  followersCount: number;
+  followingCount: number;
   isFollowing?: boolean;
   hasPendingRequest?: boolean;
   isFollowedByUser?: boolean;
+  followStatus?: "PENDING" | "ACCEPTED" | null;
 };
 
 export type PostWithExtras = Post & {

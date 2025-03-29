@@ -152,9 +152,9 @@ export async function fetchPosts(userId?: string) {
     });
 
     // Transform the posts to ensure all comments have user data
-    const transformedPosts = posts.map((post: PostWithExtras) => ({
+    const transformedPosts = posts.map((post) => ({
       ...post,
-      comments: post.comments.map((comment: CommentWithExtras) => ({
+      comments: post.comments.map((comment) => ({
         ...comment,
         user: comment.user || {
           id: 'deleted',
@@ -162,16 +162,16 @@ export async function fetchPosts(userId?: string) {
           name: 'Deleted User',
           image: null,
           verified: false,
-          email: null,
-          bio: null,
+          email: 'deleted@example.com',
+          bio: '',
           isPrivate: false,
-          role: 'USER' as UserRole,
+          role: UserRole.USER,
           status: 'NORMAL' as UserStatus,
-          password: null,
+          password: '',
           createdAt: new Date(),
           updatedAt: new Date(),
         },
-        replies: comment.replies?.map((reply: CommentWithExtras) => ({
+        replies: comment.replies?.map((reply) => ({
           ...reply,
           user: reply.user || {
             id: 'deleted',
@@ -179,18 +179,18 @@ export async function fetchPosts(userId?: string) {
             name: 'Deleted User',
             image: null,
             verified: false,
-            email: null,
-            bio: null,
+            email: 'deleted@example.com',
+            bio: '',
             isPrivate: false,
-            role: 'USER' as UserRole,
+            role: UserRole.USER,
             status: 'NORMAL' as UserStatus,
-            password: null,
+            password: '',
             createdAt: new Date(),
             updatedAt: new Date(),
           }
-        }))
+        })) || []
       }))
-    }));
+    })) as unknown as PostWithExtras[];
 
     return transformedPosts;
   } catch (error) {
@@ -627,11 +627,8 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
             },
           },
         },
-        // Get user's saved posts
+        // Add saved posts relation
         savedPosts: {
-          orderBy: {
-            createdAt: "desc",
-          },
           include: {
             post: {
               include: {
@@ -654,6 +651,9 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
                         password: true
                       },
                     },
+                  },
+                  orderBy: {
+                    createdAt: "desc",
                   },
                 },
                 likes: {
@@ -715,8 +715,24 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
                     password: true
                   },
                 },
+                tags: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        username: true,
+                        name: true,
+                        image: true,
+                        verified: true,
+                      },
+                    },
+                  },
+                },
               },
             },
+          },
+          orderBy: {
+            createdAt: "desc",
           },
         },
       },
@@ -889,6 +905,7 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
       prisma.follows.findMany({
         where: {
           followingId: profile.id,
+          status: "ACCEPTED"
         },
         include: {
           follower: {
@@ -899,14 +916,17 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
               image: true,
               verified: true,
               isPrivate: true,
-            },
-          },
-        },
+              role: true,
+              status: true
+            }
+          }
+        }
       }),
       // Get following
       prisma.follows.findMany({
         where: {
           followerId: profile.id,
+          status: "ACCEPTED"
         },
         include: {
           following: {
@@ -917,9 +937,11 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
               image: true,
               verified: true,
               isPrivate: true,
-            },
-          },
-        },
+              role: true,
+              status: true
+            }
+          }
+        }
       }),
     ]);
 
@@ -977,30 +999,51 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
     }
 
     // Transform followers and following data with error handling
-    const transformedFollowers = followersResult.map((f: FollowerWithExtras) => ({
-      ...f,
+    const transformedFollowers = followersResult.map((f) => ({
+      ...f.follower,
+      followerId: f.followerId,
+      followingId: f.followingId,
+      status: f.status,
       uniqueId: `${f.followerId}-${f.followingId}`,
-    }));
+      isFollowing: false, // Will be updated by the client
+      hasPendingRequest: false, // Will be updated by the client
+      follower: f.follower // Include the original follower object
+    })) as unknown as FollowerWithExtras[];
 
-    const transformedFollowing = followingResult.map((f: FollowingWithExtras) => ({
-      ...f,
+    const transformedFollowing = followingResult.map((f) => ({
+      ...f.following,
+      followerId: f.followerId,
+      followingId: f.followingId,
+      status: f.status,
       uniqueId: `${f.followerId}-${f.followingId}`,
-    }));
+      isFollowing: false, // Will be updated by the client
+      hasPendingRequest: false, // Will be updated by the client
+      following: f.following // Include the original following object
+    })) as unknown as FollowingWithExtras[];
 
     // Ensure all posts have a tags array
-    const postsWithTags = profile.posts.map((post: PostWithExtras) => ({
+    const postsWithTags = profile.posts.map((post) => ({
       ...post,
-      tags: post.tags || []
-    }));
+      tags: post.tags || [],
+      user: {
+        ...post.user,
+        role: post.user.role as UserRole
+      }
+    })) as PostWithExtras[];
 
     // Ensure all tagged posts have a tags array
-    const taggedPostsWithTags = taggedPostsResult.map((post: PostWithExtras) => ({
+    const taggedPostsWithTags = taggedPostsResult.map((post) => ({
       ...post,
-      tags: post.tags || []
-    }));
+      tags: post.tags || [],
+      user: {
+        ...post.user,
+        role: post.user.role as UserRole
+      }
+    })) as PostWithExtras[];
 
     // Merge tagged posts with profile posts
-    profile.posts = [...postsWithTags, ...taggedPostsWithTags];
+    const mergedPosts = [...postsWithTags, ...taggedPostsWithTags] as unknown as typeof profile.posts;
+    profile.posts = mergedPosts;
 
     console.log('[FETCH_PROFILE_SUCCESS]', {
       username,
@@ -1010,14 +1053,39 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
       timestamp: new Date().toISOString()
     });
 
-    return {
+    const userWithExtras = {
       ...profile,
       followers: transformedFollowers,
       following: transformedFollowing,
       followersCount,
       followingCount,
-      followStatus,
-    };
+      savedPosts: profile.savedPosts
+        .filter(savedPost => savedPost.post !== null)
+        .map(savedPost => ({
+          ...savedPost,
+          post: {
+            ...savedPost.post!,
+            user: savedPost.post!.user ? {
+              ...savedPost.post!.user,
+              role: savedPost.post!.user.role as UserRole,
+              status: savedPost.post!.user.status as UserStatus
+            } : {
+              ...profile,
+              role: profile.role as UserRole,
+              status: profile.status as UserStatus
+            },
+            likes: savedPost.post!.likes || [],
+            comments: savedPost.post!.comments || [],
+            savedBy: savedPost.post!.savedBy || [],
+            tags: savedPost.post!.tags || []
+          }
+        }))
+    } as unknown as UserWithExtras;
+
+    return {
+      ...userWithExtras,
+      followStatus
+    } as UserWithExtras & { followStatus: string | null };
   } catch (error) {
     console.error('[FETCH_PROFILE_ERROR]', {
       error: error instanceof Error ? {
@@ -1036,7 +1104,7 @@ export async function fetchSavedPostsByUsername(username: string) {
   noStore();
 
   try {
-    const data = await prisma.savedPost.findMany({
+    const data = await prisma.savedpost.findMany({
       where: {
         user: {
           username,
@@ -1098,6 +1166,7 @@ export async function fetchSavedPostsByUsername(username: string) {
             },
           },
         },
+        user: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -1351,7 +1420,7 @@ export async function fetchSavedPosts(userId: string) {
   noStore();
 
   try {
-    const data = await prisma.savedPost.findMany({
+    const data = await prisma.savedpost.findMany({
       where: {
         user_id: userId,
       },
@@ -1360,7 +1429,16 @@ export async function fetchSavedPosts(userId: string) {
           include: {
             comments: {
               include: {
-                user: true,
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    image: true,
+                    verified: true,
+                    role: true
+                  }
+                }
               },
               orderBy: {
                 createdAt: "desc",
@@ -1368,23 +1446,34 @@ export async function fetchSavedPosts(userId: string) {
             },
             likes: {
               include: {
-                user: true,
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    image: true,
+                    verified: true,
+                  },
+                },
               },
             },
             savedBy: {
               include: {
-                user: true,
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    image: true,
+                    verified: true,
+                  },
+                },
               },
             },
             user: true,
           },
         },
-        user: {
-          include: {
-            followers: true,
-            following: true,
-          },
-        },
+        user: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -1556,7 +1645,7 @@ export async function getUserActivity(userId: string) {
         }
       }),
       // Get user's saved posts with post details
-      prisma.savedPost.findMany({
+      prisma.savedpost.findMany({
         where: {
           user_id: userId
         },
@@ -1651,7 +1740,12 @@ export async function fetchEventById(id: string) {
     const transformedEvent: EventWithUserData = {
       ...event,
       userId: event.user_id,
-      user: event.user,
+      prizes: event.rules ? JSON.parse(event.rules) : null,
+      user: {
+        ...event.user,
+        role: event.user.role as UserRole,
+        status: event.user.status as UserStatus
+      }
     };
 
     return transformedEvent;

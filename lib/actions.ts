@@ -610,12 +610,10 @@ export async function bookmarkPost(value: FormDataEntryValue | null) {
     throw new Error("Post not found.");
   }
 
-  const bookmark = await db.savedpost.findUnique({
+  const bookmark = await db.savedpost.findFirst({
     where: {
-      postId_user_id: {
-        postId,
-        user_id,
-      },
+      postId: postId,
+      user_id: user_id,
     },
   });
 
@@ -623,10 +621,7 @@ export async function bookmarkPost(value: FormDataEntryValue | null) {
     if (bookmark) {
       await db.savedpost.delete({
         where: {
-          postId_user_id: {
-            postId,
-            user_id,
-          },
+          id: bookmark.id,
         },
       });
     } else {
@@ -635,6 +630,7 @@ export async function bookmarkPost(value: FormDataEntryValue | null) {
           id: crypto.randomUUID(),
           postId,
           user_id,
+          createdAt: new Date(),
           updatedAt: new Date(),
         },
       });
