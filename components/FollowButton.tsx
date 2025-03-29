@@ -56,7 +56,8 @@ export default function FollowButton({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          followingId: followingId,
+          followingId,
+          action: "follow"
         }),
       });
 
@@ -78,6 +79,9 @@ export default function FollowButton({
         isFollowing: data.status === "ACCEPTED",
         hasPendingRequest: data.status === "PENDING"
       }));
+
+      // Show success message
+      toast.success(data.status === "ACCEPTED" ? "Following user" : "Follow request sent");
 
       // Remove user from suggestions immediately after successful follow request
       if (onSuccess) {

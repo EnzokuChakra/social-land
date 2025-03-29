@@ -26,6 +26,7 @@ interface User {
 interface RecentSearch {
   id: string;
   userId: string;
+  searchedId: string;
   searchedUser: User;
   createdAt: Date;
 }

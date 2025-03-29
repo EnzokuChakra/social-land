@@ -49,9 +49,9 @@ export const UserSchema = z.object({
 export const UpdateUser = UserSchema.omit({ id: true });
 export const DeleteUser = UserSchema.pick({ id: true });
 export const FollowUser = z.object({
-  followingId: z.string().optional(),
+  followingId: z.string(),
   followerId: z.string().optional(),
-  action: z.enum(["follow", "unfollow", "accept", "delete"]).optional(),
+  action: z.enum(["follow", "unfollow", "accept", "delete"]).default("follow"),
 });
 
 export const LoginSchema = z.object({

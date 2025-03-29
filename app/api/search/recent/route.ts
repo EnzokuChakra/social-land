@@ -22,7 +22,7 @@ export async function GET() {
       distinct: ['searchedId'],
       take: 10,
       include: {
-        user: {
+        searchedUser: {
           select: {
             id: true,
             username: true,
@@ -35,7 +35,16 @@ export async function GET() {
     });
 
     console.log("[RECENT_SEARCHES] Found searches:", recentSearches.length);
-    return NextResponse.json(recentSearches);
+    return NextResponse.json(recentSearches.map(search => ({
+      ...search,
+      searchedUser: search.searchedUser || {
+        id: search.searchedId,
+        username: "Unknown User",
+        name: null,
+        image: null,
+        verified: false
+      }
+    })));
   } catch (error: any) {
     console.error("[RECENT_SEARCHES] Error details:", {
       message: error.message,
@@ -91,7 +100,7 @@ export async function POST(request: Request) {
           createdAt: new Date(),
         },
         include: {
-          user: {
+          searchedUser: {
             select: {
               id: true,
               username: true,
@@ -139,7 +148,7 @@ export async function POST(request: Request) {
         searchedId,
       },
       include: {
-        user: {
+        searchedUser: {
           select: {
             id: true,
             username: true,

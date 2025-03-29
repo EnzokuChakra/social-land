@@ -237,23 +237,26 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                     {post.tags && post.tags.length > 0 && (
                       <>
                         <span className="text-neutral-500 dark:text-neutral-400 text-sm">with</span>
-                        <button
-                          onClick={() => setShowTaggedModal(true)}
-                          className="font-medium hover:underline text-sm inline-flex items-center gap-1"
-                        >
-                          {post.tags.length === 1 ? (
-                            <ProfileHoverCard user={post.tags[0].user}>
+                        {post.tags.length === 1 ? (
+                          <ProfileHoverCard user={post.tags[0].user}>
+                            <Link
+                              href={`/dashboard/${post.tags[0].user.username}`}
+                              className="font-medium hover:underline text-sm inline-flex items-center gap-1"
+                            >
                               <span className="inline-flex items-center gap-1">
                                 {post.tags[0].user.username}
                                 {post.tags[0].user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
                               </span>
-                            </ProfileHoverCard>
-                          ) : (
-                            <span>
-                              {post.tags.length} others
-                            </span>
-                          )}
-                        </button>
+                            </Link>
+                          </ProfileHoverCard>
+                        ) : (
+                          <button
+                            onClick={() => setShowTaggedModal(true)}
+                            className="font-medium hover:underline text-sm inline-flex items-center gap-1"
+                          >
+                            <span>{post.tags.length} others</span>
+                          </button>
+                        )}
                       </>
                     )}
                     {!isPostMine && user?.id && post.user.id && !post.user.isFollowing && (
