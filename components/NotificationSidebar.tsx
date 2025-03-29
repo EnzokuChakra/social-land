@@ -49,20 +49,34 @@ export default function NotificationSidebar({
         initial={false}
         animate={{ 
           width: isOpen ? "397px" : "0px",
-          opacity: isOpen ? 1 : 0
+          opacity: isOpen ? 1 : 0,
+          x: isOpen ? 0 : -20
         }}
         transition={{ 
-          type: "spring", 
-          stiffness: 300, 
-          damping: 30,
-          opacity: { duration: 0.2 }
+          type: "spring",
+          width: {
+            type: "spring",
+            stiffness: 400,
+            damping: 30
+          },
+          opacity: {
+            duration: 0.15
+          },
+          x: {
+            type: "spring",
+            stiffness: 400,
+            damping: 30
+          }
         }}
         className={cn(
           "fixed left-[88px] top-0 h-screen z-[100]",
           "border-r border-neutral-200 dark:border-neutral-800",
           "bg-white dark:bg-black",
           "shadow-sm dark:shadow-neutral-800/10",
-          "overflow-hidden"
+          "overflow-hidden",
+          "will-change-[width,opacity,transform]",
+          "backface-visibility-hidden",
+          "transform-gpu"
         )}
         data-notification-sidebar
       >
@@ -70,12 +84,14 @@ export default function NotificationSidebar({
           className="flex flex-col h-full"
           initial={false}
           animate={{
-            x: isOpen ? 0 : -20,
+            x: showFollowRequests ? -397 : 0,
             opacity: isOpen ? 1 : 0
           }}
           transition={{
-            duration: 0.2,
-            delay: isOpen ? 0.1 : 0
+            type: "spring",
+            stiffness: 400,
+            damping: 30,
+            opacity: { duration: 0.2 }
           }}
         >
           {showFollowRequests ? (

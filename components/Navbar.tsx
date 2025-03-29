@@ -90,20 +90,33 @@ export default function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const { isCollapsed, setIsCollapsed } = useNavbar();
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const { notifications, isLoading, setNotifications } = useNotifications();
   const isMobile = useMediaQuery("(max-width: 768px)");
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { language, setLanguage, showLanguageToggle, setShowLanguageToggle } = useLanguage();
-  const [showModeToggle, setShowModeToggle] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [reelsEnabled, setReelsEnabled] = useState(false);
   const [isLoadingReels, setIsLoadingReels] = useState(true);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const { profile } = useProfile();
+  
+  // Combined state object for better performance
+  const [states, setStates] = useState({
+    isSearchOpen: false,
+    isNotificationsOpen: false,
+    showModeToggle: false,
+    showDropdown: false,
+    hasUnreadNotifications: false
+  });
+
+  const { 
+    isSearchOpen, 
+    isNotificationsOpen, 
+    showModeToggle, 
+    showDropdown, 
+    hasUnreadNotifications 
+  } = states;
+
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>({
     hasRequest: false,
     status: null
@@ -150,24 +163,29 @@ export default function Navbar() {
 
       // Only close search if click is outside both navbar and search sidebar
       if (isSearchOpen && navbar && !navbar.contains(target) && searchSidebar && !searchSidebar.contains(target)) {
-        setIsSearchOpen(false);
-        if (!isMobile) {
-          setIsCollapsed(false);
-        }
+        setStates(prev => ({
+          ...prev,
+          isSearchOpen: false,
+          isCollapsed: !isMobile ? false : prev.isCollapsed
+        }));
       }
 
       // Only close notifications if click is outside both navbar and notifications sidebar
       if (isNotificationsOpen && navbar && !navbar.contains(target) && notificationSidebar && !notificationSidebar.contains(target)) {
-        setIsNotificationsOpen(false);
-        if (!isMobile) {
-          setIsCollapsed(false);
-        }
+        setStates(prev => ({
+          ...prev,
+          isNotificationsOpen: false,
+          isCollapsed: !isMobile ? false : prev.isCollapsed
+        }));
       }
 
       if (dropdownRef.current && !dropdownRef.current.contains(target as Node)) {
-        setShowModeToggle(false);
-        setShowLanguageToggle(false);
-        setShowDropdown(false);
+        setStates(prev => ({
+          ...prev,
+          showModeToggle: false,
+          showLanguageToggle: false,
+          showDropdown: false
+        }));
       }
     }
 
@@ -177,15 +195,21 @@ export default function Navbar() {
 
   // Close notifications and search when navigating
   useEffect(() => {
-    setIsNotificationsOpen(false);
-    setIsCollapsed(false);
-    setIsSearchOpen(false);
-  }, [pathname]);
+    setStates(prev => ({
+      ...prev,
+      isNotificationsOpen: false,
+      isSearchOpen: false,
+      isCollapsed: isMobile
+    }));
+  }, [pathname, isMobile]);
 
   // Auto collapse on mobile
   useEffect(() => {
     if (isMobile) {
-      setIsCollapsed(true);
+      setStates(prev => ({
+        ...prev,
+        isCollapsed: true
+      }));
     }
   }, [isMobile]);
 
@@ -193,7 +217,10 @@ export default function Navbar() {
   useEffect(() => {
     if (notifications) {
       const unreadExists = notifications.some(notification => !notification.isRead);
-      setHasUnreadNotifications(unreadExists);
+      setStates(prev => ({
+        ...prev,
+        hasUnreadNotifications: unreadExists
+      }));
     }
   }, [notifications]);
 
@@ -232,31 +259,33 @@ export default function Navbar() {
 
   const handleNotificationsClick = async () => {
     try {
-      // Close search if it's open
-      if (isSearchOpen) {
-        setIsSearchOpen(false);
-      }
+      // Use a single state update for better performance
+      setStates(prev => {
+        const newStates = {
+          isSearchOpen: false,
+          isNotificationsOpen: !prev.isNotificationsOpen,
+          isCollapsed: true
+        };
 
-      if (isNotificationsOpen) {
-        // If notifications are open, close them and expand navbar
-        setIsNotificationsOpen(false);
-        if (!isMobile) {
-          setIsCollapsed(false);
+        // Only update collapse state if not mobile
+        if (!isMobile && !newStates.isNotificationsOpen) {
+          newStates.isCollapsed = false;
         }
-      } else {
-        // If notifications are closed, open them and collapse navbar
-        setIsNotificationsOpen(true);
-        setIsCollapsed(true);
 
-        // Mark notifications as read
-        if (notifications?.some(n => !n.isRead)) {
-          const response = await fetch("/api/notifications/mark-read", {
-            method: "POST",
-          });
-          if (response.ok) {
-            setNotifications(notifications.map(n => ({ ...n, isRead: true })));
-            setHasUnreadNotifications(false);
-          }
+        return newStates;
+      });
+
+      // Mark notifications as read if there are unread ones
+      if (!isNotificationsOpen && notifications?.some(n => !n.isRead)) {
+        const response = await fetch("/api/notifications/mark-read", {
+          method: "POST",
+        });
+        if (response.ok) {
+          setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+          setStates(prev => ({
+            ...prev,
+            hasUnreadNotifications: false
+          }));
         }
       }
     } catch (error) {
@@ -264,44 +293,58 @@ export default function Navbar() {
     }
   };
 
-  const handleNotificationsClose = () => {
-    setIsNotificationsOpen(false);
-    if (!isMobile && !isSearchOpen) {
-      setIsCollapsed(false);
-    }
-  };
-
-  const toggleCollapse = () => {
-    if (!isMobile && !isNotificationsOpen) {
-      setIsCollapsed(!isCollapsed);
-    }
-  };
-
   const handleSearchClick = () => {
-    // Close notifications if they're open
-    if (isNotificationsOpen) {
-      setIsNotificationsOpen(false);
-    }
+    // Use a single state update for better performance
+    setStates(prev => {
+      const newStates = {
+        isNotificationsOpen: false,
+        isSearchOpen: !prev.isSearchOpen,
+        isCollapsed: true
+      };
 
-    if (isSearchOpen) {
-      // If search is open, close it and expand navbar
-      setIsSearchOpen(false);
-      if (!isMobile) {
-        setIsCollapsed(false);
+      // Only update collapse state if not mobile
+      if (!isMobile && !newStates.isSearchOpen) {
+        newStates.isCollapsed = false;
       }
-    } else {
-      // If search is closed, open it and collapse navbar
-      setIsSearchOpen(true);
-      setIsCollapsed(true);
-    }
+
+      return newStates;
+    });
+  };
+
+  const handleNotificationsClose = () => {
+    setStates(prev => ({
+      ...prev,
+      isNotificationsOpen: false,
+      isCollapsed: !isMobile ? false : prev.isCollapsed
+    }));
   };
 
   const handleSearchClose = () => {
-    setIsSearchOpen(false);
-    if (!isMobile) {
-      setIsCollapsed(false);
-    }
+    setStates(prev => ({
+      ...prev,
+      isSearchOpen: false,
+      isCollapsed: !isMobile ? false : prev.isCollapsed
+    }));
   };
+
+  // Close panels on navigation
+  useEffect(() => {
+    setStates({
+      isNotificationsOpen: false,
+      isSearchOpen: false,
+      isCollapsed: isMobile
+    });
+  }, [pathname, isMobile]);
+
+  // Auto collapse on mobile
+  useEffect(() => {
+    if (isMobile) {
+      setStates(prev => ({
+        ...prev,
+        isCollapsed: true
+      }));
+    }
+  }, [isMobile]);
 
   if (isLoadingReels) {
     return null; // Or show a loading spinner
@@ -475,7 +518,10 @@ export default function Navbar() {
               <Button
                 variant="ghost"
                 size="lg"
-                onClick={() => setShowDropdown(!showDropdown)}
+                onClick={() => setStates(prev => ({
+                  ...prev,
+                  showDropdown: !prev.showDropdown
+                }))}
                 className={cn(
                   "w-full flex items-center gap-4 py-3",
                   "transition-all duration-200",
@@ -550,7 +596,10 @@ export default function Navbar() {
 
                   <DropdownMenuItem
                     className="flex items-center gap-2 p-3 cursor-pointer"
-                    onClick={() => setShowModeToggle(true)}
+                    onClick={() => setStates(prev => ({
+                      ...prev,
+                      showModeToggle: true
+                    }))}
                   >
                     <div className="flex items-center gap-2">
                       {theme === "dark" ? (

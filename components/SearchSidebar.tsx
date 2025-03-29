@@ -134,20 +134,32 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
         initial={false}
         animate={{ 
           width: isOpen ? "397px" : "0px",
-          opacity: isOpen ? 1 : 0
+          opacity: isOpen ? 1 : 0,
+          x: isOpen ? 0 : -20
         }}
         transition={{ 
-          type: "spring", 
-          stiffness: 300, 
-          damping: 30,
-          opacity: { duration: 0.2 }
+          type: "spring",
+          width: {
+            type: "spring",
+            stiffness: 400,
+            damping: 30
+          },
+          opacity: {
+            duration: 0.2
+          },
+          x: {
+            type: "spring",
+            stiffness: 400,
+            damping: 30
+          }
         }}
         className={cn(
           "fixed left-[88px] top-0 h-screen z-50",
           "border-r border-neutral-200 dark:border-neutral-800",
           "bg-white dark:bg-black",
           "shadow-sm dark:shadow-neutral-800/10",
-          "overflow-hidden"
+          "overflow-hidden",
+          "will-change-[width,opacity,transform]"
         )}
         data-search-sidebar
         suppressHydrationWarning
@@ -163,7 +175,12 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
           />
         </div>
 
-        <div className="p-4">
+        <motion.div 
+          className="p-4"
+          initial={false}
+          animate={{ opacity: isOpen ? 1 : 0 }}
+          transition={{ delay: isOpen ? 0.1 : 0 }}
+        >
           {!searchQuery && recentSearches.length > 0 && (
             <div className="mb-6">
               <div className="flex justify-between items-center mb-4">
@@ -262,7 +279,7 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
               )}
             </div>
           )}
-        </div>
+        </motion.div>
       </motion.div>
 
       {/* Backdrop */}
