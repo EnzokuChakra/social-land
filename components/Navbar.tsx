@@ -54,6 +54,7 @@ import { useNavbar } from "@/lib/hooks/use-navbar";
 import { NotificationWithExtras, NotificationType, NotificationWithUser } from "@/lib/definitions";
 import { useProfile } from "@/lib/contexts/profile-context";
 import VerifiedBadge from "./VerifiedBadge";
+import Image from "next/image";
 
 // Base routes without reels
 const baseRoutes = [
@@ -376,11 +377,12 @@ export default function Navbar() {
 
   return (
     <>
+      {/* Desktop Sidebar */}
       <motion.nav
         initial={false}
         animate={{ 
           width: isCollapsed ? "88px" : "245px",
-          x: isMobile && !isCollapsed ? 0 : isMobile && isCollapsed ? "-88px" : 0
+          x: isMobile ? "-88px" : 0
         }}
         transition={{ 
           type: "spring", 
@@ -389,7 +391,8 @@ export default function Navbar() {
         }}
         className={cn(
           "h-screen fixed left-0 top-0 z-40 border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black flex flex-col",
-          "shadow-sm dark:shadow-neutral-800/10"
+          "shadow-sm dark:shadow-neutral-800/10",
+          "hidden md:flex" // Hide on mobile
         )}
       >
         {/* Collapse Toggle Button */}
@@ -709,6 +712,103 @@ export default function Navbar() {
         </div>
       </motion.nav>
 
+      {/* Mobile Bottom Navigation */}
+      <motion.nav
+        initial={false}
+        animate={{ 
+          y: isMobile ? 0 : 100
+        }}
+        transition={{ 
+          type: "spring", 
+          stiffness: 300, 
+          damping: 30 
+        }}
+        className={cn(
+          "fixed bottom-0 left-0 right-0 z-40",
+          "border-t border-neutral-200 dark:border-neutral-800",
+          "bg-white dark:bg-black",
+          "shadow-sm dark:shadow-neutral-800/10",
+          "md:hidden" // Hide on desktop
+        )}
+      >
+        <div className="flex items-center justify-around h-16 px-4">
+          <Link
+            href="/dashboard"
+            className={cn(
+              "flex flex-col items-center justify-center",
+              "text-neutral-600 dark:text-neutral-400",
+              "hover:text-neutral-900 dark:hover:text-white",
+              pathname === "/dashboard" && "text-neutral-900 dark:text-white"
+            )}
+          >
+            <HomeIcon className="w-6 h-6" />
+            <span className="text-xs mt-1">Home</span>
+          </Link>
+
+          <button
+            onClick={handleSearchClick}
+            className={cn(
+              "flex flex-col items-center justify-center",
+              "text-neutral-600 dark:text-neutral-400",
+              "hover:text-neutral-900 dark:hover:text-white",
+              isSearchOpen && "text-neutral-900 dark:text-white"
+            )}
+          >
+            <SearchIcon className="w-6 h-6" />
+            <span className="text-xs mt-1">Search</span>
+          </button>
+
+          <Link
+            href="/dashboard/explore"
+            className={cn(
+              "flex flex-col items-center justify-center",
+              "text-neutral-600 dark:text-neutral-400",
+              "hover:text-neutral-900 dark:hover:text-white",
+              pathname === "/dashboard/explore" && "text-neutral-900 dark:text-white"
+            )}
+          >
+            <CompassIcon className="w-6 h-6" />
+            <span className="text-xs mt-1">Explore</span>
+          </Link>
+
+          <button
+            onClick={handleNotificationsClick}
+            className={cn(
+              "flex flex-col items-center justify-center relative",
+              "text-neutral-600 dark:text-neutral-400",
+              "hover:text-neutral-900 dark:hover:text-white",
+              isNotificationsOpen && "text-neutral-900 dark:text-white"
+            )}
+          >
+            <HeartIcon className="w-6 h-6" />
+            {hasUnreadNotifications && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+            )}
+            <span className="text-xs mt-1">Activity</span>
+          </button>
+
+          <Link
+            href={`/dashboard/${session?.user?.username}`}
+            className={cn(
+              "flex flex-col items-center justify-center",
+              "text-neutral-600 dark:text-neutral-400",
+              "hover:text-neutral-900 dark:hover:text-white",
+              pathname === `/dashboard/${session?.user?.username}` && "text-neutral-900 dark:text-white"
+            )}
+          >
+            <div className="relative w-6 h-6">
+              <Image
+                src={session?.user?.image || "/images/profile_placeholder.webp"}
+                alt={session?.user?.username || "Profile"}
+                fill
+                className="rounded-full object-cover"
+              />
+            </div>
+            <span className="text-xs mt-1">Profile</span>
+          </Link>
+        </div>
+      </motion.nav>
+
       <SearchSidebar
         isOpen={isSearchOpen}
         onClose={handleSearchClose}
@@ -728,24 +828,6 @@ export default function Navbar() {
           metadata: n.metadata || null
         })) as NotificationWithExtras[]}
       />
-
-      <motion.main
-        initial={false}
-        animate={{ 
-          marginLeft: isMobile ? 0 : isCollapsed ? "88px" : "245px",
-        }}
-        transition={{ 
-          type: "spring", 
-          stiffness: 300, 
-          damping: 30 
-        }}
-        className={cn(
-          "bg-white dark:bg-black",
-          "transition-all duration-300 ease-in-out"
-        )}
-      >
-        {/* Your main content */}
-      </motion.main>
     </>
   );
 } 

@@ -16,7 +16,7 @@ export function CustomLoader({ className = "", size = "default", noPadding = fal
   return (
     <div className={cn(
       "flex items-center justify-center w-full h-full",
-      !noPadding && "pl-[88px]",
+      !noPadding && "md:pl-[88px]",
       className
     )}>
       <div className={cn(

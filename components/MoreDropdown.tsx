@@ -67,7 +67,14 @@ function MoreDropdown() {
     // Close the dropdown when the user clicks outside
     function handleOutsideClick(event: MouseEvent) {
       if (!event.target) return;
-      if (ref.current && !ref.current.contains(event.target as Node)) {
+      
+      // Get the clicked element
+      const target = event.target as HTMLElement;
+      
+      // Check if the click is on the mode toggle or language toggle
+      const isToggleClick = target.closest('[data-toggle-menu]');
+      
+      if (ref.current && !ref.current.contains(event.target as Node) && !isToggleClick) {
         setShowModeToggle(false);
         setShowLanguageToggle(false);
         setOpen(false);
@@ -89,7 +96,7 @@ function MoreDropdown() {
   }, [theme, setTheme]);
 
   return (
-    <DropdownMenu open={open}>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button
           onClick={() => setOpen(!open)}
@@ -110,6 +117,11 @@ function MoreDropdown() {
         )}
         align="end"
         alignOffset={-40}
+        onCloseAutoFocus={(e) => {
+          if (showModeToggle || showLanguageToggle) {
+            e.preventDefault();
+          }
+        }}
       >
         {!showModeToggle && !showLanguageToggle && (
           <>
@@ -155,7 +167,7 @@ function MoreDropdown() {
                 }}
               >
                 <BadgeCheckIcon size={20} className="text-green-500" />
-                <p className="text-green-500 font-semibold">Verified Account</p>
+                <p className="text-green-500 font-semibold">{t("common.verifiedAccount")}</p>
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem
@@ -166,7 +178,7 @@ function MoreDropdown() {
                 }}
               >
                 <BadgeCheckIcon size={20} className="text-blue-500" />
-                <p className="text-blue-500 font-semibold">Get Verified</p>
+                <p className="text-blue-500 font-semibold">{t("common.getVerified")}</p>
               </DropdownMenuItem>
             )}
 
@@ -174,7 +186,14 @@ function MoreDropdown() {
 
             <DropdownMenuItem
               className="flex items-center gap-2 p-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
-              onClick={() => setShowModeToggle(true)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowModeToggle(true);
+              }}
+              onSelect={(e) => {
+                e.preventDefault();
+              }}
             >
               {theme === "dark" ? (
                 <Moon size={20} />
@@ -185,7 +204,14 @@ function MoreDropdown() {
             </DropdownMenuItem>
             <DropdownMenuItem
               className="flex items-center gap-2 p-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
-              onClick={() => setShowLanguageToggle(true)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowLanguageToggle(true);
+              }}
+              onSelect={(e) => {
+                e.preventDefault();
+              }}
             >
               <Globe size={20} />
               <p>{t("common.language")}</p>
@@ -203,10 +229,17 @@ function MoreDropdown() {
         {showModeToggle && (
           <>
             <div className="flex items-center border-b border-gray-200 dark:border-neutral-700 py-3.5 px-2.5">
-              <ChevronLeft size={18} onClick={() => setShowModeToggle(false)} className="cursor-pointer" />
+              <ChevronLeft 
+                size={18} 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowModeToggle(false);
+                }} 
+                className="cursor-pointer" 
+              />
               <p className="font-bold ml-1">{t("common.switchAppearance")}</p>
             </div>
-            <div className="p-6">
+            <div className="p-6" onClick={(e) => e.stopPropagation()}>
               <Label htmlFor="dark-mode">{theme === "dark" ? "Dark" : "Light"} mode</Label>
               <div className="flex items-center space-x-2 mt-4">
                 <Switch

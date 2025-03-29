@@ -51,7 +51,7 @@ export default function PageLayout({
       className={cn(
         "min-h-screen transition-all duration-300 ease-in-out",
         !noPadding && "px-4 sm:px-6 md:px-8 lg:px-12",
-        "pb-20 md:pb-0",
+        "pb-16 md:pb-0",
         className
       )}
       style={{

@@ -41,7 +41,7 @@ export default function ProfileHeader({ profile, hasStories = false, stories = [
   };
 
   return (
-    <div className="flex flex-col items-center gap-4 py-8">
+    <div className="flex flex-col items-center gap-4 py-4 md:py-8">
       <button
         className={cn(
           "rounded-full",
@@ -53,18 +53,18 @@ export default function ProfileHeader({ profile, hasStories = false, stories = [
         <div className={cn("rounded-full", hasStories && "p-0.5 bg-white")}>
           <UserAvatar
             user={profile}
-            className="h-20 w-20 border-2"
+            className="h-20 w-20 md:h-24 md:w-24 border-2"
             priority={true}
           />
         </div>
       </button>
 
-      <div className="flex flex-col items-center gap-2">
-        <h1 className="text-2xl font-semibold">{profile.username}</h1>
+      <div className="flex flex-col items-center gap-2 px-4 w-full">
+        <h1 className="text-xl md:text-2xl font-semibold">{profile.username}</h1>
         {profile.name && (
-          <p className="text-muted-foreground">{profile.name}</p>
+          <p className="text-sm md:text-base text-muted-foreground">{profile.name}</p>
         )}
-        <div className="flex items-center gap-6 text-sm text-muted-foreground">
+        <div className="flex items-center justify-around w-full max-w-xs text-sm text-muted-foreground">
           <Link href={`/dashboard/${profile.username}/followers`} className="hover:text-foreground transition">
             <span className="font-semibold text-foreground">{profile.followers?.length || 0}</span>{" "}
             {profile.followers?.length === 1 ? "follower" : "followers"}
@@ -74,7 +74,9 @@ export default function ProfileHeader({ profile, hasStories = false, stories = [
             following
           </Link>
         </div>
-        {profile.bio && <p className="text-center">{profile.bio}</p>}
+        {profile.bio && (
+          <p className="text-sm md:text-base text-center max-w-xs md:max-w-md">{profile.bio}</p>
+        )}
       </div>
 
       {hasStories && stories.length > 0 && (

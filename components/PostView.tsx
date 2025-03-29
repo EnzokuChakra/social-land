@@ -197,10 +197,38 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
       onOpenChange={(open) => !open && router.back()}
     >
       <DialogContentWithoutClose 
-        className="flex gap-0 flex-col md:flex-row items-start p-0 md:max-w-5xl lg:max-w-6xl xl:max-w-7xl h-[calc(100vh-80px)] max-h-[calc(100vh-80px)] bg-white dark:bg-neutral-950"
+        className="flex gap-0 flex-col md:flex-row items-start p-0 md:max-w-5xl lg:max-w-6xl xl:max-w-7xl h-full md:h-[calc(100vh-80px)] max-h-[100vh] md:max-h-[calc(100vh-80px)] bg-white dark:bg-neutral-950"
       >
         <DialogTitle className="sr-only">Post by {username}</DialogTitle>
-        <div className="relative flex-1 bg-black flex items-center justify-center h-[400px] md:h-full">
+
+        {/* Mobile Header - Only visible on mobile */}
+        <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-800 md:hidden">
+          <div className="flex items-center gap-2">
+            <Link href={href}>
+              <UserAvatar user={post.user} className="h-8 w-8" />
+            </Link>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1">
+                <ProfileHoverCard user={post.user}>
+                  <Link href={href} className="font-semibold text-sm hover:underline">
+                    {username}
+                  </Link>
+                </ProfileHoverCard>
+                {post.user.verified && (
+                  <VerifiedBadge className="h-3.5 w-3.5 fill-blue-500" />
+                )}
+              </div>
+              {post.location && (
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                  {post.location}
+                </p>
+              )}
+            </div>
+          </div>
+          <PostOptions post={post} userId={user?.id} />
+        </div>
+
+        <div className="relative flex-1 bg-black flex items-center justify-center h-[450px] md:h-full w-full">
           <div className="relative w-full h-full flex items-center justify-center">
             <Image
               src={post.fileUrl}
@@ -217,102 +245,50 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
           </div>
         </div>
 
-        <div className="flex flex-col md:w-[350px] lg:w-[450px] h-full max-h-full bg-white dark:bg-black border-l border-neutral-200 dark:border-neutral-800">
-          <DialogHeader className="flex px-4 py-3 border-b border-neutral-200 dark:border-neutral-800 space-y-0">
-            <div className="flex items-center justify-between w-full">
-              <div className="flex items-center gap-3">
-                <Link href={href}>
-                  <UserAvatar user={post.user} className="h-8 w-8" />
-                </Link>
-                <div className="flex flex-col min-w-0">
-                  <div className="flex items-center gap-1">
-                    <ProfileHoverCard user={post.user}>
-                      <Link href={href} className="font-semibold text-sm hover:underline truncate">
-                        {username}
-                      </Link>
-                    </ProfileHoverCard>
-                    {post.user.verified && (
-                      <VerifiedBadge className="h-3.5 w-3.5 fill-blue-500 flex-shrink-0" />
-                    )}
-                    {post.tags && post.tags.length > 0 && (
-                      <>
-                        <span className="text-neutral-500 dark:text-neutral-400 text-sm">with</span>
-                        {post.tags.length === 1 ? (
-                          <ProfileHoverCard user={post.tags[0].user}>
-                            <Link
-                              href={`/dashboard/${post.tags[0].user.username}`}
-                              className="font-medium hover:underline text-sm inline-flex items-center gap-1"
-                            >
-                              <span className="inline-flex items-center gap-1">
-                                {post.tags[0].user.username}
-                                {post.tags[0].user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
-                              </span>
-                            </Link>
-                          </ProfileHoverCard>
-                        ) : (
-                          <button
-                            onClick={() => setShowTaggedModal(true)}
-                            className="font-medium hover:underline text-sm inline-flex items-center gap-1"
-                          >
-                            <span>{post.tags.length} others</span>
-                          </button>
-                        )}
-                      </>
-                    )}
-                    {!isPostMine && user?.id && post.user.id && !post.user.isFollowing && (
-                      <>
-                        <span className="text-neutral-500 dark:text-neutral-400 text-sm">•</span>
-                        <FollowButton
-                          followingId={post.user.id}
-                          isFollowing={post.user.isFollowing || false}
-                          hasPendingRequest={post.user.hasPendingRequest || false}
-                          isPrivate={post.user.isPrivate || false}
-                          isFollowedByUser={post.user.isFollowedByUser || false}
-                          className={cn(
-                            "text-sm font-semibold inline-flex items-center",
-                            "bg-transparent hover:bg-transparent",
-                            "text-blue-500 hover:text-blue-700 dark:text-blue-500 dark:hover:text-blue-400",
-                            "border-none shadow-none p-0 h-auto"
-                          )}
-                          onSuccess={(success) => {
-                            if (success) {
-                              router.refresh();
-                            }
-                          }}
-                        />
-                      </>
-                    )}
-                  </div>
-                  {post.location && (
-                    <Link 
-                      href={`/dashboard/location/${encodeURIComponent(post.location)}`}
-                      className="text-xs text-neutral-500 dark:text-neutral-400 hover:underline truncate -mt-0.5 block"
-                    >
-                      {post.location}
+        <div className="flex w-full md:w-[350px] lg:w-[450px] flex-col">
+          {/* Desktop Header - Hidden on mobile */}
+          <DialogHeader className="hidden md:flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-800">
+            <div className="flex items-center gap-2">
+              <Link href={href}>
+                <UserAvatar user={post.user} className="h-8 w-8" />
+              </Link>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1">
+                  <ProfileHoverCard user={post.user}>
+                    <Link href={href} className="font-semibold text-sm hover:underline">
+                      {username}
                     </Link>
+                  </ProfileHoverCard>
+                  {post.user.verified && (
+                    <VerifiedBadge className="h-3.5 w-3.5 fill-blue-500" />
                   )}
                 </div>
+                {post.location && (
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                    {post.location}
+                  </p>
+                )}
               </div>
-              
-              <div className="flex items-center space-x-2 flex-shrink-0">
-                <PostOptions post={post} userId={user?.id} />
-                <Button
-                  onClick={() => router.back()}
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <PostOptions post={post} userId={user?.id} />
+              <Button
+                onClick={() => router.back()}
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 border-b border-neutral-200 dark:border-neutral-800 scrollbar-hide">
+          <ScrollArea className="flex-1 border-b border-neutral-200 dark:border-neutral-800">
             {post.caption && (
               <div className="px-4 py-3">
                 <div className="flex gap-3">
-                  <Link href={href}>
+                  <Link href={href} className="md:hidden">
                     <UserAvatar user={post.user} className="h-8 w-8" />
                   </Link>
                   <div className="flex-1 min-w-0">
@@ -334,34 +310,45 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
               </div>
             )}
 
-            {transformedComments.length > 0 && (
-              <div className={cn("w-full", post.caption ? "px-4" : "px-4 pt-3")}>
-                <div className={cn("w-full", post.caption && "pt-3 border-t border-neutral-100 dark:border-neutral-800/60")}>
-                  {transformedComments.map((comment) => (
-                    <Comment
-                      key={comment.id}
-                      comment={comment}
-                      inputRef={inputRef}
-                      postUserId={post.user.id}
-                      onReply={handleReplyToComment}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="px-4 space-y-3">
+              {transformedComments.map((comment) => (
+                <Comment 
+                  key={comment.id} 
+                  comment={comment} 
+                  inputRef={inputRef} 
+                  postId={post.id} 
+                  user={user} 
+                  commentFormRef={commentFormRef}
+                />
+              ))}
+            </div>
           </ScrollArea>
 
-          <div className="px-4 py-2 border-b border-neutral-200 dark:border-neutral-800">
-            <PostActions post={post} userId={user?.id} />
+          <div className="px-4 py-3 flex flex-col gap-3">
+            <PostActions
+              post={post}
+              userId={user?.id}
+              className="justify-between"
+              inputRef={inputRef}
+            />
+            <CommentForm
+              postId={post.id}
+              ref={commentFormRef}
+              inputRef={inputRef}
+              className="border-none p-0 !pt-4"
+            />
           </div>
-
-          <CommentForm
-            postId={id}
-            className="px-3 py-2.5"
-            inputRef={inputRef}
-            ref={commentFormRef}
-          />
         </div>
+
+        {/* Mobile Close Button - Only visible on mobile */}
+        <Button
+          onClick={() => router.back()}
+          size="icon"
+          variant="ghost"
+          className="absolute top-2 right-2 md:hidden z-50 bg-neutral-900/60 hover:bg-neutral-900/70"
+        >
+          <X className="h-4 w-4 text-white" />
+        </Button>
       </DialogContentWithoutClose>
       {post.tags && post.tags.length > 0 && (
         <TaggedUsersModal
