@@ -1,0 +1,13 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Your rule content
+
+- You can @ files here
+- You can use markdown but dont have to
+
+Always check the relevant code and don't create multiple files if you can use the modules and components which already exist! 
+Use windows commands
