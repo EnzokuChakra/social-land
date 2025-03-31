@@ -965,8 +965,27 @@ export async function updateProfile(values: z.infer<typeof UpdateUser>) {
   const { name, image, username, bio, isPrivate } = validatedFields.data;
 
   try {
-    // Check if username is already taken by another user
-    if (username) {
+    // Get current user data to check username change history
+    const currentUser = await db.user.findUnique({
+      where: { id: user_id },
+      select: { 
+        username: true,
+        lastUsernameChange: true 
+      }
+    });
+
+    if (!currentUser) {
+      return { 
+        message: "User not found",
+        errors: {
+          form: ["User not found"]
+        }
+      };
+    }
+
+    // Check if username is being changed
+    if (username && username !== currentUser.username) {
+      // Check if username is already taken by another user
       const existingUser = await db.user.findFirst({
         where: {
           username,
@@ -984,8 +1003,26 @@ export async function updateProfile(values: z.infer<typeof UpdateUser>) {
           }
         };
       }
+
+      // Check if 14 days have passed since last username change
+      if (currentUser.lastUsernameChange) {
+        const daysSinceLastChange = Math.floor(
+          (Date.now() - currentUser.lastUsernameChange.getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        if (daysSinceLastChange < 14) {
+          const daysLeft = 14 - daysSinceLastChange;
+          return {
+            message: `You can only change your username once every 14 days. Please wait ${daysLeft} more days.`,
+            errors: {
+              username: [`Please wait ${daysLeft} more days before changing your username again`]
+            }
+          };
+        }
+      }
     }
 
+    // Update the user profile
     await db.user.update({
       where: {
         id: user_id,
@@ -996,6 +1033,10 @@ export async function updateProfile(values: z.infer<typeof UpdateUser>) {
         image,
         bio,
         isPrivate,
+        // Update lastUsernameChange only if username is being changed
+        ...(username && username !== currentUser.username && {
+          lastUsernameChange: new Date()
+        })
       },
     });
 

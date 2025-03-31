@@ -46,7 +46,19 @@ export const UserSchema = z.object({
   isPrivate: z.boolean().optional(),
 });
 
-export const UpdateUser = UserSchema.omit({ id: true });
+export const UpdateUser = z.object({
+  id: z.string(),
+  name: z.string().min(1, "Name is required").max(50, "Name is too long"),
+  username: z.string()
+    .min(1, "Username is required")
+    .max(30, "Username is too long")
+    .regex(/^[^\s]+$/, "Username cannot contain spaces")
+    .regex(/^[a-zA-Z0-9._]+$/, "Username can only contain letters, numbers, dots, and underscores"),
+  bio: z.string().max(160, "Bio is too long").optional(),
+  image: z.string().optional(),
+  isPrivate: z.boolean().optional(),
+});
+
 export const DeleteUser = UserSchema.pick({ id: true });
 export const FollowUser = z.object({
   followingId: z.string().optional(),

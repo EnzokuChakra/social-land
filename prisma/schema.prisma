@@ -325,6 +325,7 @@ model user {
   password  String?
   createdAt DateTime @default(now())
   updatedAt DateTime
+  lastUsernameChange DateTime?
 
   // Relations
   accounts      account[]
