@@ -37,6 +37,7 @@ import { authOptions } from "@/lib/auth";
 import ProfileHeader from "@/components/ProfileHeader";
 import MobileNavbar from "@/components/MobileNavbar";
 import ProfileMenu from "@/components/ProfileMenu";
+import ProfileStats from "@/components/ProfileStats";
 
 interface Props {
   params: {
@@ -346,44 +347,11 @@ export default async function ProfilePage({ params }: Props) {
                   </div>
 
                   <div className="flex items-center justify-around md:justify-start md:gap-x-7 text-sm" suppressHydrationWarning>
-                    <span suppressHydrationWarning>
-                      <strong className="font-semibold">{profileWithExtras.posts.length}</strong>{" "}
-                      posts
-                    </span>
-                    {(!profileWithExtras.isPrivate || isCurrentUser || isFollowing) ? (
-                      <Link href={`/dashboard/${profileWithExtras.username}/followers`}>
-                        <span className="hover:opacity-75 transition" suppressHydrationWarning>
-                          <strong className="font-semibold">
-                            {profileWithExtras.followers.filter(f => f.status === "ACCEPTED").length}
-                          </strong>{" "}
-                          {profileWithExtras.followers.filter(f => f.status === "ACCEPTED").length === 1 ? "follower" : "followers"}
-                        </span>
-                      </Link>
-                    ) : (
-                      <span className="cursor-default" suppressHydrationWarning>
-                        <strong className="font-semibold">
-                          {profileWithExtras.followers.filter(f => f.status === "ACCEPTED").length}
-                        </strong>{" "}
-                        {profileWithExtras.followers.filter(f => f.status === "ACCEPTED").length === 1 ? "follower" : "followers"}
-                      </span>
-                    )}
-                    {(!profileWithExtras.isPrivate || isCurrentUser || isFollowing) ? (
-                      <Link href={`/dashboard/${profileWithExtras.username}/following`}>
-                        <span className="hover:opacity-75 transition" suppressHydrationWarning>
-                          <strong className="font-semibold">
-                            {profileWithExtras.following.filter(f => f.status === "ACCEPTED").length}
-                          </strong>{" "}
-                          following
-                        </span>
-                      </Link>
-                    ) : (
-                      <span className="cursor-default" suppressHydrationWarning>
-                        <strong className="font-semibold">
-                          {profileWithExtras.following.filter(f => f.status === "ACCEPTED").length}
-                        </strong>{" "}
-                        following
-                      </span>
-                    )}
+                    <ProfileStats 
+                      profile={profileWithExtras}
+                      isCurrentUser={isCurrentUser}
+                      isFollowing={isFollowing}
+                    />
                   </div>
 
                   {profileWithExtras.name && (

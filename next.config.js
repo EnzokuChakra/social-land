@@ -42,6 +42,12 @@ const nextConfig = {
   },
   // Enable standalone output for deployments
   output: 'standalone',
+  // Enable static exports
+  trailingSlash: true,
+  // Configure base path if needed
+  basePath: '',
+  // Configure asset prefix if needed
+  assetPrefix: '',
   async headers() {
     return [
       {

@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dialog";
 import useMount from "@/hooks/useMount";
 import { FollowingWithExtras } from "@/lib/definitions";
-import { usePathname, useRouter } from "next/navigation";
 import { ScrollArea } from "./ui/scroll-area";
 import UserListItem from "./UserListItem";
 import { useSession } from "next-auth/react";
@@ -22,18 +21,17 @@ export default function FollowingModal({
   following,
   username,
   isPrivate,
-  isFollowing
+  isFollowing,
+  onClose
 }: {
   following: FollowingWithExtras[];
   username: string;
   isPrivate?: boolean;
   isFollowing?: boolean;
+  onClose: () => void;
 }) {
   const { data: session } = useSession();
   const mount = useMount();
-  const pathname = usePathname();
-  const router = useRouter();
-  const isFollowingPage = pathname === `/dashboard/${username}/following`;
 
   console.log("[FOLLOWING_MODAL] Props:", {
     username,
@@ -63,55 +61,53 @@ export default function FollowingModal({
   }
 
   return (
-    <div className="h-full flex items-center justify-center">
-      <Dialog open={isFollowingPage} onOpenChange={() => router.back()}>
-        <DialogContent className="max-w-[400px] p-0">
-          <DialogHeader className="p-4 border-b">
-            <DialogTitle className="text-lg font-semibold">Following</DialogTitle>
-            <DialogDescription>
-              People followed by {username}
-            </DialogDescription>
-          </DialogHeader>
-          <ScrollArea className="h-[400px]">
-            {following.length === 0 ? (
-              <div className="p-4 text-center text-muted-foreground">
-                {username} is not following anyone yet
-              </div>
-            ) : (
-              <div className="p-4 space-y-4">
-                {following.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between">
-                    <Link
-                      href={`/dashboard/${user.username}`}
-                      className="flex items-center gap-3 hover:opacity-75 transition"
-                    >
-                      <UserAvatar
-                        user={user}
-                        className="h-8 w-8"
-                      />
-                      <div className="flex flex-col">
-                        <span className="text-sm font-semibold">{user.username}</span>
-                        {user.name && (
-                          <span className="text-xs text-muted-foreground">{user.name}</span>
-                        )}
-                      </div>
-                    </Link>
-                    {session?.user?.username !== user.username && (
-                      <FollowButton
-                        followingId={user.id}
-                        isFollowing={user.status === "ACCEPTED"}
-                        hasPendingRequest={user.status === "PENDING"}
-                        isPrivate={user.isPrivate}
-                        isFollowedByUser={false}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
-    </div>
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-w-[400px] p-0">
+        <DialogHeader className="p-4 border-b">
+          <DialogTitle className="text-lg font-semibold">Following</DialogTitle>
+          <DialogDescription>
+            People followed by {username}
+          </DialogDescription>
+        </DialogHeader>
+        <ScrollArea className="h-[400px]">
+          {following.length === 0 ? (
+            <div className="p-4 text-center text-muted-foreground">
+              {username} is not following anyone yet
+            </div>
+          ) : (
+            <div className="p-4 space-y-4">
+              {following.map((user) => (
+                <div key={user.id} className="flex items-center justify-between">
+                  <Link
+                    href={`/dashboard/${user.username}`}
+                    className="flex items-center gap-3 hover:opacity-75 transition"
+                  >
+                    <UserAvatar
+                      user={user}
+                      className="h-8 w-8"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold">{user.username}</span>
+                      {user.name && (
+                        <span className="text-xs text-muted-foreground">{user.name}</span>
+                      )}
+                    </div>
+                  </Link>
+                  {session?.user?.username !== user.username && (
+                    <FollowButton
+                      followingId={user.id}
+                      isFollowing={user.status === "ACCEPTED"}
+                      hasPendingRequest={user.status === "PENDING"}
+                      isPrivate={user.isPrivate}
+                      isFollowedByUser={false}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
   );
 }

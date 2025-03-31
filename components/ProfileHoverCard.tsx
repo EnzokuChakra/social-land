@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import VerifiedBadge from "./VerifiedBadge";
 import Image from "next/image";
 import UserAvatar from "./UserAvatar";
+import { useRouter } from "next/navigation";
 
 interface Props {
   user: User | UserWithExtras;
@@ -44,6 +45,7 @@ export default function ProfileHoverCard({ user, children, align = "center" }: P
     hasPendingRequest: false,
     isPrivate: user.isPrivate || false,
   });
+  const router = useRouter();
 
   useEffect(() => {
     if (user.username) {
@@ -161,18 +163,18 @@ export default function ProfileHoverCard({ user, children, align = "center" }: P
 
           <div className="flex items-center gap-3 text-sm">
             <p className="font-semibold">{stats?.stats.posts || 0} posts</p>
-            <Link 
-              href={`/dashboard/${user.username}/followers`}
+            <button 
+              onClick={() => router.push(`/dashboard/${user.username}/followers`)}
               className="font-semibold hover:opacity-70 transition"
             >
               {stats?.stats.followers || 0} {stats?.stats.followers === 1 ? 'follower' : 'followers'}
-            </Link>
-            <Link 
-              href={`/dashboard/${user.username}/following`}
+            </button>
+            <button 
+              onClick={() => router.push(`/dashboard/${user.username}/following`)}
               className="font-semibold hover:opacity-70 transition"
             >
               {stats?.stats.following || 0} following
-            </Link>
+            </button>
           </div>
 
           {user.bio && (

@@ -25,90 +25,54 @@ export default withAuth(
   async function middleware(request) {
     const { pathname, searchParams } = request.nextUrl;
     
-    try {
-      // Get the session token from cookies
-      const token = request.cookies.get('next-auth.session-token')?.value 
-        || request.cookies.get('__Secure-next-auth.session-token')?.value;
+    // Clean up the pathname by removing query parameters
+    const cleanPathname = pathname.split('?')[0];
 
-      console.log('[Middleware] Path:', pathname);
-      console.log('[Middleware] Has token:', !!token);
-      console.log('[Middleware] Search params:', Object.fromEntries(searchParams));
-
-      // Clean up the pathname by removing query parameters
-      const cleanPathname = pathname.split('?')[0];
-
-      // If login page and authenticated, redirect to dashboard
-      if (cleanPathname === '/login' && token) {
-        console.log('[Middleware] Authenticated user on login page, redirecting to dashboard');
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-      }
-
-      // If root path and authenticated, redirect to dashboard
-      if (cleanPathname === '/' && token) {
-        console.log('[Middleware] Authenticated user on root, redirecting to dashboard');
-        return NextResponse.redirect(new URL('/dashboard', request.url));
-      }
-
-      // If root path and not authenticated, redirect to login
-      if (cleanPathname === '/' && !token) {
-        console.log('[Middleware] Unauthenticated user on root, redirecting to login');
-        return NextResponse.redirect(new URL('/login', request.url));
-      }
-
-      // Skip auth check for public routes
-      if (isPublicPath(cleanPathname)) {
-        console.log('[Middleware] Public path, allowing access');
-        return NextResponse.next();
-      }
-
-      // If no token and not a public path, redirect to login
-      if (!token && !isPublicPath(cleanPathname)) {
-        console.log('[Middleware] Unauthenticated user on protected path, redirecting to login');
-        const loginUrl = new URL('/login', request.url);
-        
-        // Only set callbackUrl if it's not already set and it's not a full URL
-        if (!loginUrl.searchParams.has('callbackUrl')) {
-          const callbackUrl = cleanPathname;
-          try {
-            // If it's a full URL, extract the pathname
-            const url = new URL(callbackUrl);
-            loginUrl.searchParams.set('callbackUrl', url.pathname);
-          } catch {
-            // If it's not a valid URL, use it as is
-            loginUrl.searchParams.set('callbackUrl', callbackUrl);
-          }
-        }
-        
-        return NextResponse.redirect(loginUrl);
-      }
-
-      console.log('[Middleware] Allowing access to protected path');
+    // Skip auth check for public routes
+    if (isPublicPath(cleanPathname)) {
       return NextResponse.next();
-    } catch (error) {
-      console.error('[Middleware] Error:', error);
-      // On error, redirect to login but preserve the callback URL
-      const loginUrl = new URL('/login', request.url);
-      const cleanPathname = pathname.split('?')[0];
-      
-      if (!loginUrl.searchParams.has('callbackUrl')) {
-        try {
-          // If it's a full URL, extract the pathname
-          const url = new URL(cleanPathname);
-          loginUrl.searchParams.set('callbackUrl', url.pathname);
-        } catch {
-          // If it's not a valid URL, use it as is
-          loginUrl.searchParams.set('callbackUrl', cleanPathname);
-        }
-      }
-      
-      return NextResponse.redirect(loginUrl);
     }
+
+    // Handle root path
+    if (cleanPathname === '/') {
+      return NextResponse.next();
+    }
+
+    // Handle login page
+    if (cleanPathname === '/login') {
+      return NextResponse.next();
+    }
+
+    // For all other routes, let withAuth handle the authentication
+    return NextResponse.next();
   },
   {
     callbacks: {
-      authorized: ({ token }) => {
-        console.log('[Middleware] Authorization check - Has token:', !!token);
-        return !!token;
+      authorized: ({ token, req }) => {
+        const { pathname, searchParams } = req.nextUrl;
+        const cleanPathname = pathname.split('?')[0];
+
+        // Allow access to public paths
+        if (isPublicPath(cleanPathname)) {
+          return true;
+        }
+
+        // If has token and trying to access login page, redirect to dashboard
+        if (token && cleanPathname === '/login') {
+          return false;
+        }
+
+        // If no token and trying to access protected route, redirect to login
+        if (!token && !isPublicPath(cleanPathname)) {
+          // Prevent recursive callbackUrl
+          const callbackUrl = searchParams.get('callbackUrl');
+          if (callbackUrl && callbackUrl.startsWith('/login')) {
+            return false;
+          }
+          return false;
+        }
+
+        return true;
       },
     },
     pages: {
