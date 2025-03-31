@@ -3,10 +3,12 @@ import { createServer } from 'http';
 import { NextApiRequest, NextApiResponse } from 'next';
 import { prisma } from './prisma';
 
+let io: Server | null = null;
+
 const ioHandler = (req: NextApiRequest, res: NextApiResponse) => {
   if (!res.socket.server.io) {
     const httpServer = createServer();
-    const io = new Server(httpServer, {
+    io = new Server(httpServer, {
       cors: {
         origin: process.env.NEXT_PUBLIC_APP_URL || '*',
         methods: ['GET', 'POST'],
@@ -46,4 +48,5 @@ const ioHandler = (req: NextApiRequest, res: NextApiResponse) => {
   res.end();
 };
 
+export { io };
 export default ioHandler; 

@@ -45,14 +45,16 @@ export async function PATCH(
         },
       });
 
-      // Emit socket event to notify the user
-      io.emit(`user:${updatedRequest.user.id}`, {
-        type: "VERIFICATION_APPROVED",
-        data: {
-          verified: true,
-          message: "Your account has been verified!"
-        }
-      });
+      // Emit socket event to notify the user if io is available
+      if (io) {
+        io.emit(`user:${updatedRequest.user.id}`, {
+          type: "VERIFICATION_APPROVED",
+          data: {
+            verified: true,
+            message: "Your account has been verified!"
+          }
+        });
+      }
     }
 
     return NextResponse.json({ request: updatedRequest });
