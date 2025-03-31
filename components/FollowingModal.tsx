@@ -41,8 +41,8 @@ export default function FollowingModal({
     isFollowing,
     followingCount: following?.length,
     following: following?.map(f => ({
-      id: f.following.id,
-      username: f.following.username,
+      id: f.id,
+      username: f.username,
       followingId: f.followingId
     }))
   });
@@ -51,78 +51,67 @@ export default function FollowingModal({
 
   const showFollowing = !isPrivate || isFollowing || session?.user?.username === username;
 
+  if (!showFollowing) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold">This account is private</h2>
+          <p className="text-sm text-muted-foreground">Follow this user to see who they follow</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <Dialog
-      open={isFollowingPage}
-      onOpenChange={(isOpen) => !isOpen && router.back()}
-    >
-      <DialogContent className="dialogContent max-w-md h-[80vh] flex flex-col bg-white dark:bg-neutral-950">
-        <DialogHeader className="border-b border-neutral-200 dark:border-neutral-800 px-4 py-4">
-          <DialogTitle className="text-center font-semibold text-base">
-            Following
-          </DialogTitle>
-          <DialogDescription className="text-center text-sm text-neutral-600">
-            {following?.length || 0} {following?.length === 1 ? 'person followed by' : 'people followed by'} {username}
-          </DialogDescription>
-        </DialogHeader>
-
-        {isPrivate && !showFollowing ? (
-          <div className="flex-1 flex items-center justify-center p-4">
-            <p className="text-center text-neutral-600 dark:text-neutral-400">
-              This account is private. Follow this account to see who they follow.
-            </p>
-          </div>
-        ) : following?.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center p-4">
-            <p className="text-center text-neutral-600 dark:text-neutral-400">
-              {username === session?.user?.username 
-                ? "You are not following anyone yet."
-                : "This user is not following anyone yet."}
-            </p>
-          </div>
-        ) : (
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-4">
-              {following?.map((follow) => {
-                console.log("[FOLLOWING_MODAL] Rendering following:", {
-                  id: follow.following.id,
-                  username: follow.following.username,
-                  followingId: follow.followingId,
-                  isFollowing: follow.isFollowing,
-                  hasPendingRequest: follow.hasPendingRequest
-                });
-
-                return (
-                  <div
-                    key={`${follow.followingId}-${follow.following.id}`}
-                    className="flex items-center justify-between gap-2 w-full"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Link href={`/dashboard/${follow.following.username}`}>
-                        <UserAvatar user={follow.following} />
-                      </Link>
-                      <div className="flex flex-col gap-1">
-                        <Link 
-                          href={`/dashboard/${follow.following.username}`}
-                          className="font-semibold text-sm hover:underline"
-                        >
-                          {follow.following.username}
-                        </Link>
-                        <p className="text-sm text-gray-500">{follow.following.name}</p>
+    <div className="h-full flex items-center justify-center">
+      <Dialog open={isFollowingPage} onOpenChange={() => router.back()}>
+        <DialogContent className="max-w-[400px] p-0">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle className="text-lg font-semibold">Following</DialogTitle>
+            <DialogDescription>
+              People followed by {username}
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-[400px]">
+            {following.length === 0 ? (
+              <div className="p-4 text-center text-muted-foreground">
+                {username} is not following anyone yet
+              </div>
+            ) : (
+              <div className="p-4 space-y-4">
+                {following.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between">
+                    <Link
+                      href={`/dashboard/${user.username}`}
+                      className="flex items-center gap-3 hover:opacity-75 transition"
+                    >
+                      <UserAvatar
+                        user={user}
+                        className="h-8 w-8"
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold">{user.username}</span>
+                        {user.name && (
+                          <span className="text-xs text-muted-foreground">{user.name}</span>
+                        )}
                       </div>
-                    </div>
-                    {session?.user?.id !== follow.following.id && (
-                      <div className="text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white px-4 py-1.5 rounded-lg font-semibold">
-                        Following
-                      </div>
+                    </Link>
+                    {session?.user?.username !== user.username && (
+                      <FollowButton
+                        followingId={user.id}
+                        isFollowing={user.status === "ACCEPTED"}
+                        hasPendingRequest={user.status === "PENDING"}
+                        isPrivate={user.isPrivate}
+                        isFollowedByUser={false}
+                      />
                     )}
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
           </ScrollArea>
-        )}
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

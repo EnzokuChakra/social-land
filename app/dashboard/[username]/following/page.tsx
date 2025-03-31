@@ -36,8 +36,8 @@ export default async function FollowingPage({ params }: Props) {
     username: profile.username,
     followingCount: following.length,
     following: following.map(f => ({
-      id: f.following.id,
-      username: f.following.username,
+      id: f.id,
+      username: f.username,
       status: f.status
     }))
   });

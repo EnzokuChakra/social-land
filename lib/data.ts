@@ -25,6 +25,38 @@ import {
 } from "./definitions";
 import { auth } from "@/lib/auth";
 
+interface FollowerData {
+  follower: {
+    id: string;
+    username: string;
+    name: string | null;
+    image: string | null;
+    verified: boolean;
+    isPrivate: boolean;
+    role: string;
+    status: string;
+  };
+  followerId: string;
+  followingId: string;
+  status: string;
+}
+
+interface FollowingData {
+  following: {
+    id: string;
+    username: string;
+    name: string | null;
+    image: string | null;
+    verified: boolean;
+    isPrivate: boolean;
+    role: string;
+    status: string;
+  };
+  followerId: string;
+  followingId: string;
+  status: string;
+}
+
 export async function fetchPosts(userId?: string) {
   try {
     // If userId is not provided, try to get it from the session
@@ -575,16 +607,35 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
   noStore();
 
   try {
+    console.log("[Profile Fetch] Starting profile fetch for username:", username);
     const session = await auth();
     const userId = session?.user?.id;
+    
+    console.log("[Profile Fetch] Session data:", {
+      hasSession: !!session,
+      userId,
+      timestamp: new Date().toISOString()
+    });
 
     if (!username) {
+      console.log("[Profile Fetch] No username provided");
       return null;
     }
 
-    // First get the user profile
-    const profile = await prisma.user.findUnique({
+    // First get the user's ID
+    const user = await prisma.user.findUnique({
       where: { username },
+      select: { id: true }
+    });
+
+    if (!user) {
+      console.log("[Profile Fetch] No user found for username:", username);
+      return null;
+    }
+
+    // Then get the full profile with followers/following
+    const profile = await prisma.user.findUnique({
+      where: { id: user.id },
       include: {
         // Get user's own posts
         posts: {
@@ -760,34 +811,6 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
             }
           }
         },
-        followers: {
-          include: {
-            follower: {
-              select: {
-                id: true,
-                username: true,
-                name: true,
-                image: true,
-                verified: true,
-                isPrivate: true
-              }
-            }
-          }
-        },
-        following: {
-          include: {
-            following: {
-              select: {
-                id: true,
-                username: true,
-                name: true,
-                image: true,
-                verified: true,
-                isPrivate: true
-              }
-            }
-          }
-        },
         stories: {
           where: {
             createdAt: {
@@ -827,11 +850,137 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
     });
 
     if (!profile) {
+      console.log("[Profile Fetch] No profile found for username:", username);
       return null;
     }
 
-    // Transform the profile data to include hasActiveStory and handle nested comments
-    const transformedProfile = {
+    console.log("[Profile Fetch] Profile found:", {
+      id: profile.id,
+      username: profile.username,
+      isPrivate: profile.isPrivate,
+      followersCount: profile.followers?.length || 0,
+      followingCount: profile.following?.length || 0
+    });
+
+    // Get followers and following counts with error handling
+    const [followersCount, followingCount] = await Promise.allSettled([
+      prisma.follows.count({
+        where: {
+          followingId: user.id,
+          status: "ACCEPTED",
+        },
+      }),
+      prisma.follows.count({
+        where: {
+          followerId: user.id,
+          status: "ACCEPTED",
+        },
+      }),
+    ]).then(results => results.map(result => 
+      result.status === 'fulfilled' ? result.value : 0
+    ));
+
+    // Get followers and following
+    const [followers, following] = await Promise.allSettled([
+      prisma.follows.findMany({
+        where: {
+          followingId: user.id,
+          status: "ACCEPTED"
+        },
+        include: {
+          follower: {
+            select: {
+              id: true,
+              username: true,
+              name: true,
+              image: true,
+              verified: true,
+              isPrivate: true,
+              role: true,
+              status: true
+            }
+          }
+        }
+      }),
+      prisma.follows.findMany({
+        where: {
+          followerId: user.id,
+          status: "ACCEPTED"
+        },
+        include: {
+          following: {
+            select: {
+              id: true,
+              username: true,
+              name: true,
+              image: true,
+              verified: true,
+              isPrivate: true,
+              role: true,
+              status: true
+            }
+          }
+        }
+      })
+    ]);
+
+    // Handle potential failures in parallel queries
+    const followersResult = followers.status === 'fulfilled' ? followers.value : [];
+    const followingResult = following.status === 'fulfilled' ? following.value : [];
+
+    // Transform followers and following data with proper types
+    const transformedFollowers = followersResult.map((f: FollowerData) => ({
+      ...f.follower,
+      followerId: f.followerId,
+      followingId: f.followingId,
+      status: f.status
+    }));
+
+    const transformedFollowing = followingResult.map((f: FollowingData) => ({
+      ...f.following,
+      followerId: f.followerId,
+      followingId: f.followingId,
+      status: f.status
+    }));
+
+    // Log the transformed data for debugging
+    console.log("[Profile Fetch] Transformed followers/following data:", {
+      followersCount: transformedFollowers.length,
+      followingCount: transformedFollowing.length,
+      sampleFollower: transformedFollowers[0] ? {
+        id: transformedFollowers[0].id,
+        username: transformedFollowers[0].username,
+        followerId: transformedFollowers[0].followerId,
+        followingId: transformedFollowers[0].followingId,
+        status: transformedFollowers[0].status
+      } : null,
+      sampleFollowing: transformedFollowing[0] ? {
+        id: transformedFollowing[0].id,
+        username: transformedFollowing[0].username,
+        followerId: transformedFollowing[0].followerId,
+        followingId: transformedFollowing[0].followingId,
+        status: transformedFollowing[0].status
+      } : null
+    });
+
+    // Get follow status if logged in user is viewing another profile
+    let followStatus = null;
+    if (userId && userId !== user.id) {
+      const follow = await prisma.follows.findUnique({
+        where: {
+          followerId_followingId: {
+            followerId: userId,
+            followingId: user.id,
+          },
+        },
+        select: {
+          status: true,
+        },
+      });
+      followStatus = follow?.status || null;
+    }
+
+    const result = {
       ...profile,
       posts: profile.posts.map((post: PostWithExtras) => ({
         ...post,
@@ -867,40 +1016,33 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
             stories: undefined
           }
         }
-      }))
+      })),
+      followers: transformedFollowers,
+      following: transformedFollowing,
+      followersCount,
+      followingCount,
+      ...(userId && userId !== user.id ? {
+        isFollowing: followStatus === "ACCEPTED",
+        hasPendingRequest: followStatus === "PENDING",
+        followStatus
+      } : {})
     };
 
-    // Get follow status if logged in user is viewing another profile
-    if (userId && userId !== profile.id) {
-      const followStatus = await prisma.follows.findUnique({
-        where: {
-          followerId_followingId: {
-            followerId: userId,
-            followingId: profile.id,
-          },
-        },
-        select: {
-          status: true,
-        },
-      });
+    console.log("[Profile Fetch] Final profile data:", {
+      followersCount: result.followersCount,
+      followingCount: result.followingCount,
+      followers: result.followers.map((f: { id: string; username: string }) => ({ id: f.id, username: f.username })),
+      following: result.following.map((f: { id: string; username: string }) => ({ id: f.id, username: f.username }))
+    });
 
-      return {
-        ...transformedProfile,
-        followersCount: profile.followers.length,
-        followingCount: profile.following.length,
-        isFollowing: followStatus?.status === "ACCEPTED",
-        hasPendingRequest: followStatus?.status === "PENDING",
-        followStatus: followStatus?.status || null,
-      };
-    }
-
-    return {
-      ...transformedProfile,
-      followersCount: profile.followers.length,
-      followingCount: profile.following.length,
-    };
+    return result;
   } catch (error) {
-    console.error("Database Error:", error);
+    console.error("[Profile Fetch] Error:", {
+      error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
     throw new Error("Failed to fetch profile");
   }
 }
@@ -1512,30 +1654,6 @@ export async function getUserActivity(userId: string) {
     throw new Error('Failed to fetch user activity');
   }
 }
-
-const transformFollowing = (following: Follows & {
-  following: User;
-  follower: User;
-}) => {
-  return {
-    ...following.following,
-    followingId: following.followingId,
-    followerId: following.followerId,
-    status: following.status,
-  };
-};
-
-const transformFollower = (follower: Follows & {
-  following: User;
-  follower: User;
-}) => {
-  return {
-    ...follower.follower,
-    followingId: follower.followingId,
-    followerId: follower.followerId,
-    status: follower.status,
-  };
-};
 
 export async function fetchEventById(id: string) {
   noStore();

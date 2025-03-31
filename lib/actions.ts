@@ -109,7 +109,7 @@ export async function deletePost(postId: string) {
     await deleteUploadedFile(post.fileUrl);
 
     // Delete all related records in a transaction
-    await db.$transaction(async (tx) => {
+    await db.$transaction(async (tx: typeof db) => {
       // Delete all saved posts
       await tx.savedpost.deleteMany({
         where: { postId }
@@ -127,7 +127,7 @@ export async function deletePost(postId: string) {
       });
       
       if (comments.length > 0) {
-        const commentIds = comments.map(comment => comment.id);
+        const commentIds = comments.map((comment: { id: string }) => comment.id);
         
         // Delete comment likes
         await tx.commentlike.deleteMany({
@@ -797,7 +797,7 @@ export async function createComment(values: z.infer<typeof CreateComment>) {
         await createNotification({
           type: "COMMENT_REPLY",
           user_id: parentComment.user_id,
-          postId,
+          postId: postId ?? undefined,
           commentId: comment.id,
         });
         console.log("[CREATE_COMMENT] Created reply notification");
@@ -807,7 +807,7 @@ export async function createComment(values: z.infer<typeof CreateComment>) {
       await createNotification({
         type: "COMMENT",
         user_id: post.user_id,
-        postId,
+        postId: postId ?? undefined,
         commentId: comment.id,
       });
       console.log("[CREATE_COMMENT] Created comment notification");
@@ -872,7 +872,7 @@ export async function deleteComment(formData: FormData) {
     );
 
     // Get all reply IDs to delete them later
-    const replyIds = comment.replies?.map((reply) => reply.id) || [];
+    const replyIds = comment.replies?.map((reply: { id: string }) => reply.id) || [];
 
     // Delete all replies first (outside of transaction to avoid constraint issues)
     if (replyIds.length > 0) {
@@ -1230,8 +1230,8 @@ export async function followUser({
     // Create the follow relationship
     const newFollow = await prisma.follows.create({
       data: {
-        followerId,
-        followingId,
+        followerId: followerId, // The person who is following (Tony)
+        followingId: followingId, // The person being followed (Enzoku)
         status: targetUser.isPrivate ? "PENDING" : "ACCEPTED",
       },
     });
@@ -1387,7 +1387,7 @@ export async function getNotifications() {
 
     // Fetch comments for notifications that have commentId in metadata
     const commentIds = notifications
-      .filter((n) => {
+      .filter((n: { metadata: string | null }) => {
         if (!n.metadata) return false;
         try {
           const metadata = JSON.parse(n.metadata);
@@ -1396,7 +1396,7 @@ export async function getNotifications() {
           return false;
         }
       })
-      .map((n) => {
+      .map((n: { metadata: string | null }) => {
         try {
           const metadata = JSON.parse(n.metadata!);
           return metadata.commentId;
@@ -1404,7 +1404,7 @@ export async function getNotifications() {
           return null;
         }
       })
-      .filter((id): id is string => id !== null);
+      .filter((id: string | null): id is string => id !== null);
 
     const comments =
       commentIds.length > 0
@@ -1421,7 +1421,13 @@ export async function getNotifications() {
           })
         : [];
 
-    const enrichedNotifications = notifications.map((notification) => {
+    const enrichedNotifications = notifications.map((notification: { 
+      metadata: string | null;
+      type: string;
+      userId: string;
+      sender_id: string;
+      sender?: any;
+    }) => {
       const commentId = notification.metadata
         ? (() => {
             try {
@@ -1462,7 +1468,7 @@ export async function getNotifications() {
         comment: commentId
           ? {
               id: commentId,
-              text: comments.find((c) => c.id === commentId)?.body || "",
+              text: comments.find((c: { id: string; body: string }) => c.id === commentId)?.body || "",
             }
           : null,
       };

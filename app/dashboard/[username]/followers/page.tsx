@@ -29,8 +29,8 @@ export default async function FollowersPage({ params }: Props) {
     username: profile.username,
     followersCount: followers.length,
     followers: followers.map(f => ({
-      id: f.follower.id,
-      username: f.follower.username
+      id: f.id,
+      username: f.username
     }))
   });
 

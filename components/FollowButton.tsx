@@ -39,16 +39,30 @@ export default function FollowButton({
     hasPendingRequestFromUser: false
   });
 
+  console.log("[FollowButton] Initial props:", {
+    followingId,
+    isFollowing,
+    hasPendingRequest,
+    isPrivate,
+    isFollowedByUser
+  });
+
   const handleFollow = async () => {
     try {
+      console.log("[FollowButton] Starting follow action for user:", followingId);
       setIsLoading(true);
 
       // Optimistically update the UI
-      setFollowState(prev => ({
-        ...prev,
-        isFollowing: true,
-        hasPendingRequest: false
-      }));
+      setFollowState(prev => {
+        console.log("[FollowButton] Optimistic update - Previous state:", prev);
+        const newState = {
+          ...prev,
+          isFollowing: true,
+          hasPendingRequest: false
+        };
+        console.log("[FollowButton] Optimistic update - New state:", newState);
+        return newState;
+      });
 
       const res = await fetch("/api/users/follow", {
         method: "POST",
@@ -61,8 +75,12 @@ export default function FollowButton({
         }),
       });
 
+      console.log("[FollowButton] Follow API response status:", res.status);
+      const data = await res.json();
+      console.log("[FollowButton] Follow API response data:", data);
+
       if (!res.ok) {
-        // Revert the optimistic update if the request failed
+        console.log("[FollowButton] Follow request failed, reverting optimistic update");
         setFollowState(prev => ({
           ...prev,
           isFollowing: false,
@@ -71,27 +89,31 @@ export default function FollowButton({
         throw new Error("Failed to follow user");
       }
 
-      const data = await res.json();
-
       // Update state based on the response
-      setFollowState(prev => ({
-        ...prev,
-        isFollowing: data.status === "ACCEPTED",
-        hasPendingRequest: data.status === "PENDING"
-      }));
+      setFollowState(prev => {
+        const newState = {
+          ...prev,
+          isFollowing: data.status === "ACCEPTED",
+          hasPendingRequest: data.status === "PENDING"
+        };
+        console.log("[FollowButton] Updated state after API response:", newState);
+        return newState;
+      });
 
       // Show success message
       toast.success(data.status === "ACCEPTED" ? "Following user" : "Follow request sent");
 
       // Remove user from suggestions immediately after successful follow request
       if (onSuccess) {
+        console.log("[FollowButton] Calling onSuccess callback");
         onSuccess(true);
       }
 
       // Force a router refresh to update the UI
+      console.log("[FollowButton] Refreshing router");
       router.refresh();
     } catch (error) {
-      console.error("Error following user:", error);
+      console.error("[FollowButton] Error following user:", error);
       toast.error("Failed to follow user");
     } finally {
       setIsLoading(false);
@@ -102,14 +124,20 @@ export default function FollowButton({
     if (isLoading) return;
 
     try {
+      console.log("[FollowButton] Starting unfollow action for user:", followingId);
       setIsLoading(true);
 
       // Optimistically update the UI
-      setFollowState(prev => ({
-        ...prev,
-        isFollowing: false,
-        hasPendingRequest: false
-      }));
+      setFollowState(prev => {
+        console.log("[FollowButton] Optimistic update for unfollow - Previous state:", prev);
+        const newState = {
+          ...prev,
+          isFollowing: false,
+          hasPendingRequest: false
+        };
+        console.log("[FollowButton] Optimistic update for unfollow - New state:", newState);
+        return newState;
+      });
 
       const response = await fetch("/api/users/follow", {
         method: "POST",
@@ -122,10 +150,12 @@ export default function FollowButton({
         })
       });
 
+      console.log("[FollowButton] Unfollow API response status:", response.status);
       const data = await response.json();
+      console.log("[FollowButton] Unfollow API response data:", data);
 
       if (!response.ok) {
-        // Revert the optimistic update if the request failed
+        console.log("[FollowButton] Unfollow request failed, reverting optimistic update");
         setFollowState(prev => ({
           ...prev,
           isFollowing: true,
@@ -135,19 +165,24 @@ export default function FollowButton({
       }
 
       // Update state based on the response
-      setFollowState(prev => ({
-        ...prev,
-        isFollowing: false,
-        hasPendingRequest: false
-      }));
+      setFollowState(prev => {
+        const newState = {
+          ...prev,
+          isFollowing: false,
+          hasPendingRequest: false
+        };
+        console.log("[FollowButton] Updated state after unfollow API response:", newState);
+        return newState;
+      });
 
       if (onSuccess) {
+        console.log("[FollowButton] Calling onSuccess callback for unfollow");
         onSuccess(false);
       }
 
       router.refresh();
     } catch (error) {
-      console.error("Error unfollowing user:", error);
+      console.error("[FollowButton] Error unfollowing user:", error);
       toast.error("Failed to unfollow user");
     } finally {
       setIsLoading(false);

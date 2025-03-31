@@ -41,8 +41,8 @@ export default function FollowersModal({
     isFollowing,
     followersCount: followers?.length,
     followers: followers?.map(f => ({
-      id: f.follower.id,
-      username: f.follower.username,
+      id: f.id,
+      username: f.username,
       followerId: f.followerId
     }))
   });
@@ -51,76 +51,67 @@ export default function FollowersModal({
 
   const showFollowers = !isPrivate || isFollowing || session?.user?.username === username;
 
-  return (
-    <Dialog
-      open={isFollowersPage}
-      onOpenChange={(isOpen) => !isOpen && router.back()}
-    >
-      <DialogContent className="dialogContent max-w-md h-[80vh] flex flex-col bg-white dark:bg-neutral-950">
-        <DialogHeader className="border-b border-neutral-200 dark:border-neutral-800 px-4 py-4">
-          <DialogTitle className="text-center font-semibold text-base">
-            Followers
-          </DialogTitle>
-          <DialogDescription className="text-center text-sm text-neutral-600">
-            {followers?.length || 0} {followers?.length === 1 ? 'person follows' : 'people follow'} {username}
-          </DialogDescription>
-        </DialogHeader>
+  if (!showFollowers) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold">This account is private</h2>
+          <p className="text-sm text-muted-foreground">Follow this user to see their followers</p>
+        </div>
+      </div>
+    );
+  }
 
-        {isPrivate && !showFollowers ? (
-          <div className="flex-1 flex items-center justify-center p-4">
-            <p className="text-center text-neutral-600 dark:text-neutral-400">
-              This account is private. Follow this account to see their followers.
-            </p>
-          </div>
-        ) : followers?.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center p-4">
-            <p className="text-center text-neutral-600 dark:text-neutral-400">
-              {username === session?.user?.username 
-                ? "You don't have any followers yet."
-                : "This user doesn't have any followers yet."}
-            </p>
-          </div>
-        ) : (
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-4">
-              {followers?.map((follower) => {
-                console.log("[FOLLOWERS_MODAL] Rendering follower:", {
-                  id: follower.follower.id,
-                  username: follower.follower.username,
-                  followerId: follower.followerId
-                });
-                
-                return (
-                  <div
-                    key={`${follower.followerId}-${follower.follower.id}`}
-                    className="flex items-center justify-between gap-2 w-full"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Link href={`/dashboard/${follower.follower.username}`}>
-                        <UserAvatar user={follower.follower} />
-                      </Link>
-                      <div className="flex flex-col gap-1">
-                        <Link 
-                          href={`/dashboard/${follower.follower.username}`}
-                          className="font-semibold text-sm hover:underline"
-                        >
-                          {follower.follower.username}
-                        </Link>
-                        <p className="text-sm text-gray-500">{follower.follower.name}</p>
+  return (
+    <div className="h-full flex items-center justify-center">
+      <Dialog open={isFollowersPage} onOpenChange={() => router.back()}>
+        <DialogContent className="max-w-[400px] p-0">
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle className="text-lg font-semibold">Followers</DialogTitle>
+            <DialogDescription>
+              People following {username}
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-[400px]">
+            {followers.length === 0 ? (
+              <div className="p-4 text-center text-muted-foreground">
+                {username} has no followers yet
+              </div>
+            ) : (
+              <div className="p-4 space-y-4">
+                {followers.map((user) => (
+                  <div key={user.id} className="flex items-center justify-between">
+                    <Link
+                      href={`/dashboard/${user.username}`}
+                      className="flex items-center gap-3 hover:opacity-75 transition"
+                    >
+                      <UserAvatar
+                        user={user}
+                        className="h-8 w-8"
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold">{user.username}</span>
+                        {user.name && (
+                          <span className="text-xs text-muted-foreground">{user.name}</span>
+                        )}
                       </div>
-                    </div>
-                    {session?.user?.id !== follower.follower.id && (
-                      <div className="text-xs bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-white px-4 py-1.5 rounded-lg font-semibold">
-                        Following
-                      </div>
+                    </Link>
+                    {session?.user?.username !== user.username && (
+                      <FollowButton
+                        followingId={user.id}
+                        isFollowing={user.status === "ACCEPTED"}
+                        hasPendingRequest={user.status === "PENDING"}
+                        isPrivate={user.isPrivate}
+                        isFollowedByUser={false}
+                      />
                     )}
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
           </ScrollArea>
-        )}
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

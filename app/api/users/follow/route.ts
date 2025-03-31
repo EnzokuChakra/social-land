@@ -9,15 +9,17 @@ const FOLLOW_COOLDOWN_MS = 5000; // 5 seconds cooldown
 
 export async function POST(req: Request) {
   try {
+    console.log("[Follow API] Received follow request");
     const session = await getServerSession(authOptions);
     
-    console.log('Follow API - Session check:', {
+    console.log("[Follow API] Session check:", {
       hasSession: !!session,
       userId: session?.user?.id,
       timestamp: new Date().toISOString()
     });
 
     if (!session?.user?.id) {
+      console.log("[Follow API] Unauthorized request - no session");
       return new NextResponse(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401 }
@@ -25,8 +27,17 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
+    console.log("[Follow API] Request body:", body);
+    
     const validatedData = FollowUser.parse(body);
     const { followingId, followerId, action } = validatedData;
+    
+    console.log("[Follow API] Validated request data:", {
+      followingId,
+      followerId,
+      action,
+      sessionUserId: session.user.id
+    });
 
     // Add rate limiting for follow action
     if (action === "follow") {
@@ -34,7 +45,15 @@ export async function POST(req: Request) {
       const lastFollowTime = followCooldowns.get(cooldownKey);
       const now = Date.now();
 
+      console.log("[Follow API] Rate limit check:", {
+        cooldownKey,
+        lastFollowTime,
+        now,
+        timeSinceLastFollow: lastFollowTime ? now - lastFollowTime : null
+      });
+
       if (lastFollowTime && now - lastFollowTime < FOLLOW_COOLDOWN_MS) {
+        console.log("[Follow API] Rate limit exceeded");
         return new NextResponse(
           JSON.stringify({ 
             error: "Please wait a few seconds before following again",
@@ -47,18 +66,9 @@ export async function POST(req: Request) {
       followCooldowns.set(cooldownKey, now);
     }
 
-    // Log the request for debugging
-    console.log('Follow API - Request details:', {
-      action,
-      followerId,
-      followingId,
-      sessionUserId: session.user.id,
-      timestamp: new Date().toISOString()
-    });
-
     // For delete/accept actions, we need followerId
     if ((action === "delete" || action === "accept") && !followerId) {
-      console.log('Follow API - Missing followerId for action:', {
+      console.log("[Follow API] Missing followerId for action:", {
         action,
         followerId,
         timestamp: new Date().toISOString()
@@ -71,7 +81,7 @@ export async function POST(req: Request) {
 
     // For follow/unfollow actions, we need followingId
     if ((action === "follow" || action === "unfollow") && !followingId) {
-      console.log('Follow API - Missing followingId for action:', {
+      console.log("[Follow API] Missing followingId for action:", {
         action,
         followingId,
         timestamp: new Date().toISOString()
@@ -82,165 +92,23 @@ export async function POST(req: Request) {
       );
     }
 
-    if (action === "accept") {
-      console.log('Follow API - Processing accept action:', {
-        followerId,
-        sessionUserId: session.user.id,
-        timestamp: new Date().toISOString()
-      });
-      
-      // First check if there's a pending follow request
-      console.log('Follow API - Checking for pending request with params:', {
-        followerId,
-        followingId: session.user.id
-      });
-
-      const pendingRequest = await prisma.follows.findUnique({
-        where: {
-          followerId_followingId: {
-            followerId: followerId!,
-            followingId: session.user.id
-          }
-        }
-      });
-
-      console.log('Follow API - Pending request query result:', {
-        found: !!pendingRequest,
-        request: pendingRequest,
-        timestamp: new Date().toISOString()
-      });
-
-      if (!pendingRequest || pendingRequest.status !== "PENDING") {
-        console.log('Follow API - No valid pending request:', {
-          found: !!pendingRequest,
-          status: pendingRequest?.status,
-          followerId,
-          followingId: session.user.id,
-          timestamp: new Date().toISOString()
-        });
-        return new NextResponse(
-          JSON.stringify({ error: "No pending follow request found" }),
-          { status: 404 }
-        );
-      }
-
-      // Update the follow request status to ACCEPTED
-      console.log('Follow API - Updating follow request to ACCEPTED');
-      const updatedFollow = await prisma.follows.update({
-        where: {
-          followerId_followingId: {
-            followerId: followerId!,
-            followingId: session.user.id
-          }
-        },
-        data: {
-          status: "ACCEPTED"
-        }
-      });
-
-      console.log('Follow API - Updated follow request result:', {
-        updatedFollow,
-        timestamp: new Date().toISOString()
-      });
-
-      // Delete any existing follow notifications between these users
-      await prisma.notification.deleteMany({
-        where: {
-          type: {
-            in: ["FOLLOW", "FOLLOW_REQUEST"]
-          },
-          OR: [
-            {
-              sender_id: followerId!,
-              userId: session.user.id,
-            },
-            {
-              sender_id: session.user.id,
-              userId: followerId!,
-            }
-          ]
-        },
-      });
-
-      // Create a single new follow notification
-      await prisma.notification.create({
-        data: {
-          id: crypto.randomUUID(),
-          type: "FOLLOW",
-          userId: session.user.id,
-          sender_id: followerId!,
-          createdAt: new Date()
-        }
-      });
-
-      return new NextResponse(
-        JSON.stringify({ 
-          status: "ACCEPTED",
-          message: "Follow request accepted"
-        }), 
-        { status: 200 }
-      );
-    }
-
-    if (action === "delete") {
-      console.log('Follow API - Processing delete action');
-      
-      // Get the current user's ID
-      const currentUserId = session.user.id;
-      
-      // Delete the follow request
-      await prisma.follows.delete({
-        where: {
-          followerId_followingId: {
-            followerId: currentUserId,
-            followingId: followingId!
-          }
-        }
-      });
-
-      // Delete ALL follow-related notifications between these users
-      await prisma.notification.deleteMany({
-        where: {
-          type: {
-            in: ["FOLLOW", "FOLLOW_REQUEST"]
-          },
-          OR: [
-            {
-              sender_id: currentUserId,
-              userId: followingId!,
-            },
-            {
-              sender_id: followingId!,
-              userId: currentUserId,
-            }
-          ]
-        },
-      });
-
-      return new NextResponse(
-        JSON.stringify({ 
-          status: "DELETED",
-          message: "Follow request cancelled"
-        }), 
-        { status: 200 }
-      );
-    }
-
-    // If followerId is provided in body, use it, otherwise use session user id
-    const actualFollowerId = session.user.id;
-
     // Check if there's an existing follow relationship
+    console.log("[Follow API] Checking for existing follow relationship");
     const existingFollow = await prisma.follows.findUnique({
       where: {
         followerId_followingId: {
-          followerId: actualFollowerId,
+          followerId: session.user.id,
           followingId: followingId!
         }
       }
     });
 
+    console.log("[Follow API] Existing follow relationship:", existingFollow);
+
     if (action === "unfollow") {
+      console.log("[Follow API] Processing unfollow action");
       if (!existingFollow) {
+        console.log("[Follow API] No follow relationship found to unfollow");
         return new NextResponse(
           JSON.stringify({ error: "Follow relationship not found" }),
           { status: 404 }
@@ -250,11 +118,13 @@ export async function POST(req: Request) {
       await prisma.follows.delete({
         where: {
           followerId_followingId: {
-            followerId: actualFollowerId,
+            followerId: session.user.id,
             followingId: followingId!
           }
         }
       });
+
+      console.log("[Follow API] Deleted follow relationship");
 
       // Delete ALL follow-related notifications between these users
       await prisma.notification.deleteMany({
@@ -265,19 +135,21 @@ export async function POST(req: Request) {
           AND: [
             {
               OR: [
-                { sender_id: actualFollowerId },
+                { sender_id: session.user.id },
                 { sender_id: followingId }
               ]
             },
             {
               OR: [
-                { userId: actualFollowerId },
+                { userId: session.user.id },
                 { userId: followingId }
               ]
             }
           ]
         },
       });
+
+      console.log("[Follow API] Deleted related notifications");
 
       return new NextResponse(
         JSON.stringify({ 
@@ -290,6 +162,7 @@ export async function POST(req: Request) {
 
     // Handle follow action
     if (existingFollow) {
+      console.log("[Follow API] Follow relationship already exists:", existingFollow);
       return new NextResponse(
         JSON.stringify({ 
           error: "Already following or requested",
@@ -300,12 +173,16 @@ export async function POST(req: Request) {
     }
 
     // Get the target user to check if they're private
+    console.log("[Follow API] Checking target user privacy settings");
     const targetUser = await prisma.user.findUnique({
       where: { id: followingId! },
       select: { isPrivate: true }
     });
 
+    console.log("[Follow API] Target user privacy settings:", targetUser);
+
     if (!targetUser) {
+      console.log("[Follow API] Target user not found");
       return new NextResponse(
         JSON.stringify({ error: "Target user not found" }),
         { status: 404 }
@@ -313,6 +190,7 @@ export async function POST(req: Request) {
     }
 
     // Before creating a new follow relationship, delete any existing notifications
+    console.log("[Follow API] Cleaning up existing notifications");
     await prisma.notification.deleteMany({
       where: {
         type: {
@@ -321,13 +199,13 @@ export async function POST(req: Request) {
         AND: [
           {
             OR: [
-              { sender_id: actualFollowerId },
+              { sender_id: session.user.id },
               { sender_id: followingId }
             ]
           },
           {
             OR: [
-              { userId: actualFollowerId },
+              { userId: session.user.id },
               { userId: followingId }
             ]
           }
@@ -336,24 +214,30 @@ export async function POST(req: Request) {
     });
 
     // Create the follow relationship
+    console.log("[Follow API] Creating new follow relationship");
     const follow = await prisma.follows.create({
       data: {
-        followerId: actualFollowerId,
+        followerId: session.user.id,
         followingId: followingId!,
         status: targetUser.isPrivate ? "PENDING" : "ACCEPTED"
       }
     });
 
+    console.log("[Follow API] Created follow relationship:", follow);
+
     // Create a single new notification
+    console.log("[Follow API] Creating notification");
     await prisma.notification.create({
       data: {
         id: crypto.randomUUID(),
         userId: followingId!,
         type: targetUser.isPrivate ? "FOLLOW_REQUEST" : "FOLLOW",
-        sender_id: actualFollowerId,
+        sender_id: session.user.id,
         createdAt: new Date()
       }
     });
+
+    console.log("[Follow API] Created notification");
 
     return new NextResponse(
       JSON.stringify({ 
@@ -366,7 +250,7 @@ export async function POST(req: Request) {
     );
 
   } catch (error) {
-    console.error("Follow API Error:", {
+    console.error("[Follow API] Error:", {
       error,
       errorMessage: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
