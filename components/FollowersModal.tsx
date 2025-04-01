@@ -77,7 +77,7 @@ export default function FollowersModal({
           ) : (
             <div className="p-4 space-y-4">
               {followers.map((user) => (
-                <div key={user.id} className="flex items-center justify-between">
+                <div key={user.uniqueId} className="flex items-center justify-between">
                   <Link
                     href={`/dashboard/${user.username}`}
                     className="flex items-center gap-3 hover:opacity-75 transition"

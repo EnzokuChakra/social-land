@@ -27,6 +27,15 @@ import { db } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
 import { uploadFile } from "@/lib/uploadFile";
 import { deleteUploadedFile } from "@/lib/server-utils";
+import { PrismaClient } from "@prisma/client";
+
+// Helper function to ensure prisma is available
+function getPrisma(): PrismaClient {
+  if (!prisma) {
+    throw new Error('Prisma client is not initialized');
+  }
+  return prisma;
+}
 
 const followCooldowns = new Map<string, number>();
 const FOLLOW_COOLDOWN_MS = 5000; // 5 seconds cooldown
@@ -115,10 +124,10 @@ export async function deletePost(postId: string) {
     }
 
     // Delete all related records in a transaction
-    await db.$transaction(async (tx: typeof db) => {
+    await db.$transaction(async (tx) => {
       // Delete all saved posts
       await tx.savedpost.deleteMany({
-        where: { postId }
+        where: { postId: postId || undefined }
       });
 
       // Delete all likes
@@ -221,7 +230,7 @@ async function createNotification({
   try {
     if (type === "LIKE" && postId) {
       // Find any existing like notification for this post
-      const existingNotification = await prisma.notification.findFirst({
+      const existingNotification = await getPrisma().notification.findFirst({
         where: {
           type: "LIKE",
           userId: user_id,
@@ -233,7 +242,7 @@ async function createNotification({
       });
 
       // Get count of other likes (excluding the current user)
-      const otherLikes = await prisma.like.count({
+      const otherLikes = await getPrisma().like.count({
         where: {
           postId,
           user_id: {
@@ -244,7 +253,7 @@ async function createNotification({
 
       if (existingNotification) {
         // Update the existing notification with new sender and others count
-        await prisma.notification.update({
+        await getPrisma().notification.update({
           where: { id: existingNotification.id },
           data: {
             sender_id,
@@ -254,7 +263,7 @@ async function createNotification({
         });
       } else {
         // Create new notification if none exists
-        await prisma.notification.create({
+        await getPrisma().notification.create({
           data: {
             id: crypto.randomUUID(),
             type,
@@ -267,7 +276,7 @@ async function createNotification({
       }
     } else if (type === "COMMENT" && postId) {
       // Find any existing comment notification for this post
-      const existingNotification = await prisma.notification.findFirst({
+      const existingNotification = await getPrisma().notification.findFirst({
         where: {
           type: "COMMENT",
           userId: user_id,
@@ -279,7 +288,7 @@ async function createNotification({
       });
 
       // Get count of other comments (excluding the current user)
-      const otherComments = await prisma.comment.count({
+      const otherComments = await getPrisma().comment.count({
         where: {
           postId,
           user_id: {
@@ -291,7 +300,7 @@ async function createNotification({
 
       if (existingNotification) {
         // Update the existing notification with new sender and others count
-        await prisma.notification.update({
+        await getPrisma().notification.update({
           where: { id: existingNotification.id },
           data: {
             sender_id,
@@ -304,7 +313,7 @@ async function createNotification({
         });
       } else {
         // Create new notification if none exists
-        await prisma.notification.create({
+        await getPrisma().notification.create({
           data: {
             id: crypto.randomUUID(),
             type,
@@ -332,7 +341,7 @@ async function createNotification({
         data.metadata = { commentId };
       }
 
-      await prisma.notification.create({ data });
+      await getPrisma().notification.create({ data });
     }
   } catch (error) {
     console.error("Error creating notification:", error);
@@ -884,12 +893,13 @@ export async function deleteComment(formData: FormData) {
     }
 
     // Check authorization
-    const post = comment.postId
-      ? await db.post.findUnique({
-          where: { id: comment.postId },
-          select: { user_id: true },
-        })
-      : null;
+    let post = null;
+    if (comment.postId && typeof comment.postId === 'string') {
+      post = await db.post.findUnique({
+        where: { id: comment.postId },
+        select: { user_id: true },
+      });
+    }
 
     const canDelete = comment.user_id === user_id || post?.user_id === user_id;
 
@@ -1124,7 +1134,7 @@ export async function followUser({
     }
 
     // Check if there's an existing follow relationship
-    const existingFollow = await prisma.follows.findFirst({
+    const existingFollow = await getPrisma().follows.findFirst({
       where: {
         followerId: action === "accept" ? followingId : followerId,
         followingId: action === "accept" ? followerId : followingId,
@@ -1140,7 +1150,7 @@ export async function followUser({
       }
 
       // Delete the follow relationship
-      await prisma.follows.delete({
+      await getPrisma().follows.delete({
         where: {
           followerId_followingId: {
             followerId,
@@ -1150,7 +1160,7 @@ export async function followUser({
       });
 
       // Delete ALL follow-related notifications between these users
-      await prisma.notification.deleteMany({
+      await getPrisma().notification.deleteMany({
         where: {
           type: {
             in: ["FOLLOW", "FOLLOW_REQUEST"]
@@ -1185,7 +1195,7 @@ export async function followUser({
       }
 
       // Update the follow status to ACCEPTED
-      await prisma.follows.update({
+      await getPrisma().follows.update({
         where: {
           followerId_followingId: {
             followerId: followingId, // The person who sent the request
@@ -1198,7 +1208,7 @@ export async function followUser({
       });
 
       // Delete any existing follow notifications between these users
-      await prisma.notification.deleteMany({
+      await getPrisma().notification.deleteMany({
         where: {
           type: {
             in: ["FOLLOW", "FOLLOW_REQUEST"]
@@ -1217,7 +1227,7 @@ export async function followUser({
       });
 
       // Create a single new follow notification
-      await prisma.notification.create({
+      await getPrisma().notification.create({
         data: {
           id: crypto.randomUUID(),
           type: "FOLLOW",
@@ -1239,7 +1249,7 @@ export async function followUser({
         };
       }
 
-      await prisma.follows.delete({
+      await getPrisma().follows.delete({
         where: {
           followerId_followingId: {
             followerId: followingId, // The person who sent the request
@@ -1249,7 +1259,7 @@ export async function followUser({
       });
 
       // Delete the follow request notification
-      await prisma.notification.deleteMany({
+      await getPrisma().notification.deleteMany({
         where: {
           type: "FOLLOW_REQUEST",
           userId: followerId,
@@ -1269,7 +1279,7 @@ export async function followUser({
     }
 
     // For a new follow request
-    const targetUser = await prisma.user.findUnique({
+    const targetUser = await getPrisma().user.findUnique({
       where: { id: followingId },
       select: { isPrivate: true },
     });
@@ -1279,7 +1289,7 @@ export async function followUser({
     }
 
     // Delete any existing follow notifications between these users
-    await prisma.notification.deleteMany({
+    await getPrisma().notification.deleteMany({
       where: {
         type: {
           in: ["FOLLOW", "FOLLOW_REQUEST"]
@@ -1302,7 +1312,7 @@ export async function followUser({
     });
 
     // Create the follow relationship
-    const newFollow = await prisma.follows.create({
+    const newFollow = await getPrisma().follows.create({
       data: {
         followerId: followerId, // The person who is following (Tony)
         followingId: followingId, // The person being followed (Enzoku)
@@ -1311,7 +1321,7 @@ export async function followUser({
     });
 
     // Create a single new notification
-    await prisma.notification.create({
+    await getPrisma().notification.create({
       data: {
         id: crypto.randomUUID(),
         type: targetUser.isPrivate ? "FOLLOW_REQUEST" : "FOLLOW",
@@ -1740,7 +1750,7 @@ export async function fetchEvents() {
 
 export async function fetchEventById(id: string) {
   try {
-    const event = await prisma.event.findUnique({
+    const event = await getPrisma().event.findUnique({
       where: { id },
       include: {
         user: {

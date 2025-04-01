@@ -1,6 +1,7 @@
 import { fetchProfile } from "@/lib/data";
 import FollowersModal from "@/components/FollowersModal";
 import { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 interface Props {
   params: { username: string };
@@ -10,8 +11,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const username = params.username;
   const profile = await fetchProfile(username);
   
+  if (!profile) {
+    return {
+      title: "User not found • Social Land",
+    };
+  }
+  
   return {
-    title: `${profile?.username || "User"}'s followers • Social Land`,
+    title: `${profile.username}'s followers • Social Land`,
   };
 }
 
@@ -20,7 +27,7 @@ export default async function FollowersPage({ params }: Props) {
   const profile = await fetchProfile(username);
 
   if (!profile) {
-    return null;
+    notFound();
   }
 
   const followers = profile.followers || [];
@@ -41,6 +48,7 @@ export default async function FollowersPage({ params }: Props) {
         username={username}
         isPrivate={profile.isPrivate}
         isFollowing={profile.isFollowing}
+        onClose={() => {}}
       />
     </div>
   );

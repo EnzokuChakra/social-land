@@ -23,8 +23,8 @@ export const BookmarkSchema = z.object({
 export const CommentSchema = z.object({
   id: z.string(),
   body: z.string().max(1000, { message: "Comment cannot exceed 1,000 characters" }),
-  postId: z.string().nullable(),
-  parentId: z.string().nullable(),
+  postId: z.string().optional(),
+  parentId: z.string().optional(),
 });
 
 export const CreateComment = CommentSchema.omit({ id: true });

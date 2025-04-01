@@ -51,10 +51,11 @@ export type Like = {
   id: string;
   createdAt: Date;
   updatedAt: Date;
-  postId: string | null;
-  reelId: string | null;
-  storyId: string | null;
-  user_id: string;
+  postId: string;
+  userId: string;
+  user: User & {
+    stories?: { id: string }[];
+  };
 };
 
 export type Comment = {
@@ -79,7 +80,10 @@ export type SavedPost = {
   createdAt: Date;
   updatedAt: Date;
   postId: string;
-  user_id: string;
+  userId: string;
+  user: User & {
+    stories?: { id: string }[];
+  };
 };
 
 export type NotificationType = "LIKE" | "COMMENT" | "FOLLOW" | "FOLLOW_REQUEST" | "COMMENT_REPLY" | "REPLY" | "MENTION" | "TAG";
@@ -168,11 +172,24 @@ export type PostWithExtras = Post & {
     hasPendingRequest?: boolean;
     isFollowedByUser?: boolean;
     hasActiveStory?: boolean;
+    stories?: { id: string }[];
   };
-  likes: (Like & { user: User })[];
-  savedBy: (SavedPost & { user: User })[];
+  likes: (Like & {
+    user: User & {
+      stories?: { id: string }[];
+    };
+  })[];
+  savedBy: (SavedPost & {
+    user: User & {
+      stories?: { id: string }[];
+    };
+  })[];
   comments: CommentWithExtras[];
-  tags: PostTag[];
+  tags: (PostTag & {
+    user: User & {
+      stories?: { id: string }[];
+    };
+  })[];
 };
 
 export type StoryWithExtras = Story & {
@@ -194,9 +211,20 @@ export type CommentWithExtras = Comment & {
     hasPendingRequest?: boolean;
     isFollowedByUser?: boolean;
     hasActiveStory?: boolean;
+    stories?: { id: string }[];
   };
   likes: CommentLike[];
-  replies?: CommentWithExtras[];
+  replies?: (Comment & {
+    user: User & {
+      isFollowing?: boolean;
+      isPrivate?: boolean;
+      hasPendingRequest?: boolean;
+      isFollowedByUser?: boolean;
+      hasActiveStory?: boolean;
+      stories?: { id: string }[];
+    };
+    likes: CommentLike[];
+  })[];
   parentId: string | null;
 };
 
@@ -206,7 +234,9 @@ export type CommentLike = {
   updatedAt: Date;
   commentId: string;
   user_id: string;
-  user: User;
+  user: User & {
+    stories?: { id: string }[];
+  };
 };
 
 export type CommentLikeWithExtras = CommentLike & {
@@ -346,12 +376,15 @@ export type ProfileFormData = {
 
 export type PostTag = {
   id: string;
+  createdAt: Date;
+  updatedAt: Date;
   postId: string;
   userId: string;
   x?: number | null;
   y?: number | null;
-  createdAt: Date;
-  user: User;
+  user: User & {
+    stories?: { id: string }[];
+  };
 };
 
 export type UserAvatarUser = {
