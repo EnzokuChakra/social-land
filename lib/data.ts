@@ -280,11 +280,11 @@ export async function fetchPosts(userId?: string) {
   try {
     const prisma = getPrisma();
     const posts = await prisma.post.findMany({
-      where: {
+          where: {
         user_id: userId,
-      },
-      include: {
-        user: {
+          },
+          include: {
+            user: {
           include: {
             stories: {
               select: {
@@ -292,22 +292,22 @@ export async function fetchPosts(userId?: string) {
               },
             },
           },
-        },
-        likes: {
-          include: {
+            },
+            likes: {
+              include: {
             user: true,
           },
         },
         savedBy: {
-          include: {
+              include: {
             user: true,
           },
         },
         comments: {
           include: {
             user: true,
-            likes: {
-              include: {
+                likes: {
+                  include: {
                 user: true,
               },
             },
@@ -335,9 +335,9 @@ export async function fetchPosts(userId?: string) {
     });
 
     return posts.map((post) => transformPost({
-      ...post,
-      user: {
-        ...post.user,
+        ...post,
+        user: {
+          ...post.user,
         stories: post.user.stories || [],
       },
       likes: post.likes || [],
@@ -362,8 +362,8 @@ export async function fetchPostById(postId: string) {
         user: {
           include: {
             stories: {
-              select: {
-                id: true,
+          select: {
+            id: true,
               },
             },
           },
@@ -596,13 +596,13 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
   try {
     const prisma = getPrisma();
     const profile = await prisma.user.findUnique({
-      where: {
+              where: {
         username,
-      },
+              },
       include: {
         posts: {
-          include: {
-            user: {
+              include: {
+                user: {
               include: {
                 stories: {
                   select: {
@@ -610,21 +610,21 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
                   },
                 },
               },
-            },
-            likes: {
-              include: {
+                },
+                likes: {
+                  include: {
                 user: true,
               },
             },
             savedBy: {
-              include: {
+                  include: {
                 user: true,
               },
             },
             comments: {
               include: {
                 user: true,
-                likes: {
+                    likes: {
                   include: {
                     user: true,
                   },
@@ -651,23 +651,23 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
         savedPosts: {
           include: {
             post: {
-              include: {
-                user: {
+                      include: {
+                        user: {
                   include: {
                     stories: {
-                      select: {
-                        id: true,
+                          select: {
+                            id: true,
                       },
                     },
                   },
-                },
-                likes: {
-                  include: {
+            },
+            likes: {
+              include: {
                     user: true,
                   },
-                },
-                savedBy: {
-                  include: {
+            },
+            savedBy: {
+              include: {
                     user: true,
                   },
                 },
@@ -690,9 +690,9 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
                       },
                     },
                   },
-                },
-                tags: {
-                  include: {
+            },
+            tags: {
+              include: {
                     user: true,
                   },
                 },
@@ -707,7 +707,7 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
           },
         },
         following: {
-          include: {
+              include: {
             following: true,
           },
         },
