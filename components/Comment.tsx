@@ -30,7 +30,7 @@ type Props = {
 };
 
 function Comment({ comment: initialComment, inputRef, postUserId, onReply, initialShowReplies = false, hasStoryRing, onAvatarClick }: Props) {
-  const [comment, setComment] = useState(initialComment);
+  const [comment, setComment] = useState<CommentWithExtras | null>(initialComment);
   const [likesCount, setLikesCount] = useState(initialComment.likes?.length || 0);
   const [isLiked, setIsLiked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -41,31 +41,32 @@ function Comment({ comment: initialComment, inputRef, postUserId, onReply, initi
   const router = useRouter();
   const socket = useSocket();
 
-  // Ensure we have a valid user object, even for deleted users
-  const user = comment.user || {
-    id: 'deleted',
-    username: 'deleted',
-    name: 'Deleted User',
-    image: null,
-    verified: false,
-    email: null,
-    bio: null,
-    isPrivate: false,
-    role: 'USER' as const,
-    status: 'NORMAL' as const,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
+  // Handle comment deletion event
+  useEffect(() => {
+    const handleCommentDelete = (event: CustomEvent) => {
+      if (!comment) return;
 
-  const username = user.username || "deleted";
-  const href = username === "deleted" ? "#" : `/dashboard/${username}`;
-  
-  // Check if comment has replies
-  const hasReplies = comment.replies && comment.replies.length > 0;
-  
+      if (event.detail.commentId === comment.id) {
+        // If this is the deleted comment, remove it from the UI
+        setComment(null);
+      } else if (comment.replies) {
+        // If this is a parent comment, remove the deleted reply
+        setComment({
+          ...comment,
+          replies: comment.replies.filter(reply => reply.id !== event.detail.commentId)
+        });
+      }
+    };
+
+    window.addEventListener('commentDelete', handleCommentDelete as EventListener);
+    return () => {
+      window.removeEventListener('commentDelete', handleCommentDelete as EventListener);
+    };
+  }, [comment]);
+
   // Auto-expand comments with new replies
   useEffect(() => {
-    if (comment.replies && comment.replies.length > 0) {
+    if (comment?.replies && comment.replies.length > 0) {
       // Check if there are any replies that were created in the last 5 seconds
       const hasNewReplies = comment.replies.some(
         reply => new Date().getTime() - new Date(reply.createdAt).getTime() < 5000
@@ -75,10 +76,12 @@ function Comment({ comment: initialComment, inputRef, postUserId, onReply, initi
         setShowReplies(true);
       }
     }
-  }, [comment.replies]);
-  
+  }, [comment?.replies]);
+
   // Initialize likes count and liked status from the actual comment data
   useEffect(() => {
+    if (!comment) return;
+    
     console.log("[Comment] Initializing comment state:", {
       commentId: comment.id,
       initialLikes: comment.likes,
@@ -91,7 +94,7 @@ function Comment({ comment: initialComment, inputRef, postUserId, onReply, initi
       setShowOptions(true);
       setIsLiked(comment.likes.some(like => like.user_id === session?.user.id) || false);
     }
-  }, [status, session, comment.user_id, postUserId, comment.likes, comment.id]);
+  }, [status, session, comment?.user_id, postUserId, comment?.likes, comment?.id]);
 
   // Debug socket connection
   useEffect(() => {
@@ -104,7 +107,7 @@ function Comment({ comment: initialComment, inputRef, postUserId, onReply, initi
 
   // Socket event listener for real-time like updates
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !comment) return;
 
     const handleLikeUpdate = (data: { commentId: string; userId: string; action: 'like' | 'unlike'; timestamp: string }) => {
       if (data.commentId === comment.id) {
@@ -135,7 +138,7 @@ function Comment({ comment: initialComment, inputRef, postUserId, onReply, initi
     return () => {
       socket.off("commentLikeUpdate", handleLikeUpdate);
     };
-  }, [socket, comment.id, session?.user?.id]);
+  }, [socket, comment?.id, session?.user?.id]);
 
   // Initialize show replies state from prop when it changes
   useEffect(() => {
@@ -144,6 +147,31 @@ function Comment({ comment: initialComment, inputRef, postUserId, onReply, initi
     }
   }, [initialShowReplies]);
 
+  // If comment was deleted, don't render anything
+  if (!comment) return null;
+
+  // Ensure we have a valid user object, even for deleted users
+  const user = comment.user || {
+    id: 'deleted',
+    username: 'deleted',
+    name: 'Deleted User',
+    image: null,
+    verified: false,
+    email: null,
+    bio: null,
+    isPrivate: false,
+    role: 'USER' as const,
+    status: 'NORMAL' as const,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const username = user.username || "deleted";
+  const href = username === "deleted" ? "#" : `/dashboard/${username}`;
+  
+  // Check if comment has replies
+  const hasReplies = comment.replies && comment.replies.length > 0;
+  
   const handleLikeClick = async () => {
     if (!session?.user || isLoading) return;
     

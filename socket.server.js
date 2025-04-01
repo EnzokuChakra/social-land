@@ -81,6 +81,16 @@ io.on("connection", (socket) => {
     }
   });
 
+  // Handle comment deletion
+  socket.on("commentDelete", (data) => {
+    try {
+      console.log("[SOCKET] Comment delete received:", data);
+      io.emit("commentDelete", data);
+    } catch (error) {
+      console.error("[SOCKET] Error handling commentDelete:", error);
+    }
+  });
+
   // Handle profile updates
   socket.on("profileUpdate", (data) => {
     try {

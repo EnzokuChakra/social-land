@@ -38,8 +38,6 @@ function Post({ post }: { post: PostWithExtras }) {
   const socket = useSocket();
   const storyModal = useStoryModal();
 
-  if (!session?.user) return null;
-
   // Initialize likes count and liked status from the actual post data
   useEffect(() => {
     console.log("[Post] Initializing post state:", {
@@ -89,6 +87,8 @@ function Post({ post }: { post: PostWithExtras }) {
       socket.off("postLikeUpdate", handleLikeUpdate);
     };
   }, [socket, post.id, session?.user?.id]);
+
+  if (!session?.user) return null;
 
   const handleAvatarClick = async (e: React.MouseEvent) => {
     e.preventDefault();

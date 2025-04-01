@@ -16,7 +16,7 @@ import { MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import { deleteComment } from "@/lib/actions";
 import { useSession } from "next-auth/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 type Props = {
   comment: CommentWithExtras;
@@ -29,6 +29,7 @@ function CommentOptions({ comment, postUserId }: Props) {
   const isCommentOwner = comment.user_id === currentUserId;
   const isPostOwner = postUserId === currentUserId;
   const canDelete = isCommentOwner || isPostOwner;
+  const [isOpen, setIsOpen] = useState(false);
 
   // Debug logging
   useEffect(() => {
@@ -48,8 +49,32 @@ function CommentOptions({ comment, postUserId }: Props) {
     toast.success("Comment reported successfully");
   };
 
+  const handleDelete = async () => {
+    try {
+      const formData = new FormData();
+      formData.append("id", comment.id);
+      
+      // Delete from the server
+      const { message } = await deleteComment(formData);
+      
+      // Close the dialog
+      setIsOpen(false);
+      
+      // Show success message
+      toast.success(message);
+      
+      // Dispatch custom event for optimistic update
+      const event = new CustomEvent('commentDelete', {
+        detail: { commentId: comment.id }
+      });
+      window.dispatchEvent(event);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete comment");
+    }
+  };
+
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <button className="hover:text-neutral-600 dark:hover:text-neutral-300">
           <MoreHorizontal className="h-4 w-4" />
@@ -70,37 +95,17 @@ function CommentOptions({ comment, postUserId }: Props) {
                 </DialogDescription>
               </DialogHeader>
 
-              <form
-                action={async (formData) => {
-                  try {
-                    // Optimistically remove the comment from UI
-                    if (window && window.dispatchEvent) {
-                      const commentDeletedEvent = new CustomEvent('comment-deleted', {
-                        detail: {
-                          commentId: comment.id,
-                          parentId: comment.parentId
-                        }
-                      });
-                      window.dispatchEvent(commentDeletedEvent);
-                    }
-                    
-                    // Then actually delete from the server
-                    const { message } = await deleteComment(formData);
-                    toast.success(message);
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Failed to delete comment");
-                  }
-                }}
-                className="space-y-3"
-              >
-                <input type="hidden" name="id" value={comment.id} />
-                <SubmitButton className="w-full bg-red-500 hover:bg-red-600 text-white rounded-md p-2.5 text-sm font-semibold">
+              <div className="space-y-3">
+                <button
+                  onClick={handleDelete}
+                  className="w-full bg-red-500 hover:bg-red-600 text-white rounded-md p-2.5 text-sm font-semibold"
+                >
                   Delete
-                </SubmitButton>
+                </button>
                 <DialogClose className="w-full border rounded-md p-2.5 text-sm font-semibold">
                   Cancel
                 </DialogClose>
-              </form>
+              </div>
             </>
           ) : (
             <>

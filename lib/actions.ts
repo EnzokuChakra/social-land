@@ -931,12 +931,19 @@ export async function deleteComment(formData: FormData) {
       where: { id },
     });
 
-    console.log(`Successfully deleted comment ${id} and all its replies`);
-    revalidatePath("/dashboard");
-    return { message: "Deleted comment and all replies." };
+    // Emit socket event for real-time update
+    if (global.io) {
+      global.io.emit("commentDelete", {
+        postId: comment.postId,
+        commentId: id,
+        parentId: null
+      });
+    }
+
+    return { message: "Comment deleted successfully" };
   } catch (error) {
     console.error("Error deleting comment:", error);
-    return { message: "Database Error: Failed to Delete Comment." };
+    throw new Error(error instanceof Error ? error.message : "Failed to delete comment");
   }
 }
 
@@ -986,9 +993,12 @@ export async function updatePost(values: z.infer<typeof UpdatePost>) {
 export async function updateProfile(values: z.infer<typeof UpdateUser>) {
   const user_id = await getUserId();
 
+  console.log("[UPDATE_PROFILE] Received values:", values);
+
   const validatedFields = UpdateUser.safeParse(values);
 
   if (!validatedFields.success) {
+    console.error("[UPDATE_PROFILE] Validation failed:", validatedFields.error.flatten().fieldErrors);
     return {
       errors: validatedFields.error.flatten().fieldErrors,
       message: "Missing Fields. Failed to Update Profile.",
@@ -1003,17 +1013,28 @@ export async function updateProfile(values: z.infer<typeof UpdateUser>) {
       where: { id: user_id },
       select: { 
         username: true,
-        lastUsernameChange: true 
+        lastUsernameChange: true,
+        image: true
       }
     });
 
     if (!currentUser) {
+      console.error("[UPDATE_PROFILE] User not found:", user_id);
       return { 
         message: "User not found",
         errors: {
           form: ["User not found"]
         }
       };
+    }
+
+    // If updating image, delete old image if it exists
+    if (image && image !== currentUser.image && currentUser.image) {
+      try {
+        await deleteUploadedFile(currentUser.image);
+      } catch (error) {
+        console.error("[UPDATE_PROFILE] Error deleting old image:", error);
+      }
     }
 
     // Check if username is being changed
@@ -1029,6 +1050,7 @@ export async function updateProfile(values: z.infer<typeof UpdateUser>) {
       });
 
       if (existingUser) {
+        console.error("[UPDATE_PROFILE] Username already taken:", username);
         return { 
           message: "Username already exists",
           errors: {
@@ -1045,6 +1067,7 @@ export async function updateProfile(values: z.infer<typeof UpdateUser>) {
 
         if (daysSinceLastChange < 14) {
           const daysLeft = 14 - daysSinceLastChange;
+          console.error("[UPDATE_PROFILE] Username change too soon:", daysLeft, "days left");
           return {
             message: `You can only change your username once every 14 days. Please wait ${daysLeft} more days.`,
             errors: {
@@ -1055,36 +1078,45 @@ export async function updateProfile(values: z.infer<typeof UpdateUser>) {
       }
     }
 
-    // Update the user profile
-    await db.user.update({
-      where: {
-        id: user_id,
-      },
-      data: {
+    // Prepare update data
+    const updateData: any = {
+      ...(name !== undefined && { name }),
+      ...(image !== undefined && { image }),
+      ...(username && username !== currentUser.username && { 
         username,
-        name,
-        image,
-        bio,
-        isPrivate,
-        // Update lastUsernameChange only if username is being changed
-        ...(username && username !== currentUser.username && {
-          lastUsernameChange: new Date()
-        })
-      },
-    });
+        lastUsernameChange: new Date()
+      }),
+      ...(bio !== undefined && { bio }),
+      ...(isPrivate !== undefined && { isPrivate })
+    };
 
-    // Revalidate all profile-related paths
-    revalidatePath("/dashboard");
-    revalidatePath(`/dashboard/${username}`);
-    revalidatePath(`/dashboard/${username}/saved`);
-    revalidatePath(`/dashboard/${username}/reels`);
-    revalidatePath(`/dashboard/${username}/tagged`);
+    console.log("[UPDATE_PROFILE] Update data:", updateData);
 
-    return { message: "Updated Profile." };
+    // Only update if there are changes
+    if (Object.keys(updateData).length > 0) {
+      await db.user.update({
+        where: {
+          id: user_id,
+        },
+        data: updateData,
+      });
+
+      // Revalidate all profile-related paths
+      revalidatePath("/dashboard");
+      if (username) {
+        revalidatePath(`/dashboard/${username}`);
+        revalidatePath(`/dashboard/${username}/saved`);
+        revalidatePath(`/dashboard/${username}/reels`);
+        revalidatePath(`/dashboard/${username}/tagged`);
+      }
+    }
+
+    console.log("[UPDATE_PROFILE] Profile updated successfully");
+    return { message: "Profile updated successfully" };
   } catch (error) {
-    console.error("Error updating profile:", error);
+    console.error("[UPDATE_PROFILE] Error:", error);
     return { 
-      message: "Database Error: Failed to Update Profile.",
+      message: "Failed to update profile",
       errors: {
         form: ["An unexpected error occurred. Please try again."]
       }

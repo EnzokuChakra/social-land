@@ -91,9 +91,36 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
       }
     };
 
+    const handleCommentDelete = (data: { postId: string; commentId: string; parentId: string | null }) => {
+      console.log("[PostView] Received comment delete:", data);
+      
+      if (data.postId === id) {
+        setComments(prevComments => {
+          if (data.parentId) {
+            // Handle reply deletion
+            return prevComments.map(comment => {
+              if (comment.id === data.parentId) {
+                return {
+                  ...comment,
+                  replies: comment.replies?.filter(reply => reply.id !== data.commentId) || []
+                };
+              }
+              return comment;
+            });
+          } else {
+            // Handle main comment deletion
+            return prevComments.filter(comment => comment.id !== data.commentId);
+          }
+        });
+      }
+    };
+
     socket.on("commentUpdate", handleCommentUpdate);
+    socket.on("commentDelete", handleCommentDelete);
+    
     return () => {
       socket.off("commentUpdate", handleCommentUpdate);
+      socket.off("commentDelete", handleCommentDelete);
     };
   }, [socket, id]);
 

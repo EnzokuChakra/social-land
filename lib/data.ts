@@ -59,42 +59,7 @@ interface FollowingData {
 
 export async function fetchPosts(userId?: string) {
   try {
-    // If userId is not provided, try to get it from the session
-    if (!userId) {
-      const session = await auth();
-      userId = session?.user?.id;
-    }
-    
-    const where = userId ? {
-      OR: [
-        // Posts from users you follow
-        {
-          user: {
-            followers: {
-              some: {
-                followerId: userId,
-                status: "ACCEPTED"
-              }
-            }
-          }
-        },
-        // Your own posts
-        {
-          user_id: userId
-        },
-        // Posts where you are tagged
-        {
-          tags: {
-            some: {
-              userId: userId
-            }
-          }
-        }
-      ]
-    } : undefined;
-
     const posts = await prisma.post.findMany({
-      where,
       include: {
         user: true,
         likes: true,
@@ -187,63 +152,11 @@ export async function fetchPosts(userId?: string) {
       },
       take: 20
     });
-    
-    // Transform posts to include proper user data in tags and comments
-    const transformedPosts = posts.map((post: PostWithExtras) => {
-      // Transform tags
-      const transformedTags = post.tags && Array.isArray(post.tags) 
-        ? post.tags.map((tag: PostTag & { user: User }) => ({
-            id: tag.id,
-            postId: tag.postId,
-            userId: tag.userId,
-            x: tag.x,
-            y: tag.y,
-            createdAt: tag.createdAt,
-            user: {
-              id: tag.user.id,
-              username: tag.user.username,
-              name: tag.user.name,
-              image: tag.user.image,
-              verified: tag.user.verified,
-              hasActiveStory: false
-            }
-          }))
-        : [];
 
-      // Transform comments and their replies
-      const transformedComments = post.comments.map((comment: CommentWithExtras) => ({
-        ...comment,
-        user: {
-          ...comment.user,
-          hasActiveStory: comment.user.stories && comment.user.stories.length > 0,
-          stories: undefined
-        },
-        replies: comment.replies?.map((reply: CommentWithExtras) => ({
-          ...reply,
-          user: {
-            ...reply.user,
-            hasActiveStory: reply.user.stories && reply.user.stories.length > 0,
-            stories: undefined
-          }
-        }))
-      }));
-
-      return {
-        ...post,
-        user: {
-          ...post.user,
-          hasActiveStory: post.user.stories && post.user.stories.length > 0,
-          stories: undefined
-        },
-        tags: transformedTags,
-        comments: transformedComments
-      };
-    });
-
-    return transformedPosts;
+    return posts;
   } catch (error) {
-    console.error("Error fetching posts:", error);
-    return [];
+    console.error("Database Error:", error);
+    throw new Error("Failed to fetch posts");
   }
 }
 
