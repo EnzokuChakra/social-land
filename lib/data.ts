@@ -24,6 +24,15 @@ import {
   EventWithUserData
 } from "./definitions";
 import { auth } from "@/lib/auth";
+import { PrismaClient } from "@prisma/client";
+
+// Helper function to ensure prisma is available
+function getPrisma(): PrismaClient {
+  if (!prisma) {
+    throw new Error('Prisma client is not initialized');
+  }
+  return prisma;
+}
 
 interface FollowerData {
   follower: {
@@ -57,190 +66,285 @@ interface FollowingData {
   status: string;
 }
 
+// Helper function to transform a user to match the User type
+function transformUser(user: any): User {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email || '',
+    username: user.username,
+    password: user.password || '',
+    image: user.image,
+    bio: user.bio || '',
+    verified: user.verified || false,
+    isPrivate: user.isPrivate || false,
+    role: user.role || 'USER',
+    status: user.status || 'NORMAL',
+    createdAt: user.createdAt || new Date(),
+    updatedAt: user.updatedAt || new Date(),
+    stories: user.stories || [],
+    hasActiveStory: user.hasActiveStory || false
+  };
+}
+
+// Helper function to transform a comment to match CommentWithExtras type
+function transformComment(comment: any): CommentWithExtras {
+  return {
+    ...comment,
+    user: {
+      ...transformUser(comment.user),
+      isFollowing: false,
+      isPrivate: comment.user.isPrivate || false,
+      hasPendingRequest: false,
+      isFollowedByUser: false,
+      hasActiveStory: false
+    },
+    likes: comment.likes?.map((like: any) => ({
+      id: like.id,
+      createdAt: like.createdAt,
+      updatedAt: like.updatedAt,
+      commentId: like.commentId,
+      user_id: like.user_id,
+      user: transformUser(like.user)
+    })) || [],
+    replies: comment.replies?.map((reply: any) => transformComment(reply)) || [],
+    parentId: comment.parentId || null
+  };
+}
+
+// Helper function to transform a post tag to match PostTag type
+function transformPostTag(tag: any): PostTag {
+  return {
+    id: tag.id,
+    postId: tag.postId,
+    userId: tag.userId,
+    x: tag.x || null,
+    y: tag.y || null,
+    createdAt: tag.createdAt,
+    user: transformUser(tag.user)
+  };
+}
+
+// Helper function to transform a post to match PostWithExtras type
+function transformPost(post: any): PostWithExtras {
+  const basePost: Post = {
+    id: post.id,
+    createdAt: post.createdAt,
+    updatedAt: post.updatedAt,
+    caption: post.caption,
+    location: post.location,
+    fileUrl: post.fileUrl,
+    aspectRatio: post.aspectRatio,
+    user_id: post.user_id
+  };
+
+  const transformedUser: User & {
+    isFollowing?: boolean;
+    isPrivate?: boolean;
+    hasPendingRequest?: boolean;
+    isFollowedByUser?: boolean;
+    hasActiveStory?: boolean;
+  } = {
+    ...transformUser(post.user),
+    isFollowing: false,
+    isPrivate: post.user.isPrivate || false,
+    hasPendingRequest: false,
+    isFollowedByUser: false,
+    hasActiveStory: post.user.stories?.length > 0 || false
+  };
+
+  const transformedLikes: (Like & { user: User })[] = (post.likes || []).map((like: any) => ({
+    id: like.id,
+    createdAt: like.createdAt,
+    updatedAt: like.updatedAt,
+    postId: like.postId,
+    reelId: like.reelId,
+    storyId: like.storyId,
+    user_id: like.user_id,
+    user: transformUser(like.user)
+  }));
+
+  const transformedSavedBy: (SavedPost & { user: User })[] = (post.savedBy || []).map((saved: any) => ({
+    id: saved.id,
+    createdAt: saved.createdAt,
+    updatedAt: saved.updatedAt,
+    postId: saved.postId,
+    user_id: saved.user_id,
+    user: transformUser(saved.user)
+  }));
+
+  const transformedTags: PostTag[] = (post.tags || []).map(transformPostTag);
+
+  return {
+    ...basePost,
+    user: transformedUser,
+    likes: transformedLikes,
+    savedBy: transformedSavedBy,
+    comments: (post.comments || []).map(transformComment),
+    tags: transformedTags
+  };
+}
+
+// Helper function to transform a saved post to match SavedPostWithExtras type
+function transformSavedPost(savedPost: any): SavedPostWithExtras {
+  const baseSavedPost: SavedPost = {
+    id: savedPost.id,
+    createdAt: savedPost.createdAt,
+    updatedAt: savedPost.updatedAt,
+    postId: savedPost.postId,
+    user_id: savedPost.user_id
+  };
+
+  return {
+    ...baseSavedPost,
+    post: transformPost(savedPost.post),
+    user: transformUser(savedPost.user)
+  };
+}
+
+// Helper function to transform a story to match StoryWithExtras type
+function transformStory(story: any): StoryWithExtras {
+  return {
+    ...story,
+    user: transformUser(story.user),
+    likes: story.likes?.map((like: any) => ({
+      ...like,
+      user: transformUser(like.user)
+    })) || [],
+    views: story.views?.map((view: any) => ({
+      ...view,
+      user: transformUser(view.user)
+    })) || []
+  };
+}
+
+// Helper function to transform a follower to match FollowerWithExtras type
+function transformFollower(follow: any): FollowerWithExtras {
+  const follower = follow.follower;
+  return {
+    id: follower.id,
+    username: follower.username,
+    name: follower.name,
+    image: follower.image,
+    verified: follower.verified,
+    isPrivate: follower.isPrivate,
+    followerId: follow.followerId,
+    followingId: follow.followingId,
+    status: follow.status,
+    isFollowing: false,
+    hasPendingRequest: false,
+    uniqueId: `${follow.followerId}-${follow.followingId}`,
+    follower: {
+      id: follower.id,
+      username: follower.username,
+      name: follower.name,
+      image: follower.image,
+      verified: follower.verified,
+      isPrivate: follower.isPrivate,
+      isFollowing: false,
+      hasPendingRequest: false
+    }
+  };
+}
+
+// Helper function to transform a following to match FollowingWithExtras type
+function transformFollowing(follow: any): FollowingWithExtras {
+  const following = follow.following;
+  return {
+    id: following.id,
+    username: following.username,
+    name: following.name,
+    image: following.image,
+    verified: following.verified,
+    isPrivate: following.isPrivate,
+    followerId: follow.followerId,
+    followingId: follow.followingId,
+    status: follow.status,
+    isFollowing: false,
+    hasPendingRequest: false,
+    uniqueId: `${follow.followerId}-${follow.followingId}`,
+    following: {
+      id: following.id,
+      username: following.username,
+      name: following.name,
+      image: following.image,
+      verified: following.verified,
+      isPrivate: following.isPrivate,
+      isFollowing: false,
+      hasPendingRequest: false
+    }
+  };
+}
+
 export async function fetchPosts(userId?: string) {
   try {
-    // If userId is not provided, try to get it from the session
-    if (!userId) {
-      const session = await auth();
-      userId = session?.user?.id;
-    }
-    
-    const where = userId ? {
-      OR: [
-        // Posts from users you follow
-        {
-          user: {
-            followers: {
-              some: {
-                followerId: userId,
-                status: "ACCEPTED"
-              }
-            }
-          }
-        },
-        // Your own posts
-        {
-          user_id: userId
-        },
-        // Posts where you are tagged
-        {
-          tags: {
-            some: {
-              userId: userId
-            }
-          }
-        }
-      ]
-    } : undefined;
-
+    const prisma = getPrisma();
     const posts = await prisma.post.findMany({
-      where,
+      where: {
+        user_id: userId,
+      },
       include: {
-        user: true,
-        likes: true,
-        savedBy: true,
-        comments: {
-          where: {
-            parentId: null // Only fetch top-level comments
-          },
+        user: {
           include: {
-            user: {
+            stories: {
               select: {
                 id: true,
-                name: true,
-                username: true,
-                image: true,
-                verified: true,
-                stories: {
-                  where: {
-                    createdAt: {
-                      gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-                    }
-                  },
-                  select: {
-                    id: true
-                  }
-                }
-              }
+              },
             },
+          },
+        },
+        likes: {
+          include: {
+            user: true,
+          },
+        },
+        savedBy: {
+          include: {
+            user: true,
+          },
+        },
+        comments: {
+          include: {
+            user: true,
             likes: {
               include: {
-                user: {
-                  select: {
-                    id: true,
-                    username: true,
-                    image: true
-                  }
-                }
-              }
+                user: true,
+              },
             },
             replies: {
               include: {
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    username: true,
-                    image: true,
-                    verified: true,
-                    stories: {
-                      where: {
-                        createdAt: {
-                          gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-                        }
-                      },
-                      select: {
-                        id: true
-                      }
-                    }
-                  }
-                },
+                user: true,
                 likes: {
                   include: {
-                    user: {
-                      select: {
-                        id: true,
-                        username: true,
-                        image: true
-                      }
-                    }
-                  }
-                }
+                    user: true,
+                  },
+                },
               },
-              orderBy: {
-                createdAt: "asc"
-              }
-            }
+            },
           },
-          orderBy: {
-            createdAt: "desc"
-          }
         },
         tags: {
           include: {
-            user: true
-          }
-        }
+            user: true,
+          },
+        },
       },
       orderBy: {
-        createdAt: "desc"
+        createdAt: "desc",
       },
-      take: 20
-    });
-    
-    // Transform posts to include proper user data in tags and comments
-    const transformedPosts = posts.map((post: PostWithExtras) => {
-      // Transform tags
-      const transformedTags = post.tags && Array.isArray(post.tags) 
-        ? post.tags.map((tag: PostTag & { user: User }) => ({
-            id: tag.id,
-            postId: tag.postId,
-            userId: tag.userId,
-            x: tag.x,
-            y: tag.y,
-            createdAt: tag.createdAt,
-            user: {
-              id: tag.user.id,
-              username: tag.user.username,
-              name: tag.user.name,
-              image: tag.user.image,
-              verified: tag.user.verified,
-              hasActiveStory: false
-            }
-          }))
-        : [];
-
-      // Transform comments and their replies
-      const transformedComments = post.comments.map((comment: CommentWithExtras) => ({
-        ...comment,
-        user: {
-          ...comment.user,
-          hasActiveStory: comment.user.stories && comment.user.stories.length > 0,
-          stories: undefined
-        },
-        replies: comment.replies?.map((reply: CommentWithExtras) => ({
-          ...reply,
-          user: {
-            ...reply.user,
-            hasActiveStory: reply.user.stories && reply.user.stories.length > 0,
-            stories: undefined
-          }
-        }))
-      }));
-
-      return {
-        ...post,
-        user: {
-          ...post.user,
-          hasActiveStory: post.user.stories && post.user.stories.length > 0,
-          stories: undefined
-        },
-        tags: transformedTags,
-        comments: transformedComments
-      };
     });
 
-    return transformedPosts;
+    return posts.map((post) => transformPost({
+      ...post,
+      user: {
+        ...post.user,
+        stories: post.user.stories || [],
+      },
+      likes: post.likes || [],
+      savedBy: post.savedBy || [],
+      comments: post.comments || [],
+      tags: post.tags || [],
+    }));
   } catch (error) {
     console.error("Error fetching posts:", error);
     return [];
@@ -248,179 +352,64 @@ export async function fetchPosts(userId?: string) {
 }
 
 export async function fetchPostById(postId: string) {
-  noStore();
-
   try {
+    const prisma = getPrisma();
     const post = await prisma.post.findUnique({
       where: {
-        id: postId
+        id: postId,
       },
       include: {
         user: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            image: true,
-            verified: true,
-            isPrivate: true,
+          include: {
             stories: {
-              where: {
-                createdAt: {
-                  gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-                }
-              },
               select: {
-                id: true
-              }
-            }
-          }
+                id: true,
+              },
+            },
+          },
         },
         likes: {
           include: {
-            user: {
-              select: {
-                id: true,
-                username: true,
-                image: true
-              }
-            }
-          }
-        },
-        comments: {
-          where: {
-            parentId: null // Only fetch top-level comments
+            user: true,
           },
-          include: {
-            user: {
-              select: {
-                id: true,
-                username: true,
-                image: true,
-                verified: true,
-                stories: {
-                  where: {
-                    createdAt: {
-                      gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-                    }
-                  },
-                  select: {
-                    id: true
-                  }
-                }
-              }
-            },
-            likes: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    username: true,
-                    image: true
-                  }
-                }
-              }
-            },
-            replies: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    username: true,
-                    image: true,
-                    verified: true,
-                    stories: {
-                      where: {
-                        createdAt: {
-                          gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-                        }
-                      },
-                      select: {
-                        id: true
-                      }
-                    }
-                  }
-                },
-                likes: {
-                  include: {
-                    user: {
-                      select: {
-                        id: true,
-                        username: true,
-                        image: true
-                      }
-                    }
-                  }
-                }
-              },
-              orderBy: {
-                createdAt: "asc"
-              }
-            }
-          },
-          orderBy: {
-            createdAt: "desc"
-          }
         },
         savedBy: {
           include: {
-            user: {
-              select: {
-                id: true,
-                username: true,
-                image: true
-              }
-            }
-          }
+            user: true,
+          },
         },
-        tags: {
+        comments: {
           include: {
-            user: {
-              select: {
-                id: true,
-                username: true,
-                name: true,
-                image: true,
-                verified: true
-              }
-            }
-          }
-        }
-      }
+            user: true,
+            likes: {
+              include: {
+                user: true,
+              },
+            },
+            replies: {
+              include: {
+                user: true,
+                likes: {
+                  include: {
+                    user: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        tags: true,
+      },
     });
 
-    if (!post) return null;
+    if (!post) {
+      throw new Error("Post not found");
+    }
 
-    // Transform the post to include hasActiveStory
-    const transformedPost = {
-      ...post,
-      user: {
-        ...post.user,
-        hasActiveStory: post.user.stories && post.user.stories.length > 0,
-        stories: undefined // Remove stories from the response
-      },
-      comments: post.comments.map((comment: CommentWithExtras) => ({
-        ...comment,
-        user: {
-          ...comment.user,
-          hasActiveStory: comment.user.stories && comment.user.stories.length > 0,
-          stories: undefined
-        },
-        replies: comment.replies?.map((reply: CommentWithExtras) => ({
-          ...reply,
-          user: {
-            ...reply.user,
-            hasActiveStory: reply.user.stories && reply.user.stories.length > 0,
-            stories: undefined
-          }
-        }))
-      }))
-    };
-
-    return transformedPost;
+    return transformPost(post);
   } catch (error) {
-    console.error("Database Error:", error);
-    throw new Error("Failed to fetch post");
+    console.error("Error fetching post:", error);
+    throw error;
   }
 }
 
@@ -428,7 +417,7 @@ export async function fetchPostsByUsername(username: string, postId?: string) {
   noStore();
 
   try {
-    const data = await prisma.post.findMany({
+    const data = await getPrisma().post.findMany({
       where: {
         user: {
           username,
@@ -604,446 +593,203 @@ export async function fetchPostsByUsername(username: string, postId?: string) {
 }
 
 export async function fetchProfile(username: string): Promise<UserWithExtras | null> {
-  noStore();
-
   try {
-    console.log("[Profile Fetch] Starting profile fetch for username:", username);
-    const session = await auth();
-    const userId = session?.user?.id;
-    
-    console.log("[Profile Fetch] Session data:", {
-      hasSession: !!session,
-      userId,
-      timestamp: new Date().toISOString()
-    });
-
-    if (!username) {
-      console.log("[Profile Fetch] No username provided");
-      return null;
-    }
-
-    // First get the user's ID
-    const user = await prisma.user.findUnique({
-      where: { username },
-      select: { id: true }
-    });
-
-    if (!user) {
-      console.log("[Profile Fetch] No user found for username:", username);
-      return null;
-    }
-
-    // Then get the full profile with followers/following
+    const prisma = getPrisma();
     const profile = await prisma.user.findUnique({
-      where: { id: user.id },
+      where: {
+        username,
+      },
       include: {
-        // Get user's own posts
         posts: {
-          orderBy: {
-            createdAt: "desc",
-          },
           include: {
-            comments: {
-              where: {
-                parentId: null // Only fetch top-level comments
-              },
+            user: {
               include: {
-                user: {
+                stories: {
                   select: {
                     id: true,
-                    username: true,
-                    name: true,
-                    image: true,
-                    verified: true,
-                    stories: {
-                      where: {
-                        createdAt: {
-                          gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-                        }
-                      },
-                      select: {
-                        id: true
-                      }
-                    }
-                  }
-                },
-                likes: {
-                  include: {
-                    user: {
-                      select: {
-                        id: true,
-                        username: true,
-                        name: true,
-                        image: true,
-                        verified: true
-                      }
-                    }
-                  }
-                },
-                replies: {
-                  include: {
-                    user: {
-                      select: {
-                        id: true,
-                        username: true,
-                        name: true,
-                        image: true,
-                        verified: true,
-                        stories: {
-                          where: {
-                            createdAt: {
-                              gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-                            }
-                          },
-                          select: {
-                            id: true
-                          }
-                        }
-                      }
-                    },
-                    likes: {
-                      include: {
-                        user: {
-                          select: {
-                            id: true,
-                            username: true,
-                            name: true,
-                            image: true,
-                            verified: true
-                          }
-                        }
-                      }
-                    }
                   },
-                  orderBy: {
-                    createdAt: "asc"
-                  }
-                }
+                },
               },
-              orderBy: {
-                createdAt: "desc"
-              }
             },
             likes: {
               include: {
-                user: {
-                  select: {
-                    id: true,
-                    username: true,
-                    name: true,
-                    image: true,
-                    verified: true
-                  }
-                }
-              }
+                user: true,
+              },
             },
             savedBy: {
               include: {
-                user: {
-                  select: {
-                    id: true,
-                    username: true,
-                    name: true,
-                    image: true,
-                    verified: true
-                  }
-                }
-              }
+                user: true,
+              },
             },
-            user: {
-              select: {
-                id: true,
-                username: true,
-                name: true,
-                image: true,
-                verified: true,
-                stories: {
-                  where: {
-                    createdAt: {
-                      gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-                    }
+            comments: {
+              include: {
+                user: true,
+                likes: {
+                  include: {
+                    user: true,
                   },
-                  select: {
-                    id: true
-                  }
-                }
-              }
+                },
+                replies: {
+                  include: {
+                    user: true,
+                    likes: {
+                      include: {
+                        user: true,
+                      },
+                    },
+                  },
+                },
+              },
             },
             tags: {
               include: {
-                user: {
-                  select: {
-                    id: true,
-                    username: true,
-                    name: true,
-                    image: true,
-                    verified: true
-                  }
-                }
-              }
-            }
-          }
+                user: true,
+              },
+            },
+          },
         },
         savedPosts: {
           include: {
             post: {
               include: {
                 user: {
-                  select: {
-                    id: true,
-                    username: true,
-                    name: true,
-                    image: true,
-                    verified: true,
+                  include: {
                     stories: {
-                      where: {
-                        createdAt: {
-                          gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-                        }
-                      },
                       select: {
-                        id: true
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
+                        id: true,
+                      },
+                    },
+                  },
+                },
+                likes: {
+                  include: {
+                    user: true,
+                  },
+                },
+                savedBy: {
+                  include: {
+                    user: true,
+                  },
+                },
+                comments: {
+                  include: {
+                    user: true,
+                    likes: {
+                      include: {
+                        user: true,
+                      },
+                    },
+                    replies: {
+                      include: {
+                        user: true,
+                        likes: {
+                          include: {
+                            user: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+                tags: {
+                  include: {
+                    user: true,
+                  },
+                },
+              },
+            },
+            user: true,
+          },
+        },
+        followers: {
+          include: {
+            follower: true,
+          },
+        },
+        following: {
+          include: {
+            following: true,
+          },
         },
         stories: {
-          where: {
-            createdAt: {
-              gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
-            }
-          },
           include: {
+            user: true,
             likes: {
               include: {
-                user: {
-                  select: {
-                    id: true,
-                    username: true,
-                    name: true,
-                    image: true,
-                    verified: true
-                  }
-                }
-              }
+                user: true,
+              },
             },
             views: {
               include: {
-                user: {
-                  select: {
-                    id: true,
-                    username: true,
-                    name: true,
-                    image: true,
-                    verified: true
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+                user: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!profile) {
-      console.log("[Profile Fetch] No profile found for username:", username);
-      return null;
+      throw new Error("Profile not found");
     }
 
-    console.log("[Profile Fetch] Profile found:", {
-      id: profile.id,
-      username: profile.username,
-      isPrivate: profile.isPrivate,
-      followersCount: profile.followers?.length || 0,
-      followingCount: profile.following?.length || 0
-    });
-
-    // Get followers and following counts with error handling
     const [followersCount, followingCount] = await Promise.allSettled([
       prisma.follows.count({
         where: {
-          followingId: user.id,
+          followingId: profile.id,
           status: "ACCEPTED",
         },
       }),
       prisma.follows.count({
         where: {
-          followerId: user.id,
+          followerId: profile.id,
           status: "ACCEPTED",
         },
       }),
-    ]).then(results => results.map(result => 
-      result.status === 'fulfilled' ? result.value : 0
-    ));
-
-    // Get followers and following
-    const [followers, following] = await Promise.allSettled([
-      prisma.follows.findMany({
-        where: {
-          followingId: user.id,
-          status: "ACCEPTED"
-        },
-        include: {
-          follower: {
-            select: {
-              id: true,
-              username: true,
-              name: true,
-              image: true,
-              verified: true,
-              isPrivate: true,
-              role: true,
-              status: true
-            }
-          }
-        }
-      }),
-      prisma.follows.findMany({
-        where: {
-          followerId: user.id,
-          status: "ACCEPTED"
-        },
-        include: {
-          following: {
-            select: {
-              id: true,
-              username: true,
-              name: true,
-              image: true,
-              verified: true,
-              isPrivate: true,
-              role: true,
-              status: true
-            }
-          }
-        }
-      })
     ]);
 
-    // Handle potential failures in parallel queries
-    const followersResult = followers.status === 'fulfilled' ? followers.value : [];
-    const followingResult = following.status === 'fulfilled' ? following.value : [];
-
-    // Transform followers and following data with proper types
-    const transformedFollowers = followersResult.map((f: FollowerData) => ({
-      ...f.follower,
-      followerId: f.followerId,
-      followingId: f.followingId,
-      status: f.status
-    }));
-
-    const transformedFollowing = followingResult.map((f: FollowingData) => ({
-      ...f.following,
-      followerId: f.followerId,
-      followingId: f.followingId,
-      status: f.status
-    }));
-
-    // Log the transformed data for debugging
-    console.log("[Profile Fetch] Transformed followers/following data:", {
-      followersCount: transformedFollowers.length,
-      followingCount: transformedFollowing.length,
-      sampleFollower: transformedFollowers[0] ? {
-        id: transformedFollowers[0].id,
-        username: transformedFollowers[0].username,
-        followerId: transformedFollowers[0].followerId,
-        followingId: transformedFollowers[0].followingId,
-        status: transformedFollowers[0].status
-      } : null,
-      sampleFollowing: transformedFollowing[0] ? {
-        id: transformedFollowing[0].id,
-        username: transformedFollowing[0].username,
-        followerId: transformedFollowing[0].followerId,
-        followingId: transformedFollowing[0].followingId,
-        status: transformedFollowing[0].status
-      } : null
-    });
-
-    // Get follow status if logged in user is viewing another profile
-    let followStatus = null;
-    if (userId && userId !== user.id) {
-      const follow = await prisma.follows.findUnique({
-        where: {
-          followerId_followingId: {
-            followerId: userId,
-            followingId: user.id,
-          },
-        },
-        select: {
-          status: true,
-        },
-      });
-      followStatus = follow?.status || null;
-    }
-
-    const result = {
-      ...profile,
-      posts: profile.posts.map((post: PostWithExtras) => ({
+    const transformedProfile: UserWithExtras = {
+      ...transformUser(profile),
+      followersCount: followersCount.status === 'fulfilled' ? followersCount.value : 0,
+      followingCount: followingCount.status === 'fulfilled' ? followingCount.value : 0,
+      posts: profile.posts.map((post) => transformPost({
         ...post,
         user: {
           ...post.user,
-          hasActiveStory: post.user.stories && post.user.stories.length > 0,
-          stories: undefined
+          stories: post.user.stories || [],
         },
-        comments: post.comments.map((comment: CommentWithExtras) => ({
-          ...comment,
-          user: {
-            ...comment.user,
-            hasActiveStory: comment.user.stories && comment.user.stories.length > 0,
-            stories: undefined
-          },
-          replies: comment.replies?.map((reply: CommentWithExtras) => ({
-            ...reply,
-            user: {
-              ...reply.user,
-              hasActiveStory: reply.user.stories && reply.user.stories.length > 0,
-              stories: undefined
-            }
-          }))
-        }))
+        likes: post.likes || [],
+        savedBy: post.savedBy || [],
+        comments: post.comments || [],
+        tags: post.tags || [],
       })),
-      savedPosts: profile.savedPosts.map((savedPost: SavedPostWithExtras) => ({
+      savedPosts: profile.savedPosts.map((savedPost) => transformSavedPost({
         ...savedPost,
         post: {
-          ...(savedPost.post as PostWithExtras),
+          ...savedPost.post,
           user: {
-            ...(savedPost.post as PostWithExtras).user,
-            hasActiveStory: !!(savedPost.post as PostWithExtras).user?.stories?.length,
-            stories: undefined
-          }
-        }
+            ...savedPost.post.user,
+            stories: savedPost.post.user.stories || [],
+          },
+          likes: savedPost.post.likes || [],
+          savedBy: savedPost.post.savedBy || [],
+          comments: savedPost.post.comments || [],
+          tags: savedPost.post.tags || [],
+        },
       })),
-      followers: transformedFollowers,
-      following: transformedFollowing,
-      followersCount,
-      followingCount,
-      ...(userId && userId !== user.id ? {
-        isFollowing: followStatus === "ACCEPTED",
-        hasPendingRequest: followStatus === "PENDING",
-        followStatus
-      } : {})
+      followers: profile.followers.map((follower) => transformFollower(follower)),
+      following: profile.following.map((following) => transformFollowing(following)),
+      stories: profile.stories.map((story) => transformStory(story)),
+      isFollowing: false,
+      hasPendingRequest: false,
+      isFollowedByUser: false,
+      followStatus: null
     };
 
-    console.log("[Profile Fetch] Final profile data:", {
-      followersCount: result.followersCount,
-      followingCount: result.followingCount,
-      followers: result.followers.map((f: { id: string; username: string }) => ({ id: f.id, username: f.username })),
-      following: result.following.map((f: { id: string; username: string }) => ({ id: f.id, username: f.username }))
-    });
-
-    return result;
+    return transformedProfile;
   } catch (error) {
-    console.error("[Profile Fetch] Error:", {
-      error,
-      errorMessage: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      timestamp: new Date().toISOString()
-    });
-    throw new Error("Failed to fetch profile");
+    console.error("Error fetching profile:", error);
+    throw error;
   }
 }
 
@@ -1051,7 +797,7 @@ export async function fetchSavedPostsByUsername(username: string) {
   noStore();
 
   try {
-    const data = await prisma.savedpost.findMany({
+    const data = await getPrisma().savedpost.findMany({
       where: {
         user: {
           username,
@@ -1134,7 +880,7 @@ export async function fetchSuggestedUsers(userId: string | undefined) {
     if (!userId) return [];
 
     // First, get all users that have any kind of follow relationship with the current user
-    const followRelationships = await prisma.follows.findMany({
+    const followRelationships = await getPrisma().follows.findMany({
       where: {
         OR: [
           { followerId: userId },
@@ -1154,7 +900,7 @@ export async function fetchSuggestedUsers(userId: string | undefined) {
     ]);
 
     // Get users that have no follow relationship with the current user
-    const suggestedUsers = await prisma.user.findMany({
+    const suggestedUsers = await getPrisma().user.findMany({
       where: {
         AND: [
           {
@@ -1201,7 +947,7 @@ export async function fetchNotifications(userId: string) {
   noStore();
 
   try {
-    const notifications = await prisma.notification.findMany({
+    const notifications = await getPrisma().notification.findMany({
       where: {
         userId: userId,
       },
@@ -1231,7 +977,7 @@ export async function fetchUserStories(userId: string) {
       return [];
     }
 
-    const userExists = await prisma.user.findUnique({
+    const userExists = await getPrisma().user.findUnique({
       where: { id: userId },
       select: { id: true }
     });
@@ -1241,7 +987,7 @@ export async function fetchUserStories(userId: string) {
       return [];
     }
 
-    const stories = await prisma.story.findMany({
+    const stories = await getPrisma().story.findMany({
       where: {
         user_id: userId,
         createdAt: {
@@ -1283,7 +1029,7 @@ export async function fetchOtherStories(currentUserId?: string) {
     }
 
     // Get users that the current user follows
-    const following = await prisma.follows.findMany({
+    const following = await getPrisma().follows.findMany({
       where: {
         followerId: currentUserId,
         status: "accepted"
@@ -1296,7 +1042,7 @@ export async function fetchOtherStories(currentUserId?: string) {
     const followingIds = following.map((f: { followingId: string }) => f.followingId);
 
     // Get stories from followed users from the last 24 hours
-    const stories = await prisma.story.findMany({
+    const stories = await getPrisma().story.findMany({
       where: {
         user_id: {
           in: followingIds
@@ -1334,7 +1080,7 @@ export async function fetchStoriesByUserId(userId: string) {
   noStore();
 
   try {
-    const stories = await prisma.story.findMany({
+    const stories = await getPrisma().story.findMany({
       where: {
         user_id: userId,
       },
@@ -1367,7 +1113,7 @@ export async function fetchSavedPosts(userId: string) {
   noStore();
 
   try {
-    const data = await prisma.savedpost.findMany({
+    const data = await getPrisma().savedpost.findMany({
       where: {
         user_id: userId,
       },
@@ -1436,7 +1182,7 @@ export async function fetchSavedPosts(userId: string) {
 
 export async function getReelsEnabled() {
   try {
-    const setting = await prisma.setting.findFirst({
+    const setting = await getPrisma().setting.findFirst({
       where: {
         key: 'reelsEnabled'
       }
@@ -1459,7 +1205,7 @@ export async function fetchRankedExplorePosts(userId: string, page: number = 1, 
     const skip = (page - 1) * limit;
 
     // Fetch posts with their like counts for today
-    const posts = await prisma.post.findMany({
+    const posts = await getPrisma().post.findMany({
       where: {
         user: {
           isPrivate: false // Only show posts from public accounts
@@ -1547,6 +1293,8 @@ export async function fetchRankedExplorePosts(userId: string, page: number = 1, 
       ...post,
       user: {
         ...post.user,
+        role: post.user.role as UserRole,
+        status: post.user.status as UserStatus,
         hasActiveStory: post.user.stories && post.user.stories.length > 0,
         stories: undefined // Remove stories from the response
       }
@@ -1569,7 +1317,7 @@ export async function getUserActivity(userId: string) {
   try {
     const [likes, comments, savedPosts] = await Promise.all([
       // Get user's likes with post details
-      prisma.like.findMany({
+      getPrisma().like.findMany({
         where: {
           user_id: userId,
           postId: { not: null }
@@ -1594,7 +1342,7 @@ export async function getUserActivity(userId: string) {
         }
       }),
       // Get user's comments with post details
-      prisma.comment.findMany({
+      getPrisma().comment.findMany({
         where: {
           user_id: userId,
           postId: { not: null }
@@ -1619,7 +1367,7 @@ export async function getUserActivity(userId: string) {
         }
       }),
       // Get user's saved posts with post details
-      prisma.savedpost.findMany({
+      getPrisma().savedpost.findMany({
         where: {
           user_id: userId
         },
@@ -1659,25 +1407,35 @@ export async function fetchEventById(id: string) {
   noStore();
 
   try {
-    const event = await prisma.event.findUnique({
+    const event = await getPrisma().event.findUnique({
       where: { id },
       include: {
         user: {
           select: {
             id: true,
             name: true,
+            email: true,
             username: true,
             image: true,
-            verified: true,
-            email: true,
-            password: true,
             bio: true,
+            verified: true,
             isPrivate: true,
             role: true,
             status: true,
+            password: true,
             createdAt: true,
             updatedAt: true,
-          },
+            stories: {
+              where: {
+                createdAt: {
+                  gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+                }
+              },
+              select: {
+                id: true
+              }
+            }
+          }
         },
       },
     });

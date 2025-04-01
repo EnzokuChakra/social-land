@@ -28,6 +28,16 @@ export async function POST(req: Request) {
         createdAt: {
           gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
         }
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            name: true,
+            image: true
+          }
+        }
       }
     });
 
@@ -45,6 +55,16 @@ export async function POST(req: Request) {
         where: {
           storyId: storyId,
           user_id: session.user.id
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              name: true,
+              image: true
+            }
+          }
         }
       });
 
@@ -90,10 +110,14 @@ export async function POST(req: Request) {
       }
     });
 
+    // Return the view data in the expected format
     return NextResponse.json({
       success: true,
-      message: "View recorded successfully",
-      data: result
+      data: {
+        id: result.id,
+        createdAt: result.createdAt,
+        user: result.user
+      }
     });
   } catch (error) {
     console.error("[STORY_VIEW_ERROR]", {

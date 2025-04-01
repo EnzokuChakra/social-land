@@ -20,8 +20,8 @@ export type User = {
   bio: string | null;
   verified: boolean;
   isPrivate: boolean;
-  role: UserRole;
-  status: UserStatus;
+  role: string;
+  status: string;
   createdAt: Date;
   updatedAt: Date;
   stories?: { id: string }[];
