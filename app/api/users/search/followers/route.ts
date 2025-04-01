@@ -21,7 +21,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ users: [] });
     }
 
-    // Get users that follow the current user
+    // Get users that follow the current user (Enzoku)
     const users = await prisma.user.findMany({
       where: {
         AND: [
@@ -40,9 +40,9 @@ export async function GET(request: Request) {
             ],
           },
           {
-            following: {
+            followers: {
               some: {
-                followerId: session.user.id,
+                followingId: session.user.id,
                 status: "ACCEPTED"
               }
             }
@@ -63,7 +63,7 @@ export async function GET(request: Request) {
     console.log("[USERS_SEARCH_FOLLOWERS] Search results:", {
       query,
       usersFound: users.length,
-      users: users.map(u => u.username)
+      users: users.map((u: { username: string | null }) => u.username)
     });
 
     return NextResponse.json({ users });

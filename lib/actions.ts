@@ -105,8 +105,14 @@ export async function deletePost(postId: string) {
       throw new Error("Not authorized to delete this post");
     }
 
-    // Delete the file from the server first
-    await deleteUploadedFile(post.fileUrl);
+    // Try to delete the file, but don't fail if it's already gone
+    try {
+      if (post.fileUrl) {
+        await deleteUploadedFile(post.fileUrl);
+      }
+    } catch (error) {
+      console.error("Error deleting file, continuing with post deletion:", error);
+    }
 
     // Delete all related records in a transaction
     await db.$transaction(async (tx: typeof db) => {
@@ -120,23 +126,42 @@ export async function deletePost(postId: string) {
         where: { postId }
       });
 
-      // Delete all comments and their likes
+      // First get all comments for this post
       const comments = await tx.comment.findMany({
         where: { postId },
-        select: { id: true }
+        select: { 
+          id: true,
+          parentId: true
+        }
       });
       
       if (comments.length > 0) {
-        const commentIds = comments.map((comment: { id: string }) => comment.id);
+        // Separate parent and child comments
+        const parentComments = comments.filter((c: { id: string; parentId: string | null }) => !c.parentId);
+        const childComments = comments.filter((c: { id: string; parentId: string | null }) => c.parentId);
         
-        // Delete comment likes
+        // Get all comment IDs
+        const allCommentIds = comments.map((c: { id: string }) => c.id);
+
+        // Delete comment likes for all comments first
         await tx.commentlike.deleteMany({
-          where: { commentId: { in: commentIds } }
+          where: { commentId: { in: allCommentIds } }
         });
         
-        // Delete comments
+        // Delete child comments (replies) first
+        if (childComments.length > 0) {
+          await tx.comment.deleteMany({
+            where: {
+              id: { in: childComments.map((c: { id: string }) => c.id) }
+            }
+          });
+        }
+        
+        // Then delete parent comments
         await tx.comment.deleteMany({
-          where: { postId }
+          where: {
+            id: { in: parentComments.map((c: { id: string }) => c.id) }
+          }
         });
       }
 
@@ -776,6 +801,11 @@ export async function createComment(values: z.infer<typeof CreateComment>) {
       },
       include: {
         user: true,
+        replies: {
+          include: {
+            user: true
+          }
+        }
       },
     });
 
@@ -814,7 +844,10 @@ export async function createComment(values: z.infer<typeof CreateComment>) {
     }
 
     revalidatePath("/dashboard");
-    return { message: "Comment Created Successfully" };
+    return { 
+      message: "Comment Created Successfully",
+      comment: comment
+    };
   } catch (error) {
     console.error("[CREATE_COMMENT] Error:", error);
     throw error;

@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import FollowButton from "./FollowButton";
 import { useRouter } from "next/navigation";
+import { useSocket } from "@/hooks/use-socket";
 
 type Props = {
   comment: CommentWithExtras;
@@ -24,17 +25,21 @@ type Props = {
   postUserId: string;
   onReply?: (username: string, commentId: string) => void;
   initialShowReplies?: boolean;
+  hasStoryRing?: boolean;
+  onAvatarClick?: (e: React.MouseEvent) => Promise<void>;
 };
 
-function Comment({ comment, inputRef, postUserId, onReply, initialShowReplies = false }: Props) {
+function Comment({ comment: initialComment, inputRef, postUserId, onReply, initialShowReplies = false, hasStoryRing, onAvatarClick }: Props) {
+  const [comment, setComment] = useState(initialComment);
+  const [likesCount, setLikesCount] = useState(initialComment.likes?.length || 0);
+  const [isLiked, setIsLiked] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showReplies, setShowReplies] = useState(false);
+  const [showLikesModal, setShowLikesModal] = useState(false);
   const { data: session, status } = useSession();
   const [showOptions, setShowOptions] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
-  const [likesCount, setLikesCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showLikesModal, setShowLikesModal] = useState(false);
-  const [showReplies, setShowReplies] = useState(initialShowReplies);
   const router = useRouter();
+  const socket = useSocket();
 
   // Ensure we have a valid user object, even for deleted users
   const user = comment.user || {
@@ -74,19 +79,63 @@ function Comment({ comment, inputRef, postUserId, onReply, initialShowReplies = 
   
   // Initialize likes count and liked status from the actual comment data
   useEffect(() => {
-    if (comment.likes) {
-      setLikesCount(comment.likes.length);
-    }
+    console.log("[Comment] Initializing comment state:", {
+      commentId: comment.id,
+      initialLikes: comment.likes,
+      initialCount: comment.likes?.length || 0
+    });
     
     if (status === "authenticated" && comment.likes) {
       const isCommentOwner = comment.user_id === session?.user.id;
       const isPostOwner = postUserId === session?.user.id;
-      // Show options if user is either the comment owner, post owner, or any logged-in user (for reporting)
       setShowOptions(true);
-      // Check if the current user has liked the comment
       setIsLiked(comment.likes.some(like => like.user_id === session?.user.id) || false);
     }
-  }, [status, session, comment.user_id, postUserId, comment.likes]);
+  }, [status, session, comment.user_id, postUserId, comment.likes, comment.id]);
+
+  // Debug socket connection
+  useEffect(() => {
+    if (socket) {
+      console.log("[Comment] Socket connected:", socket.id);
+    } else {
+      console.log("[Comment] Socket not connected");
+    }
+  }, [socket]);
+
+  // Socket event listener for real-time like updates
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleLikeUpdate = (data: { commentId: string; userId: string; action: 'like' | 'unlike'; timestamp: string }) => {
+      if (data.commentId === comment.id) {
+        console.log("[Comment] Received like update:", {
+          commentId: data.commentId,
+          currentCount: likesCount,
+          action: data.action,
+          timestamp: data.timestamp
+        });
+        
+        // Only update the count if it's from another user
+        if (session?.user?.id !== data.userId) {
+          setLikesCount(prev => {
+            const newCount = data.action === 'like' ? prev + 1 : Math.max(0, prev - 1);
+            console.log("[Comment] Updating count:", { prev, newCount, fromSocket: true });
+            return newCount;
+          });
+        }
+        
+        // Update isLiked only for the current user
+        if (session?.user?.id === data.userId) {
+          setIsLiked(data.action === 'like');
+        }
+      }
+    };
+
+    socket.on("commentLikeUpdate", handleLikeUpdate);
+    return () => {
+      socket.off("commentLikeUpdate", handleLikeUpdate);
+    };
+  }, [socket, comment.id, session?.user?.id]);
 
   // Initialize show replies state from prop when it changes
   useEffect(() => {
@@ -98,22 +147,40 @@ function Comment({ comment, inputRef, postUserId, onReply, initialShowReplies = 
   const handleLikeClick = async () => {
     if (!session?.user || isLoading) return;
     
+    const newLikeState = !isLiked;
+    const prevLikesCount = likesCount;
+    
+    // Optimistic update
+    setIsLiked(newLikeState);
+    setLikesCount(prev => newLikeState ? prev + 1 : Math.max(0, prev - 1));
+    
     setIsLoading(true);
     try {
-      if (isLiked) {
-        await unlikeComment(comment.id);
-        setLikesCount(prev => prev - 1);
-        setIsLiked(false);
-      } else {
+      if (newLikeState) {
         await likeComment(comment.id);
-        setLikesCount(prev => prev + 1);
-        setIsLiked(true);
+        // Emit socket event for real-time update
+        socket?.emit("commentLikeUpdate", {
+          commentId: comment.id,
+          userId: session.user.id,
+          action: 'like',
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        await unlikeComment(comment.id);
+        // Emit socket event for real-time update
+        socket?.emit("commentLikeUpdate", {
+          commentId: comment.id,
+          userId: session.user.id,
+          action: 'unlike',
+          timestamp: new Date().toISOString()
+        });
       }
     } catch (error) {
+      console.error("[Comment] Error handling like:", error);
       toast.error("Something went wrong");
       // Revert the optimistic update
-      setIsLiked(!isLiked);
-      setLikesCount(comment.likes?.length || 0);
+      setIsLiked(!newLikeState);
+      setLikesCount(prevLikesCount);
     } finally {
       setIsLoading(false);
     }

@@ -36,10 +36,10 @@ import TaggedUsersModal from "@/components/TaggedUsersModal";
 import ProfileHoverCard from "@/components/ProfileHoverCard";
 import { useStoryModal } from "@/hooks/use-story-modal";
 import Timestamp from "@/components/Timestamp";
+import { useSocket } from "@/hooks/use-socket";
 
 function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const pathname = usePathname();
-  const isPostModal = pathname === `/dashboard/p/${id}`;
   const router = useRouter();
   const { data: session, status } = useSession();
   const user = session?.user;
@@ -48,6 +48,8 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const username = post.user.username;
   const href = `/dashboard/${username}`;
   const mount = useMount();
+  const [isOpen, setIsOpen] = useState(true);
+  const isPostModal = pathname === `/dashboard/p/${id}`;
   const isPostMine = post.user_id === user?.id;
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [showTaggedModal, setShowTaggedModal] = useState(false);
@@ -56,6 +58,44 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
+  const socket = useSocket();
+
+  useEffect(() => {
+    setIsOpen(true);
+  }, [id]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleCommentUpdate = (data: { postId: string; parentId: string | null; comment: any }) => {
+      console.log("[PostView] Received comment update:", data);
+      
+      if (data.postId === id) {
+        setComments(prevComments => {
+          if (data.parentId) {
+            // Handle reply
+            return prevComments.map(comment => {
+              if (comment.id === data.parentId) {
+                return {
+                  ...comment,
+                  replies: [...(comment.replies || []), data.comment]
+                };
+              }
+              return comment;
+            });
+          } else {
+            // Handle new comment
+            return [data.comment, ...prevComments];
+          }
+        });
+      }
+    };
+
+    socket.on("commentUpdate", handleCommentUpdate);
+    return () => {
+      socket.off("commentUpdate", handleCommentUpdate);
+    };
+  }, [socket, id]);
 
   // Transform comments to include all required fields
   const transformedComments = post.comments.map(comment => ({
@@ -242,8 +282,13 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
 
   return (
     <Dialog 
-      open={isPostModal} 
-      onOpenChange={(open) => !open && router.back()}
+      open={isOpen} 
+      onOpenChange={(open) => {
+        setIsOpen(open);
+        if (!open) {
+          router.back();
+        }
+      }}
     >
       <DialogContentWithoutClose 
         className="flex gap-0 flex-col md:flex-row items-start p-0 md:max-w-5xl lg:max-w-6xl xl:max-w-7xl h-[calc(100vh-80px)] max-h-[calc(100vh-80px)] bg-white dark:bg-neutral-950"

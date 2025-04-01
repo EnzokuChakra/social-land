@@ -24,7 +24,7 @@ const server = http.createServer(app);
 // Configure Socket.IO with CORS
 const io = socketIo(server, {
   cors: {
-    origin: process.env.APP_URL,
+    origin: process.env.APP_URL || "http://localhost:3000",
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -53,17 +53,38 @@ io.on("connection", (socket) => {
   // Handle like updates
   socket.on("likeUpdate", (data) => {
     try {
-      console.log("[SOCKET] Like update received from", socket.id, ":", data);
+      console.log("[SOCKET] Like update received:", data);
       io.emit("likeUpdate", data);
     } catch (error) {
       console.error("[SOCKET] Error handling likeUpdate:", error);
     }
   });
 
+  // Handle comment like updates
+  socket.on("commentLikeUpdate", (data) => {
+    try {
+      console.log("[SOCKET] Comment like update received:", data);
+      // Broadcast to all clients including sender
+      io.emit("commentLikeUpdate", data);
+    } catch (error) {
+      console.error("[SOCKET] Error handling commentLikeUpdate:", error);
+    }
+  });
+
+  // Handle comment updates
+  socket.on("commentUpdate", (data) => {
+    try {
+      console.log("[SOCKET] Comment update received:", data);
+      io.emit("commentUpdate", data);
+    } catch (error) {
+      console.error("[SOCKET] Error handling commentUpdate:", error);
+    }
+  });
+
   // Handle profile updates
   socket.on("profileUpdate", (data) => {
     try {
-      console.log("[SOCKET] Profile update received from", socket.id, ":", data);
+      console.log("[SOCKET] Profile update received:", data);
       io.emit("profileUpdate", data);
     } catch (error) {
       console.error("[SOCKET] Error handling profileUpdate:", error);
@@ -98,5 +119,5 @@ io.on('error', (error) => {
 
 // Start server
 server.listen(PORT, () => {
-  console.log(`[SERVER] Socket running on port ${PORT}`);
+  console.log(`[SOCKET] Server running on port ${PORT}`);
 });

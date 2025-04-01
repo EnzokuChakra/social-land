@@ -15,6 +15,8 @@ import { Loader2, Smile, X } from "lucide-react";
 import { useForm, UseFormReturn } from "react-hook-form";
 import { z } from "zod";
 import { useEffect, useState, forwardRef, useImperativeHandle, Ref } from "react";
+import { useSocket } from "@/hooks/use-socket";
+import { toast } from "react-hot-toast";
 
 const MAX_COMMENT_LENGTH = 1000;
 
@@ -48,6 +50,7 @@ const CommentForm = forwardRef<
 >(function CommentForm({ postId, className, inputRef }, forwardedRef) {
   const [replyingTo, setReplyingTo] = useState<{username: string, commentId: string} | null>(null);
   const [internalInputRef, setInternalInputRef] = useState<HTMLInputElement | null>(null);
+  const socket = useSocket();
   
   const form = useForm<z.infer<typeof CreateComment>>({
     resolver: zodResolver(CreateComment),
@@ -105,35 +108,35 @@ const CommentForm = forwardRef<
   const handleSubmit = async (values: z.infer<typeof CreateComment>) => {
     console.log('Submitting comment', { values, replyingTo });
     
-    // Ensure parentId is properly passed from state
-    const submissionValues = {
-      ...values,
-      parentId: replyingTo?.commentId || null
-    };
+    // Get parentId from either the form values or the replyingTo state
+    const parentId = values.parentId || replyingTo?.commentId || null;
     
     try {
-      // Update UI first with optimistic update via the parent component (if available)
-      if (window && window.dispatchEvent) {
-        const optimisticCommentEvent = new CustomEvent('optimistic-comment-added', { 
-          detail: {
-            body: values.body,
-            postId: values.postId,
-            parentId: submissionValues.parentId,
-            createdAt: new Date()
-          }
-        });
-        window.dispatchEvent(optimisticCommentEvent);
+      // Create the comment on the server
+      const response = await createComment({
+        ...values,
+        parentId: parentId
+      });
+
+      if (!response || response.errors) {
+        throw new Error(response?.message || "Failed to create comment");
       }
-      
-      // Then actually create the comment on the server
-      await createComment(submissionValues);
+
+      // Emit socket event for real-time updates
+      if (socket) {
+        socket.emit("commentUpdate", {
+          postId,
+          parentId,
+          comment: response.comment,
+        });
+      }
       
       // Reset form state after success
       form.reset();
       setReplyingTo(null);
     } catch (error) {
       console.error("Error creating comment:", error);
-      // UI feedback for error could be added here
+      toast.error("Failed to create comment");
     }
   };
 

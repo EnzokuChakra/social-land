@@ -13,6 +13,7 @@ export function useSocket() {
   useEffect(() => {
     if (!globalSocket) {
       const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5002';
+      console.log("[useSocket] Initializing socket connection to:", socketUrl);
       
       globalSocket = io(socketUrl, {
         transports: ['websocket', 'polling'],
@@ -22,21 +23,19 @@ export function useSocket() {
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 45000,
-        forceNew: false, // Don't create a new connection if one exists
+        forceNew: false,
         withCredentials: true,
         path: '/socket.io/',
         secure: true,
         rejectUnauthorized: false,
         auth: {
           token: typeof window !== 'undefined' ? localStorage.getItem('socket_token') : null
-        },
-        upgrade: true,
-        rememberUpgrade: true,
+        }
       });
 
       // Handle connection events
       globalSocket.on('connect', () => {
-        console.log('[SOCKET_CONNECTED]', {
+        console.log('[useSocket] Connected:', {
           socketId: globalSocket?.id,
           transport: globalSocket?.io?.engine?.transport?.name,
           url: socketUrl,
@@ -45,7 +44,7 @@ export function useSocket() {
       });
 
       globalSocket.on('connect_error', (error) => {
-        console.error('[SOCKET_CONNECT_ERROR]', {
+        console.error('[useSocket] Connection error:', {
           error: error instanceof Error ? {
             message: error.message,
             stack: error.stack,
@@ -59,29 +58,16 @@ export function useSocket() {
       });
 
       globalSocket.on('disconnect', (reason) => {
-        console.log('[SOCKET_DISCONNECT]', {
+        console.log('[useSocket] Disconnected:', {
           reason,
           url: socketUrl,
           timestamp: new Date().toISOString()
         });
         
         if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
-          toast.error('Connection lost. Reconnecting...');
+          console.log('[useSocket] Attempting to reconnect...');
           globalSocket?.connect();
         }
-      });
-
-      globalSocket.on('error', (error) => {
-        console.error('[SOCKET_ERROR]', {
-          error: error instanceof Error ? {
-            message: error.message,
-            stack: error.stack,
-            name: error.name
-          } : String(error),
-          url: socketUrl,
-          timestamp: new Date().toISOString()
-        });
-        toast.error('Socket error occurred');
       });
     }
 
@@ -89,7 +75,7 @@ export function useSocket() {
 
     // Cleanup function
     return () => {
-      // Don't disconnect the global socket, just remove the reference
+      console.log('[useSocket] Cleaning up socket reference');
       socketRef.current = null;
     };
   }, []);

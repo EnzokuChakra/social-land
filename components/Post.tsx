@@ -20,18 +20,75 @@ import { useRouter } from "next/navigation";
 import TaggedUsersModal from "./TaggedUsersModal";
 import { useStoryModal } from "@/hooks/use-story-modal";
 import { cn } from "@/lib/utils";
+import { useSocket } from "@/hooks/use-socket";
 
 function Post({ post }: { post: PostWithExtras }) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const userId = session?.user?.id;
   const username = post.user.username;
   const commentInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const [showTaggedModal, setShowTaggedModal] = useState(false);
-  const [allLikes, setallLikes] = useState(post.likes.length);
+  const [likesCount, setLikesCount] = useState(post.likes?.length || 0);
+  const [isLiked, setIsLiked] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showLikesModal, setShowLikesModal] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const socket = useSocket();
   const storyModal = useStoryModal();
 
   if (!session?.user) return null;
+
+  // Initialize likes count and liked status from the actual post data
+  useEffect(() => {
+    console.log("[Post] Initializing post state:", {
+      postId: post.id,
+      initialLikes: post.likes,
+      initialCount: post.likes?.length || 0
+    });
+    
+    if (status === "authenticated") {
+      setShowOptions(true);
+      if (post.likes) {
+        setIsLiked(post.likes.some(like => like.user_id === session?.user.id) || false);
+      }
+      if (post.savedBy) {
+        setIsSaved(post.savedBy.some(save => save.user_id === session?.user.id) || false);
+      }
+    }
+  }, [status, session?.user.id, post.likes, post.savedBy, post.id]);
+
+  // Socket event listener for real-time like updates
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleLikeUpdate = (data: { postId: string; userId: string; action: 'like' | 'unlike'; timestamp: string }) => {
+      if (data.postId === post.id) {
+        console.log("[Post] Received like update:", {
+          postId: data.postId,
+          currentCount: likesCount,
+          action: data.action,
+          timestamp: data.timestamp
+        });
+        
+        setLikesCount(prev => {
+          const newCount = data.action === 'like' ? prev + 1 : Math.max(0, prev - 1);
+          console.log("[Post] Updating count:", { prev, newCount });
+          return newCount;
+        });
+        
+        if (session?.user?.id === data.userId) {
+          setIsLiked(data.action === 'like');
+        }
+      }
+    };
+
+    socket.on("postLikeUpdate", handleLikeUpdate);
+    return () => {
+      socket.off("postLikeUpdate", handleLikeUpdate);
+    };
+  }, [socket, post.id, session?.user?.id]);
 
   const handleAvatarClick = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -165,7 +222,10 @@ function Post({ post }: { post: PostWithExtras }) {
         <PostOptions post={post} userId={userId} />
       </div>
 
-      <Link href={`/dashboard/p/${post.id}`} className="relative block">
+      <button 
+        onClick={() => router.push(`/dashboard/p/${post.id}`)}
+        className="relative block w-full"
+      >
         <Card className="relative w-full overflow-hidden rounded-none sm:rounded-md">
           <Image
             src={post.fileUrl}
@@ -177,7 +237,7 @@ function Post({ post }: { post: PostWithExtras }) {
             className="h-auto w-full object-contain"
           />
         </Card>
-      </Link>
+      </button>
 
       <PostActions
         post={post}
