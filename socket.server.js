@@ -50,6 +50,37 @@ io.on("connection", (socket) => {
   console.log("[SOCKET] New Connection ID:", socket.id);
   activeClients.set(socket.id, socket);
 
+  // Handle story like updates
+  socket.on("storyLikeUpdate", (data) => {
+    try {
+      console.log("[SOCKET] Story like update received:", data);
+      // Broadcast to all clients including sender
+      io.emit("storyLikeUpdate", {
+        storyId: data.storyId,
+        userId: data.userId,
+        action: data.action,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("[SOCKET] Error handling storyLikeUpdate:", error);
+    }
+  });
+
+  // Handle story view updates
+  socket.on("storyViewUpdate", (data) => {
+    try {
+      console.log("[SOCKET] Story view update received:", data);
+      // Broadcast to all clients including sender
+      io.emit("storyViewUpdate", {
+        storyId: data.storyId,
+        userId: data.userId,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("[SOCKET] Error handling storyViewUpdate:", error);
+    }
+  });
+
   // Handle like updates
   socket.on("likeUpdate", (data) => {
     try {

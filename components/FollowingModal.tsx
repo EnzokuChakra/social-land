@@ -5,17 +5,17 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import useMount from "@/hooks/useMount";
 import { FollowingWithExtras } from "@/lib/definitions";
 import { ScrollArea } from "./ui/scroll-area";
-import UserListItem from "./UserListItem";
 import { useSession } from "next-auth/react";
 import UserAvatar from "./UserAvatar";
 import FollowButton from "./FollowButton";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { Search } from "lucide-react";
+import { useState } from "react";
+import { Input } from "./ui/input";
 
 export default function FollowingModal({
   following,
@@ -32,6 +32,7 @@ export default function FollowingModal({
 }) {
   const { data: session } = useSession();
   const mount = useMount();
+  const [searchQuery, setSearchQuery] = useState("");
 
   console.log("[FOLLOWING_MODAL] Props:", {
     username,
@@ -60,36 +61,56 @@ export default function FollowingModal({
     );
   }
 
+  const filteredFollowing = following.filter(user => 
+    user.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-[400px] p-0">
-        <DialogHeader className="p-4 border-b">
-          <DialogTitle className="text-lg font-semibold">Following</DialogTitle>
-          <DialogDescription>
-            People followed by {username}
-          </DialogDescription>
+      <DialogContent className="max-w-md p-0 bg-white dark:bg-neutral-900">
+        <DialogHeader className="border-b border-neutral-200 dark:border-neutral-800">
+          <DialogTitle className="text-center font-semibold text-lg py-2">
+            Following
+          </DialogTitle>
         </DialogHeader>
-        <ScrollArea className="h-[400px]">
-          {following.length === 0 ? (
+
+        <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search"
+              className="pl-8 bg-muted/60"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <ScrollArea className="h-96 overflow-y-auto">
+          {filteredFollowing.length === 0 ? (
             <div className="p-4 text-center text-muted-foreground">
-              {username} is not following anyone yet
+              {searchQuery ? "No results found" : `${username} is not following anyone yet`}
             </div>
           ) : (
-            <div className="p-4 space-y-4">
-              {following.map((user) => (
-                <div key={user.id} className="flex items-center justify-between">
+            <div className="flex flex-col">
+              {filteredFollowing.map((user) => (
+                <div 
+                  key={user.id} 
+                  className="flex items-center justify-between p-4 hover:bg-muted/40 transition"
+                >
                   <Link
                     href={`/dashboard/${user.username}`}
-                    className="flex items-center gap-3 hover:opacity-75 transition"
+                    className="flex items-center gap-3"
                   >
                     <UserAvatar
                       user={user}
-                      className="h-8 w-8"
+                      className="h-11 w-11"
                     />
                     <div className="flex flex-col">
                       <span className="text-sm font-semibold">{user.username}</span>
                       {user.name && (
-                        <span className="text-xs text-muted-foreground">{user.name}</span>
+                        <span className="text-sm text-muted-foreground">{user.name}</span>
                       )}
                     </div>
                   </Link>
@@ -100,6 +121,7 @@ export default function FollowingModal({
                       hasPendingRequest={user.status === "PENDING"}
                       isPrivate={user.isPrivate}
                       isFollowedByUser={false}
+                      className="h-9"
                     />
                   )}
                 </div>
