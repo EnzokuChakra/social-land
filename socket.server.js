@@ -68,28 +68,28 @@ io.on("connection", (socket) => {
 
   // Story events
   socket.on("storyLike", (data) => {
-    socket.broadcast.emit("storyLikeUpdate", data);
+    io.emit("storyLikeUpdate", data);
   });
 
   socket.on("storyView", (data) => {
-    socket.broadcast.emit("storyViewUpdate", data);
+    io.emit("storyViewUpdate", data);
   });
 
   // Post events
   socket.on("like", (data) => {
-    socket.broadcast.emit("likeUpdate", data);
+    io.emit("likeUpdate", data);
   });
 
   socket.on("comment", (data) => {
-    socket.broadcast.emit("commentUpdate", data);
+    io.emit("commentUpdate", data);
   });
 
   socket.on("deleteComment", (data) => {
-    socket.broadcast.emit("commentDelete", data);
+    io.emit("commentDelete", data);
   });
 
   socket.on("profileUpdate", (data) => {
-    socket.broadcast.emit("profileUpdate", data);
+    io.emit("profileUpdate", data);
   });
 
   socket.on("disconnect", () => {
