@@ -1,31 +1,26 @@
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { db } from "@/lib/db";
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const userRole = session.user.role as string;
     if (!["MODERATOR", "ADMIN", "MASTER_ADMIN"].includes(userRole)) {
-      return new NextResponse("Forbidden", { status: 403 });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const reports = await db.userReport.findMany({
-      orderBy: {
-        createdAt: "desc",
-      },
+    const reports = await prisma.userReport.findMany({
       include: {
         reporter: {
           select: {
             id: true,
             username: true,
             image: true,
-            name: true,
           },
         },
         reported: {
@@ -33,15 +28,17 @@ export async function GET() {
             id: true,
             username: true,
             image: true,
-            name: true,
           },
         },
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     });
 
     return NextResponse.json({ reports });
   } catch (error) {
     console.error("[USER_REPORTS_GET]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 } 

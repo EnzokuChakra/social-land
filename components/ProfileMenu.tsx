@@ -1,5 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -7,15 +10,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Flag, Ban, UserCheck } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useSession } from "next-auth/react";
+import { useState } from "react";
+import ReportUserModal from "./modals/ReportUserModal";
 
 interface ProfileMenuProps {
   userId: string;
   username: string;
-  userStatus: "NORMAL" | "BANNED";
+  userStatus: string;
 }
 
 export default function ProfileMenu({ userId, username, userStatus }: ProfileMenuProps) {
@@ -23,32 +25,7 @@ export default function ProfileMenu({ userId, username, userStatus }: ProfileMen
   const { data: session } = useSession();
   const isMasterAdmin = session?.user?.role === "MASTER_ADMIN";
   const isBanned = userStatus === "BANNED";
-
-  const handleReport = async () => {
-    try {
-      const response = await fetch("/api/reports", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          userId: userId,
-          reason: "Inappropriate behavior",
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        toast.error(error);
-        return;
-      }
-
-      toast.success("User reported successfully");
-    } catch (error) {
-      console.error("Error reporting user:", error);
-      toast.error("Failed to report user");
-    }
-  };
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const handleBanAction = async () => {
     try {
@@ -75,34 +52,39 @@ export default function ProfileMenu({ userId, username, userStatus }: ProfileMen
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-8 w-8">
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {isMasterAdmin ? (
-          <DropdownMenuItem onClick={handleBanAction} className={isBanned ? "text-green-600" : "text-red-600"}>
-            {isBanned ? (
-              <>
-                <UserCheck className="mr-2 h-4 w-4" />
-                Unban User
-              </>
-            ) : (
-              <>
-                <Ban className="mr-2 h-4 w-4" />
-                Ban User
-              </>
-            )}
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem onClick={handleReport}>
-            <Flag className="mr-2 h-4 w-4" />
-            Report
-          </DropdownMenuItem>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon">
+            <MoreHorizontal className="h-5 w-5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {session?.user?.id !== userId && (
+            <DropdownMenuItem
+              className="text-red-500 cursor-pointer"
+              onClick={() => setIsReportModalOpen(true)}
+            >
+              Report User
+            </DropdownMenuItem>
+          )}
+          {isMasterAdmin && session?.user?.id !== userId && (
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={handleBanAction}
+            >
+              {isBanned ? "Unban User" : "Ban User"}
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <ReportUserModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        userId={userId}
+        username={username}
+      />
+    </>
   );
 } 

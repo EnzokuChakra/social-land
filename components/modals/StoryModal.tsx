@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import useMount from "@/hooks/useMount";
 import { useSocket } from "../../hooks/use-socket";
+import ReportStoryModal from "./ReportStoryModal";
 
 interface StoryUser {
   id: string;
@@ -102,31 +103,26 @@ export default function StoryModal() {
   const storyTimeout = useRef<NodeJS.Timeout | null>(null);
   const lastProgressRef = useRef<number>(0);
   const socket = useSocket();
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const currentUserStories = storyModal.userStories[storyModal.currentUserIndex];
   const currentStory = currentUserStories?.stories[currentStoryIndex];
 
   // Function to progress to next story
   const progressToNextStory = useCallback(() => {
-    if (!currentUserStories) return;
+    if (!currentUserStories?.stories) return;
 
-    // Use requestAnimationFrame to ensure state updates happen in the next frame
-    requestAnimationFrame(() => {
-      if (currentStoryIndex < currentUserStories.stories.length - 1) {
-        setCurrentStoryIndex((prev: number) => prev + 1);
-        setProgress(0);
-      } else if (storyModal.currentUserIndex < storyModal.userStories.length - 1) {
-        storyModal.setCurrentUserIndex((prev: number) => prev + 1);
-        setCurrentStoryIndex(0);
-        setProgress(0);
-      } else {
-        // Schedule modal close for next frame
-        requestAnimationFrame(() => {
-          storyModal.onClose();
-        });
-      }
-    });
-  }, [currentUserStories, currentStoryIndex, storyModal]);
+    if (currentStoryIndex < currentUserStories.stories.length - 1) {
+      setCurrentStoryIndex(currentStoryIndex + 1);
+      setProgress(0);
+    } else if (storyModal.currentUserIndex < storyModal.userStories.length - 1) {
+      storyModal.setCurrentUserIndex(storyModal.currentUserIndex + 1);
+      setCurrentStoryIndex(0);
+      setProgress(0);
+    } else {
+      storyModal.onClose();
+    }
+  }, [currentStoryIndex, currentUserStories?.stories?.length, storyModal]);
 
   // Handle story click for navigation
   const handleStoryClick = (e: React.MouseEvent) => {
@@ -654,8 +650,8 @@ export default function StoryModal() {
     }
   };
 
-  const handleReportStory = async () => {
-    toast.success('Story reported');
+  const handleReportStory = () => {
+    setIsReportModalOpen(true);
   };
 
   if (!mount) return null;
@@ -896,6 +892,15 @@ export default function StoryModal() {
           )}
         </DialogContent>
       </Dialog>
+
+      {currentStory && (
+        <ReportStoryModal
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+          storyId={currentStory.id}
+          username={currentStory.user.username}
+        />
+      )}
     </>
   );
 } 

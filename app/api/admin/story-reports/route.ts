@@ -14,37 +14,35 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const reports = await prisma.report.findMany({
-      orderBy: {
-        createdAt: "desc",
-      },
-      select: {
-        id: true,
-        createdAt: true,
-        postId: true,
-        userId: true,
-        reason: true,
-        status: true,
-        user: {
+    const reports = await prisma.storyReport.findMany({
+      include: {
+        reporter: {
           select: {
             id: true,
             username: true,
             image: true,
-            name: true,
           },
         },
-        post: {
-          select: {
-            id: true,
-            fileUrl: true,
+        story: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                image: true,
+              },
+            },
           },
         },
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     });
 
     return NextResponse.json({ reports });
   } catch (error) {
-    console.error("[REPORTS_GET]", error);
+    console.error("[STORY_REPORTS_GET]", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 } 

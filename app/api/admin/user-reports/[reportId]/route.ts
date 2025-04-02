@@ -24,7 +24,7 @@ export async function PATCH(
     }
 
     // Get the current report to preserve the original reason
-    const currentReport = await prisma.report.findUnique({
+    const currentReport = await prisma.userReport.findUnique({
       where: { id: params.reportId },
     });
 
@@ -37,7 +37,7 @@ export async function PATCH(
       ? `${currentReport.reason || ""}\n\nReviewed by @${session.user.username} at ${new Date().toISOString()}`
       : currentReport.reason;
 
-    const report = await prisma.report.update({
+    const report = await prisma.userReport.update({
       where: {
         id: params.reportId,
       },
@@ -49,7 +49,7 @@ export async function PATCH(
 
     return NextResponse.json(report);
   } catch (error) {
-    console.error("[REPORT_STATUS_UPDATE]", error);
+    console.error("[USER_REPORT_STATUS_UPDATE]", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 } 
