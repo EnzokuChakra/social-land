@@ -20,7 +20,7 @@ export function CustomLoader({ className = "", size = "default", noPadding = fal
       className
     )}>
       <div className={cn(
-        "animate-spin rounded-full border-b-2 border-white",
+        "animate-spin rounded-full border-b-2 border-black dark:border-white bg-white dark:bg-transparent",
         sizeClasses[size]
       )} />
     </div>
