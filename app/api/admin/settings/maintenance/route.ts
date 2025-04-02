@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { UserRole } from "@/lib/definitions";
 import { PrismaClient } from "@prisma/client";
+import { io } from 'socket.io-client';
 
 // Type declaration for the PrismaClient to include the Setting model
 declare global {
@@ -13,45 +14,43 @@ declare global {
         findUnique: (args: { where: { key: string } }) => Promise<{ value: string } | null>;
         upsert: (args: {
           where: { key: string };
-          update: { value: string };
-          create: { key: string; value: string };
+          update: { value: string; updatedAt: Date };
+          create: { id: string; key: string; value: string; updatedAt: Date };
         }) => Promise<{ value: string }>;
       };
     }
   }
 }
 
+// Initialize socket connection
+const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5002", {
+  transports: ['websocket']
+});
+
 // Get maintenance mode status
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     
-    // Allow any authenticated user to check maintenance status
-    if (!session?.user) {
-      return NextResponse.json({ maintenanceMode: false }, { status: 401 });
-    }
+    // Allow middleware to check maintenance status without requiring full authentication
+    const isMiddlewareRequest = request.headers.get('user-agent')?.includes('Next.js Middleware');
     
-    // Get maintenance settings from database
+    if (!session && !isMiddlewareRequest) {
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
+
     const maintenanceMode = await db.setting.findUnique({
       where: { key: "maintenanceMode" }
     });
-    
-    const estimatedTime = await db.setting.findUnique({
-      where: { key: "maintenanceEstimatedTime" }
-    });
-    
-    const message = await db.setting.findUnique({
-      where: { key: "maintenanceMessage" }
-    });
-    
+
     return NextResponse.json({
       maintenanceMode: maintenanceMode?.value === "true",
-      estimatedTime: estimatedTime?.value || "2:00",
-      message: message?.value || "We're making some improvements to bring you a better experience. We'll be back shortly!"
+      estimatedTime: "2:00",
+      message: "We're making some improvements to bring you a better experience. We'll be back shortly!"
     });
   } catch (error) {
-    console.error("[MAINTENANCE_GET]", error);
-    return NextResponse.json({ maintenanceMode: false }, { status: 500 });
+    console.error('[MAINTENANCE API] Error:', error);
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
 
@@ -60,47 +59,93 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     
-    // Only MASTER_ADMIN can update maintenance settings
-    if (!session?.user || session.user.role !== "MASTER_ADMIN") {
-      return NextResponse.json(
-        { error: "You don't have permission to update maintenance settings" }, 
-        { status: 403 }
-      );
+    if (!session || session.user.role !== 'MASTER_ADMIN') {
+      return new NextResponse('Unauthorized', { status: 401 });
     }
-    
-    const { maintenanceMode, estimatedTime, message } = await request.json();
-    
-    console.log(`[MAINTENANCE] Updating maintenance mode to: ${maintenanceMode}`);
-    
-    // Update maintenance mode
-    await db.setting.upsert({
-      where: { key: "maintenanceMode" },
-      update: { value: String(maintenanceMode) },
-      create: { key: "maintenanceMode", value: String(maintenanceMode) }
+
+    const body = await request.json();
+    const { maintenanceMode } = body;
+
+    // First try to find existing setting
+    const existingSetting = await db.setting.findUnique({
+      where: { key: "maintenanceMode" }
     });
-    
-    // Update estimated time
-    await db.setting.upsert({
-      where: { key: "maintenanceEstimatedTime" },
-      update: { value: estimatedTime },
-      create: { key: "maintenanceEstimatedTime", value: estimatedTime }
+
+    if (existingSetting) {
+      // Update existing setting
+      await db.setting.update({
+        where: { key: "maintenanceMode" },
+        data: { value: maintenanceMode.toString() }
+      });
+    } else {
+      // Create new setting
+      await db.setting.create({
+        data: {
+          id: `maintenanceMode_${Date.now()}`,
+          key: "maintenanceMode",
+          value: maintenanceMode.toString()
+        }
+      });
+    }
+
+    // Emit maintenance mode change to all connected clients
+    socket.emit("maintenanceMode", {
+      maintenanceMode,
+      estimatedTime: "2:00",
+      message: "We're making some improvements to bring you a better experience. We'll be back shortly!"
     });
-    
-    // Update message
-    await db.setting.upsert({
-      where: { key: "maintenanceMessage" },
-      update: { value: message },
-      create: { key: "maintenanceMessage", value: message }
-    });
-    
-    console.log(`[MAINTENANCE] Settings updated successfully. Maintenance mode: ${maintenanceMode}`);
-    
-    return NextResponse.json({ 
-      success: true,
-      maintenanceMode: maintenanceMode
-    });
+
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("[MAINTENANCE_POST]", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error('[MAINTENANCE API] Error:', error);
+    return new NextResponse('Internal Server Error', { status: 500 });
+  }
+}
+
+// Update maintenance mode (PUT handler)
+export async function PUT(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session || session.user.role !== 'MASTER_ADMIN') {
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
+
+    const body = await request.json();
+    const { maintenanceMode } = body;
+
+    // First try to find existing setting
+    const existingSetting = await db.setting.findUnique({
+      where: { key: "maintenanceMode" }
+    });
+
+    if (existingSetting) {
+      // Update existing setting
+      await db.setting.update({
+        where: { key: "maintenanceMode" },
+        data: { value: maintenanceMode.toString() }
+      });
+    } else {
+      // Create new setting
+      await db.setting.create({
+        data: {
+          id: `maintenanceMode_${Date.now()}`,
+          key: "maintenanceMode",
+          value: maintenanceMode.toString()
+        }
+      });
+    }
+
+    // Emit maintenance mode change to all connected clients
+    socket.emit("maintenanceMode", {
+      maintenanceMode,
+      estimatedTime: "2:00",
+      message: "We're making some improvements to bring you a better experience. We'll be back shortly!"
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('[MAINTENANCE API] Error:', error);
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 } 

@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useMaintenance, MaintenanceProvider } from "@/lib/contexts/maintenance-context";
+import { useSession } from "next-auth/react";
 
 interface Countdown {
   hours: number;
@@ -13,6 +14,7 @@ interface Countdown {
 
 function MaintenancePageContent() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { maintenanceMode, estimatedTime, message, isLoading } = useMaintenance();
   const [countdown, setCountdown] = useState<Countdown>({ hours: 0, minutes: 0, seconds: 0 });
   const countdownRef = useRef<Countdown>({ hours: 0, minutes: 0, seconds: 0 });
@@ -71,18 +73,18 @@ function MaintenancePageContent() {
     return () => clearInterval(interval);
   }, [updateCountdown, initializedRef.current]);
 
-  // Redirect if maintenance mode is off
+  // Redirect if maintenance mode is off or user is admin
   useEffect(() => {
     let mounted = true;
     
-    if (mounted && !isLoading && !maintenanceMode) {
+    if (mounted && !isLoading && (!maintenanceMode || session?.user?.role === 'MASTER_ADMIN')) {
       router.push("/");
     }
 
     return () => {
       mounted = false;
     };
-  }, [maintenanceMode, isLoading, router]);
+  }, [maintenanceMode, isLoading, router, session]);
 
   if (isLoading) {
     return (

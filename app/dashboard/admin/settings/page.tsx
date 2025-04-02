@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { AlertCircle, Clock, Wrench } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
+import io from "socket.io-client";
 
 export default function AdminSettingsPage() {
   const router = useRouter();
@@ -75,6 +76,18 @@ export default function AdminSettingsPage() {
       
       if (response.ok) {
         toast.success("Settings saved successfully");
+        
+        // Emit maintenance mode change to socket server
+        const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5002");
+        socket.emit("maintenanceMode", {
+          maintenanceMode,
+          estimatedTime,
+          message: maintenanceMessage,
+        });
+        socket.disconnect();
+        
+        // Refresh the page to ensure the changes are reflected
+        window.location.reload();
       } else {
         toast.error("Failed to save settings");
       }

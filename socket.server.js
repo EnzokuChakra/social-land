@@ -29,13 +29,13 @@ const io = socketIo(server, {
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   },
-  transports: ['websocket', 'polling'],
-  allowUpgrades: true,
+  transports: ['websocket'],
+  allowUpgrades: false,
   pingTimeout: 60000,
   pingInterval: 25000,
   connectTimeout: 45000,
   reconnection: true,
-  reconnectionAttempts: 5,
+  reconnectionAttempts: Infinity,
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000
 });
@@ -47,11 +47,23 @@ const activeClients = new Map();
 
 // Socket event handling
 io.on("connection", (socket) => {
+  console.log("[SOCKET] New Connection ID:", socket.id);
   activeClients.set(socket.id, socket);
 
   // Only log errors
   socket.on("error", (error) => {
     console.error("[SOCKET] Error:", error);
+  });
+
+  // Maintenance mode events
+  socket.on("maintenanceMode", (data) => {
+    console.log("[SOCKET] Maintenance mode update:", data);
+    // Broadcast maintenance mode change to all connected clients
+    io.emit("maintenanceModeUpdate", {
+      maintenanceMode: data.maintenanceMode,
+      estimatedTime: data.estimatedTime || "2:00",
+      message: data.message || "We're making some improvements to bring you a better experience. We'll be back shortly!"
+    });
   });
 
   // Story events
@@ -81,6 +93,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
+    console.log("[SOCKET] Client disconnected:", socket.id);
     activeClients.delete(socket.id);
   });
 });
