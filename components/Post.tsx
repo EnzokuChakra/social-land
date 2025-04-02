@@ -100,41 +100,6 @@ function Post({ post }: { post: PostWithExtras }) {
   // Get caption length to determine display style
   const isCaptionShort = post.caption ? post.caption.length < 30 : true;
 
-  // Format tagged users text
-  const getTaggedText = () => {
-    if (!Array.isArray(post.tags) || post.tags.length === 0) {
-      return null;
-    }
-
-    // Ensure each tag has the required user data
-    const validTags = post.tags.filter(tag => tag && tag.user && tag.user.username);
-    
-    if (validTags.length === 0) {
-      return null;
-    }
-
-    if (validTags.length === 1) {
-      const tag = validTags[0];
-      return (
-        <span>
-          with{" "}
-          <Link href={`/dashboard/${tag.user.username}`} className="font-semibold hover:underline">
-            {tag.user.username}
-          </Link>
-        </span>
-      );
-    }
-
-    return (
-      <span>
-        with{" "}
-        <button onClick={() => setShowTaggedModal(true)} className="font-semibold hover:underline">
-          {validTags.length} others
-        </button>
-      </span>
-    );
-  };
-
   // Add proper type for tags
   const handleTagClick = (tag: PostTag) => {
     router.push(`/dashboard/${tag.user.username}`);
@@ -245,29 +210,6 @@ function Post({ post }: { post: PostWithExtras }) {
             </ProfileHoverCard>
             {post.user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
             <span>{post.caption}</span>
-            {post.tags && post.tags.length > 0 && (
-              <span className="text-neutral-500 dark:text-neutral-400">
-                with{" "}
-                {post.tags.length === 1 ? (
-                  <ProfileHoverCard user={post.tags[0].user}>
-                    <Link
-                      href={`/dashboard/${post.tags[0].user.username}`}
-                      className="font-semibold hover:underline"
-                    >
-                      {post.tags[0].user.username}
-                      {post.tags[0].user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
-                    </Link>
-                  </ProfileHoverCard>
-                ) : (
-                  <button
-                    onClick={() => setShowTaggedModal(true)}
-                    className="font-semibold hover:underline"
-                  >
-                    {post.tags.length} others
-                  </button>
-                )}
-              </span>
-            )}
           </div>
         </div>
       )}
