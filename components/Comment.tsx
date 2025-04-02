@@ -248,9 +248,20 @@ function Comment({ comment: initialComment, inputRef, postUserId, onReply, initi
       <div className="group w-full py-2 flex items-start relative">
         <div className="flex-shrink-0 mr-3">
           <ProfileHoverCard user={user}>
-            <Link href={href}>
-              <UserAvatar user={user} className="h-8 w-8" />
-            </Link>
+            <div
+              onClick={onAvatarClick}
+              className={cn(
+                "relative cursor-pointer",
+                hasStoryRing && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]"
+              )}
+            >
+              <div className={cn(
+                "relative rounded-full overflow-hidden",
+                hasStoryRing && "p-[2px] bg-white dark:bg-black"
+              )}>
+                <UserAvatar user={user} className="h-8 w-8 object-cover" />
+              </div>
+            </div>
           </ProfileHoverCard>
         </div>
         <div className="flex-1 min-w-0">

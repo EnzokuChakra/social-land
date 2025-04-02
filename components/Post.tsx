@@ -40,12 +40,6 @@ function Post({ post }: { post: PostWithExtras }) {
 
   // Initialize likes count and liked status from the actual post data
   useEffect(() => {
-    console.log("[Post] Initializing post state:", {
-      postId: post.id,
-      initialLikes: post.likes,
-      initialCount: post.likes?.length || 0
-    });
-    
     if (status === "authenticated") {
       setShowOptions(true);
       if (post.likes) {
@@ -63,16 +57,8 @@ function Post({ post }: { post: PostWithExtras }) {
 
     const handleLikeUpdate = (data: { postId: string; userId: string; action: 'like' | 'unlike'; timestamp: string }) => {
       if (data.postId === post.id) {
-        console.log("[Post] Received like update:", {
-          postId: data.postId,
-          currentCount: likesCount,
-          action: data.action,
-          timestamp: data.timestamp
-        });
-        
         setLikesCount(prev => {
           const newCount = data.action === 'like' ? prev + 1 : Math.max(0, prev - 1);
-          console.log("[Post] Updating count:", { prev, newCount });
           return newCount;
         });
         

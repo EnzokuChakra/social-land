@@ -46,16 +46,19 @@ export async function GET(
     const limit = Number(searchParams.get("limit")) || 10;
     const skip = (page - 1) * limit;
 
+    // Await the params object before using it
+    const { postId } = await Promise.resolve(params);
+
     const totalComments = await db.comment.count({
       where: {
-        postId: params.postId,
+        postId,
         parentId: null
       }
     });
 
     const comments = await db.comment.findMany({
       where: {
-        postId: params.postId,
+        postId,
         parentId: null
       },
       orderBy: {

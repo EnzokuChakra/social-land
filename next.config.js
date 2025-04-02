@@ -48,6 +48,12 @@ const nextConfig = {
   basePath: '',
   // Configure asset prefix if needed
   assetPrefix: '',
+  // Reduce logging
+  logging: {
+    fetches: {
+      fullUrl: false
+    }
+  },
   async headers() {
     return [
       {

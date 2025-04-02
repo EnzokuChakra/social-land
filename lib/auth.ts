@@ -25,11 +25,12 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
-    updateAge: 24 * 60 * 60, // 24 hours
+    updateAge: 7 * 24 * 60 * 60, // 7 days (increased from 24 hours)
   },
   pages: {
     signIn: "/login",
   },
+  debug: false,
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -49,30 +50,22 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (!user) {
-          throw new Error("No user found");
+          throw new Error("User not found");
         }
 
-        if (!user.password) {
-          throw new Error("Invalid login method");
-        }
+        const isPasswordValid = await compare(credentials.password, user.password);
 
-        if (user.status === "BANNED") {
-          throw new Error("AccessDenied");
-        }
-
-        const passwordValid = await compare(credentials.password, user.password);
-
-        if (!passwordValid) {
-          throw new Error("Invalid credentials");
+        if (!isPasswordValid) {
+          throw new Error("Invalid password");
         }
 
         return {
           id: user.id,
           email: user.email,
           name: user.name,
-          username: user.username,
           image: user.image,
-          role: user.role as UserRoleType,
+          username: user.username,
+          role: user.role,
           verified: user.verified,
         };
       },
@@ -80,35 +73,29 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account, profile, email, credentials }) {
-      if (!user?.email) return false;
       return true;
     },
     async jwt({ token, user, account, profile, trigger, session }) {
       if (user) {
         token.id = user.id;
-        token.username = user.username;
-        token.role = user.role;
-        token.verified = user.verified;
         token.email = user.email;
         token.name = user.name;
         token.image = user.image;
+        token.username = user.username;
+        token.role = user.role;
+        token.verified = user.verified;
       }
-
-      if (trigger === "update" && session) {
-        token = { ...token, ...session };
-      }
-
       return token;
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.id as string;
-        session.user.email = token.email as string;
-        session.user.username = token.username as string | null;
-        session.user.role = token.role as UserRoleType;
-        session.user.verified = token.verified as boolean;
-        session.user.name = token.name as string | null;
-        session.user.image = token.image as string | null;
+        session.user.id = token.id;
+        session.user.email = token.email;
+        session.user.name = token.name;
+        session.user.image = token.image;
+        session.user.username = token.username;
+        session.user.role = token.role;
+        session.user.verified = token.verified;
       }
       return session;
     },
@@ -145,16 +132,15 @@ export const authOptions: NextAuthOptions = {
       },
     },
   },
-  debug: true,
   events: {
     async signIn(message) {
-      console.log('[Auth] User signed in:', message);
+      console.log('[Auth] User signed in:', message.user?.email);
     },
     async signOut(message) {
-      console.log('[Auth] User signed out:', message);
+      console.log('[Auth] User signed out:', message.session?.user?.email);
     },
     async session(message) {
-      console.log('[Auth] Session updated:', message);
+      // Remove session update logging
     },
   },
 };

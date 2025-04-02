@@ -194,6 +194,19 @@ export async function fetchPostById(postId: string) {
             }
           }
         },
+        likes: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                image: true,
+                name: true,
+                verified: true
+              }
+            }
+          }
+        },
         comments: {
           where: {
             parentId: null // Only fetch top-level comments
@@ -524,18 +537,10 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
   noStore();
 
   try {
-    console.log("[Profile Fetch] Starting profile fetch for username:", username);
     const session = await auth();
     const userId = session?.user?.id;
-    
-    console.log("[Profile Fetch] Session data:", {
-      hasSession: !!session,
-      userId,
-      timestamp: new Date().toISOString()
-    });
 
     if (!username) {
-      console.log("[Profile Fetch] No username provided");
       return null;
     }
 
@@ -546,7 +551,6 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
     });
 
     if (!user) {
-      console.log("[Profile Fetch] No user found for username:", username);
       return null;
     }
 
@@ -767,17 +771,8 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
     });
 
     if (!profile) {
-      console.log("[Profile Fetch] No profile found for username:", username);
       return null;
     }
-
-    console.log("[Profile Fetch] Profile found:", {
-      id: profile.id,
-      username: profile.username,
-      isPrivate: profile.isPrivate,
-      followersCount: profile.followers?.length || 0,
-      followingCount: profile.following?.length || 0
-    });
 
     // Get followers and following counts with error handling
     const [followersCount, followingCount] = await Promise.allSettled([
@@ -860,26 +855,6 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
       status: f.status
     }));
 
-    // Log the transformed data for debugging
-    console.log("[Profile Fetch] Transformed followers/following data:", {
-      followersCount: transformedFollowers.length,
-      followingCount: transformedFollowing.length,
-      sampleFollower: transformedFollowers[0] ? {
-        id: transformedFollowers[0].id,
-        username: transformedFollowers[0].username,
-        followerId: transformedFollowers[0].followerId,
-        followingId: transformedFollowers[0].followingId,
-        status: transformedFollowers[0].status
-      } : null,
-      sampleFollowing: transformedFollowing[0] ? {
-        id: transformedFollowing[0].id,
-        username: transformedFollowing[0].username,
-        followerId: transformedFollowing[0].followerId,
-        followingId: transformedFollowing[0].followingId,
-        status: transformedFollowing[0].status
-      } : null
-    });
-
     // Get follow status if logged in user is viewing another profile
     let followStatus = null;
     if (userId && userId !== user.id) {
@@ -945,21 +920,8 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
       } : {})
     };
 
-    console.log("[Profile Fetch] Final profile data:", {
-      followersCount: result.followersCount,
-      followingCount: result.followingCount,
-      followers: result.followers.map((f: { id: string; username: string }) => ({ id: f.id, username: f.username })),
-      following: result.following.map((f: { id: string; username: string }) => ({ id: f.id, username: f.username }))
-    });
-
     return result;
   } catch (error) {
-    console.error("[Profile Fetch] Error:", {
-      error,
-      errorMessage: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-      timestamp: new Date().toISOString()
-    });
     throw new Error("Failed to fetch profile");
   }
 }

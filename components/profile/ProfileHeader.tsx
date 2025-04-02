@@ -42,24 +42,27 @@ export default function ProfileHeader({
   return (
     <Card className="p-6 mb-6">
       <div className="flex flex-col md:flex-row gap-6">
-        <div className="h-[190px] w-[128px] relative flex-none before:content-[''] before:absolute before:inset-0 before:border-2 before:border-pink-500 before:rounded-[40px] before:pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-            <Avatar className="h-32 w-32">
-              <AvatarImage
-                src={user.image || "/images/profile_placeholder.webp"}
-                alt={user.username}
-                className="object-cover"
-              />
-              <AvatarFallback>
-                <Image
-                  src="/images/profile_placeholder.webp"
+        <div className="flex-none">
+          <div className="w-[150px] h-[150px] relative flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-yellow-400 to-fuchsia-600"></div>
+            <div className="relative p-[3px]">
+              <Avatar className="h-32 w-32 ring-2 ring-background">
+                <AvatarImage
+                  src={user.image || "/images/profile_placeholder.webp"}
                   alt={user.username}
-                  width={128}
-                  height={128}
                   className="object-cover"
                 />
-              </AvatarFallback>
-            </Avatar>
+                <AvatarFallback>
+                  <Image
+                    src="/images/profile_placeholder.webp"
+                    alt={user.username}
+                    width={128}
+                    height={128}
+                    className="object-cover"
+                  />
+                </AvatarFallback>
+              </Avatar>
+            </div>
           </div>
         </div>
 

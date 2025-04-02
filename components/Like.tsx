@@ -72,7 +72,6 @@ function LikeButton({
 
   const [optimisticLikes, addOptimisticLike] = useOptimistic<Like[]>(
     post.likes,
-    // @ts-ignore
     (state: Like[], newLike: Like) =>
       state.some(predicate)
         ? state.filter((like) => like.user_id !== userId)
@@ -104,7 +103,10 @@ function LikeButton({
       socket.emit("likeUpdate", {
         post: result.post,
         likedBy: result.likedBy,
-        unlike: result.unlike
+        unlike: result.unlike,
+        timestamp: new Date().toISOString(),
+        userId: session.data?.user?.id,
+        action: result.unlike ? 'unlike' : 'like'
       });
     }
   };
@@ -117,7 +119,6 @@ function LikeButton({
           addOptimisticLike({ postId: post.id, user_id: userId });
           const result = await likePost({ postId: post.id });
           
-          // Emit the complete result object
           if (result) {
             handleLikesCount(result);
           }

@@ -59,6 +59,15 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const [page, setPage] = useState(1);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const socket = useSocket();
+  
+  // Initialize currentPost with expanded likes data
+  const [currentPost, setCurrentPost] = useState<PostWithExtras>({
+    ...post,
+    likes: post.likes || [],
+    savedBy: post.savedBy || [],
+    comments: post.comments || [],
+    tags: post.tags || []
+  });
 
   useEffect(() => {
     setIsOpen(true);
@@ -113,6 +122,38 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     return () => {
       socket.off("commentUpdate", handleCommentUpdate);
       socket.off("commentDelete", handleCommentDelete);
+    };
+  }, [socket, id]);
+
+  // Update currentPost when post prop changes
+  useEffect(() => {
+    setCurrentPost(prevPost => ({
+      ...prevPost,
+      ...post,
+      likes: post.likes || prevPost.likes,
+      savedBy: post.savedBy || prevPost.savedBy,
+      comments: post.comments || prevPost.comments,
+      tags: post.tags || prevPost.tags
+    }));
+  }, [post]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleLikeUpdate = (data: any) => {
+      if (data.post?.id === id) {
+        setCurrentPost(prevPost => ({
+          ...prevPost,
+          ...data.post,
+          likes: data.post.likes || prevPost.likes
+        }));
+      }
+    };
+
+    socket.on("likeUpdate", handleLikeUpdate);
+
+    return () => {
+      socket.off("likeUpdate", handleLikeUpdate);
     };
   }, [socket, id]);
 
@@ -328,8 +369,8 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
 
         <div className="flex flex-col md:w-[350px] lg:w-[450px] h-full max-h-full bg-white dark:bg-black border-l border-neutral-200 dark:border-neutral-800">
           <DialogHeader className="flex p-0 border-b border-neutral-200 dark:border-neutral-800 space-y-0">
-            <div className="flex items-center justify-between p-2">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between p-4">
+              <div className="flex items-center gap-3">
                 <div
                   onClick={handleAvatarClick}
                   className={cn(
@@ -399,36 +440,43 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
             {post.caption && (
               <div className="px-4 py-3">
                 <div className="flex gap-3">
-                  <div
-                    onClick={handleAvatarClick}
-                    className={cn(
-                      "relative cursor-pointer",
-                      post.user.hasActiveStory && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[0.5px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-0.5 before:-top-0.5"
-                    )}
-                  >
-                    <div className={cn(
-                      "relative rounded-full overflow-hidden",
-                      post.user.hasActiveStory && "p-1"
-                    )}>
-                      <UserAvatar 
-                        user={post.user} 
-                        className="h-8 w-8"
-                      />
+                  <div className="flex-shrink-0">
+                    <div
+                      onClick={handleAvatarClick}
+                      className={cn(
+                        "relative cursor-pointer",
+                        post.user.hasActiveStory && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]"
+                      )}
+                    >
+                      <div className={cn(
+                        "relative rounded-full overflow-hidden w-8 h-8",
+                        post.user.hasActiveStory && "p-[2px] bg-white dark:bg-black"
+                      )}>
+                        <UserAvatar 
+                          user={post.user} 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm">
-                      <ProfileHoverCard user={post.user}>
-                        <Link href={href} className="font-semibold hover:underline inline">
-                          {username}
-                        </Link>
-                      </ProfileHoverCard>
-                      {post.user.verified && (
-                        <VerifiedBadge className="h-3.5 w-3.5 fill-blue-500 inline-block ml-1" />
-                      )}
+                      <div className="inline-flex items-center">
+                        <ProfileHoverCard user={post.user}>
+                          <Link href={href} className="font-semibold hover:underline inline">
+                            {username}
+                          </Link>
+                        </ProfileHoverCard>
+                        {post.user.verified && (
+                          <VerifiedBadge className="h-3.5 w-3.5 fill-blue-500 inline-block ml-1" />
+                        )}
+                      </div>
                       <span className="text-neutral-800 dark:text-neutral-200 ml-1.5 inline">
                         {post.caption}
                       </span>
+                    </div>
+                    <div className="text-[11px] text-neutral-500 mt-1">
+                      <Timestamp createdAt={post.createdAt} />
                     </div>
                   </div>
                 </div>
@@ -501,16 +549,22 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
             )}
           </ScrollArea>
 
-          <div className="px-4 py-2 border-b border-neutral-200 dark:border-neutral-800">
-            <PostActions post={post} userId={user?.id} />
-          </div>
+          <div className="flex flex-col border-t border-neutral-200 dark:border-neutral-800">
+            <div className="px-4 py-2">
+              <PostActions
+                post={currentPost}
+                userId={user?.id}
+                className="px-0"
+                inputRef={inputRef}
+              />
+            </div>
 
-          <CommentForm
-            postId={id}
-            className="px-3 py-2.5"
-            inputRef={inputRef}
-            ref={commentFormRef}
-          />
+            <CommentForm
+              ref={commentFormRef}
+              postId={id}
+              className="px-4 py-2 flex items-center gap-2"
+            />
+          </div>
         </div>
       </DialogContentWithoutClose>
       {post.tags && post.tags.length > 0 && (

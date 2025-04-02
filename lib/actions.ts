@@ -341,10 +341,19 @@ async function createNotification({
 
 export async function likePost(value: z.infer<typeof LikeSchema>) {
   const user_id = await getUserId();
+  console.log("[likePost] Starting like action:", {
+    postId: value.postId,
+    userId: user_id,
+    timestamp: new Date().toISOString()
+  });
 
   const validatedFields = LikeSchema.safeParse(value);
 
   if (!validatedFields.success) {
+    console.error("[likePost] Validation failed:", {
+      errors: validatedFields.error.flatten().fieldErrors,
+      timestamp: new Date().toISOString()
+    });
     return {
       errors: validatedFields.error.flatten().fieldErrors,
       message: "Missing Fields. Failed to Like Post.",
@@ -362,7 +371,20 @@ export async function likePost(value: z.infer<typeof LikeSchema>) {
       },
     });
 
+    console.log("[likePost] Existing like check:", {
+      postId,
+      userId: user_id,
+      exists: !!existingLike,
+      timestamp: new Date().toISOString()
+    });
+
     if (existingLike) {
+      console.log("[likePost] Deleting existing like:", {
+        postId,
+        userId: user_id,
+        timestamp: new Date().toISOString()
+      });
+      
       await db.like.delete({
         where: {
           postId_user_id: {
@@ -371,6 +393,7 @@ export async function likePost(value: z.infer<typeof LikeSchema>) {
           },
         },
       });
+      
       const updatedPost = await db.post.findUnique({
         where: {
           id: postId,
@@ -421,7 +444,7 @@ export async function likePost(value: z.infer<typeof LikeSchema>) {
                   status: true,
                   createdAt: true,
                   updatedAt: true,
-                  password: true, // Note: Be cautious with this field
+                  password: true,
                 },
               },
               likes: {
@@ -440,7 +463,7 @@ export async function likePost(value: z.infer<typeof LikeSchema>) {
                       status: true,
                       createdAt: true,
                       updatedAt: true,
-                      password: true, // Note: Be cautious with this field
+                      password: true,
                     },
                   },
                 },
@@ -461,7 +484,7 @@ export async function likePost(value: z.infer<typeof LikeSchema>) {
                       status: true,
                       createdAt: true,
                       updatedAt: true,
-                      password: true, // Note: Be cautious with this field
+                      password: true,
                     },
                   },
                 },
@@ -473,16 +496,24 @@ export async function likePost(value: z.infer<typeof LikeSchema>) {
           },
           likes: {
             include: {
-              user: true, // Includes all user fields by default
+              user: true,
             },
           },
           savedBy: {
             include: {
-              user: true, // Includes all user fields by default
+              user: true,
             },
           },
         },
       });
+
+      console.log("[likePost] Post unliked successfully:", {
+        postId,
+        userId: user_id,
+        newLikesCount: updatedPost.likes.length,
+        timestamp: new Date().toISOString()
+      });
+
       revalidatePath("/dashboard");
       return {
         message: "Post unliked successfully",
@@ -501,10 +532,21 @@ export async function likePost(value: z.infer<typeof LikeSchema>) {
     });
 
     if (!post) {
+      console.error("[likePost] Post not found:", {
+        postId,
+        timestamp: new Date().toISOString()
+      });
       return {
         message: "Post not found",
       };
     }
+
+    console.log("[likePost] Creating new like:", {
+      postId,
+      userId: user_id,
+      postOwnerId: post.user_id,
+      timestamp: new Date().toISOString()
+    });
 
     await db.like.create({
       data: {
@@ -520,6 +562,7 @@ export async function likePost(value: z.infer<typeof LikeSchema>) {
       user_id: post.user_id,
       postId,
     });
+
     const updatedPost = await db.post.findUnique({
       where: {
         id: postId,
@@ -570,7 +613,7 @@ export async function likePost(value: z.infer<typeof LikeSchema>) {
                 status: true,
                 createdAt: true,
                 updatedAt: true,
-                password: true, // Note: Be cautious with this field
+                password: true,
               },
             },
             likes: {
@@ -589,7 +632,7 @@ export async function likePost(value: z.infer<typeof LikeSchema>) {
                     status: true,
                     createdAt: true,
                     updatedAt: true,
-                    password: true, // Note: Be cautious with this field
+                    password: true,
                   },
                 },
               },
@@ -610,7 +653,7 @@ export async function likePost(value: z.infer<typeof LikeSchema>) {
                     status: true,
                     createdAt: true,
                     updatedAt: true,
-                    password: true, // Note: Be cautious with this field
+                    password: true,
                   },
                 },
               },
@@ -622,21 +665,30 @@ export async function likePost(value: z.infer<typeof LikeSchema>) {
         },
         likes: {
           include: {
-            user: true, // Includes all user fields by default
+            user: true,
           },
         },
         savedBy: {
           include: {
-            user: true, // Includes all user fields by default
+            user: true,
           },
         },
       },
     });
+
     const likedBy = await db.user.findUnique({
       where: {
         id: user_id,
       },
     });
+
+    console.log("[likePost] Post liked successfully:", {
+      postId,
+      userId: user_id,
+      newLikesCount: updatedPost.likes.length,
+      timestamp: new Date().toISOString()
+    });
+
     revalidatePath("/dashboard");
     return {
       message: "Post liked successfully",
@@ -645,7 +697,12 @@ export async function likePost(value: z.infer<typeof LikeSchema>) {
       likedBy,
     };
   } catch (error) {
-    console.error("Error in likePost:", error);
+    console.error("[likePost] Error:", {
+      error,
+      postId,
+      userId: user_id,
+      timestamp: new Date().toISOString()
+    });
     return {
       message: "Database Error: Failed to Like/Unlike Post.",
     };

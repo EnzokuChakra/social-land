@@ -166,27 +166,46 @@ function ProfileAvatar({
         return;
       }
 
-      const formattedStories = activeStories.map(story => ({
-        ...story,
-        views: story.views || [],
-        likes: story.likes || [],
-        user: {
-          id: user.id,
-          username: user.username,
-          name: user.name,
-          image: user.image
+      // First fetch the latest story data to ensure we have current views/likes
+      const fetchStoryData = async () => {
+        try {
+          const response = await fetch(`/api/stories?userId=${user.id}`);
+          if (!response.ok) throw new Error('Failed to fetch stories');
+          
+          const data = await response.json();
+          if (!data.success) throw new Error(data.error || 'Failed to fetch stories');
+
+          const formattedStories = data.data.map((story: any) => ({
+            id: story.id,
+            fileUrl: story.fileUrl,
+            createdAt: story.createdAt,
+            scale: story.scale || 1,
+            views: story.views || [],
+            likes: story.likes || [],
+            user: {
+              id: user.id,
+              username: user.username,
+              name: user.name,
+              image: user.image
+            }
+          }));
+
+          const allStories = [{
+            userId: user.id,
+            stories: formattedStories
+          }];
+
+          storyModal.setUserStories(allStories);
+          storyModal.setCurrentUserIndex(0);
+          storyModal.setUserId(user.id);
+          storyModal.onOpen();
+        } catch (error) {
+          console.error('Error fetching story data:', error);
+          toast.error('Failed to load story');
         }
-      }));
+      };
 
-      const allStories = [{
-        userId: user.id,
-        stories: formattedStories
-      }];
-
-      storyModal.setUserStories(allStories);
-      storyModal.setCurrentUserIndex(0);
-      storyModal.setUserId(user.id);
-      storyModal.onOpen();
+      fetchStoryData();
     } else if (isCurrentUser) {
       editProfileModal.onOpen();
     }

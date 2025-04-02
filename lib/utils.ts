@@ -5,9 +5,7 @@ import { twMerge } from "tailwind-merge";
 import { formatDistanceToNowStrict } from "date-fns";
 import { auth as customAuth } from "./auth";
 import { Post, PostWithExtras } from "./definitions";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "./prisma";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
