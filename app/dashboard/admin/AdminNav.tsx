@@ -20,7 +20,9 @@ import { cn } from "@/lib/utils";
 export default function AdminNav() {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const isMasterAdmin = session?.user?.role === "MASTER_ADMIN";
+  const userRole = session?.user?.role;
+  const isMasterAdmin = userRole === "MASTER_ADMIN";
+  const isAdmin = userRole === "ADMIN" || userRole === "MASTER_ADMIN";
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   
   // Fetch maintenance mode status
@@ -58,38 +60,43 @@ export default function AdminNav() {
     {
       value: "/dashboard/admin",
       label: "Dashboard",
-      icon: <LayoutDashboard className="h-4 w-4" />
+      icon: <LayoutDashboard className="h-4 w-4" />,
+      roles: ["MODERATOR", "ADMIN", "MASTER_ADMIN"]
     },
     {
       value: "/dashboard/admin/users",
       label: "Users",
-      icon: <Users className="h-4 w-4" />
+      icon: <Users className="h-4 w-4" />,
+      roles: ["ADMIN", "MASTER_ADMIN"]
     },
     {
       value: "/dashboard/admin/verified",
       label: "Verification",
-      icon: <BadgeCheck className="h-4 w-4" />
+      icon: <BadgeCheck className="h-4 w-4" />,
+      roles: ["MASTER_ADMIN"]
     },
     {
       value: "/dashboard/admin/reels",
       label: "Reels",
-      icon: <Film className="h-4 w-4" />
+      icon: <Film className="h-4 w-4" />,
+      roles: ["MODERATOR", "ADMIN", "MASTER_ADMIN"]
     },
     {
       value: "/dashboard/admin/reports",
       label: "Reports",
-      icon: <Flag className="h-4 w-4" />
+      icon: <Flag className="h-4 w-4" />,
+      roles: ["ADMIN", "MASTER_ADMIN"]
     },
     {
       value: "/dashboard/admin/settings",
       label: "Settings",
       icon: <Settings className="h-4 w-4" />,
-      adminOnly: true
+      roles: ["MASTER_ADMIN"]
     }
   ];
 
   // Filter tabs based on user role
-  const filteredTabs = tabs.filter(tab => !tab.adminOnly || isMasterAdmin);
+  const filteredTabs = tabs.filter(tab => tab.roles.includes(userRole || ""));
 
   return (
     <div className={cn(
@@ -112,19 +119,21 @@ export default function AdminNav() {
         className="w-full"
       >
         <TabsList className={cn(
-          "w-full justify-start h-auto p-1 bg-neutral-100 dark:bg-neutral-900",
-          "overflow-x-auto flex-wrap gap-1 rounded-lg"
+          "w-full h-auto p-2 bg-neutral-100 dark:bg-neutral-900",
+          "grid grid-flow-col auto-cols-fr gap-2",
+          "overflow-x-auto rounded-lg"
         )}>
           {filteredTabs.map((tab) => (
             <Link href={tab.value} key={tab.value} className="focus:outline-none">
               <TabsTrigger 
                 value={tab.value}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2.5",
+                  "w-full flex items-center justify-center gap-2 px-4 py-2.5",
                   "data-[state=active]:bg-white dark:data-[state=active]:bg-black",
                   "data-[state=active]:text-primary",
                   "data-[state=active]:shadow-sm",
-                  "transition-all duration-200"
+                  "rounded-md transition-all duration-200",
+                  "hover:bg-white/50 dark:hover:bg-neutral-800/50"
                 )}
               >
                 {tab.icon}

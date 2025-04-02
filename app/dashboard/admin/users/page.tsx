@@ -70,13 +70,16 @@ export default function UsersPage() {
   const [roleFilter, setRoleFilter] = useState<string>("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [isSearching, setIsSearching] = useState(false);
 
   const isMasterAdmin = session?.user?.role === "MASTER_ADMIN";
-  const debouncedSearch = useDebounce(search, 300);
+  const debouncedSearch = useDebounce(search, 500);
 
   async function fetchUsers(searchTerm: string, role: string, currentPage: number) {
     try {
-      setLoading(true);
+      if (!session?.user) return; // Don't fetch if no session
+      
+      setIsSearching(true);
       const params = new URLSearchParams({
         page: currentPage.toString(),
         limit: "10",
@@ -94,13 +97,23 @@ export default function UsersPage() {
       console.error("Error fetching users:", error);
       toast.error("Failed to fetch users");
     } finally {
-      setLoading(false);
+      setIsSearching(false);
+      setLoading(false); // Set loading to false after first fetch
     }
   }
 
+  // Initial fetch when component mounts
+  useEffect(() => {
+    if (session?.user) {
+      fetchUsers("", "", 1);
+    }
+  }, [session]);
+
   // Effect to trigger search
   useEffect(() => {
-    fetchUsers(debouncedSearch, roleFilter, page);
+    if (!loading) { // Only trigger search if initial loading is done
+      fetchUsers(debouncedSearch, roleFilter, page);
+    }
   }, [debouncedSearch, roleFilter, page]);
 
   async function handleUserAction(userId: string, action: string, newRole?: UserRole) {
@@ -192,6 +205,10 @@ export default function UsersPage() {
     MASTER_ADMIN: <ShieldAlert className="h-4 w-4 text-red-500" />,
   };
 
+  if (!session?.user) {
+    return null; // or some loading state
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -208,15 +225,20 @@ export default function UsersPage() {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
         <div className="flex items-center space-x-2">
-          <Input
-            placeholder="Search users..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1); // Reset to first page when searching
-            }}
-            className="w-[200px]"
-          />
+          <div className="relative">
+            <Input
+              placeholder="Search users..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1); // Reset to first page when searching
+              }}
+              className="w-[200px] pr-8"
+            />
+            {isSearching && (
+              <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-muted-foreground" />
+            )}
+          </div>
           <Select value={roleFilter} onValueChange={(value) => {
             setRoleFilter(value);
             setPage(1); // Reset to first page when filtering

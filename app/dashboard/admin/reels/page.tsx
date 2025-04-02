@@ -36,6 +36,9 @@ export default function AdminReelsPage() {
   const [reelsEnabled, setReelsEnabled] = useState(true);
   const [isUpdatingReelsVisibility, setIsUpdatingReelsVisibility] = useState(false);
 
+  const userRole = session?.user?.role;
+  const isMasterAdmin = userRole === "MASTER_ADMIN";
+
   useEffect(() => {
     if (status === "loading") return;
 
@@ -46,8 +49,10 @@ export default function AdminReelsPage() {
     }
 
     fetchPendingReels();
-    fetchReelsVisibilitySettings();
-  }, [session, status, router]);
+    if (isMasterAdmin) {
+      fetchReelsVisibilitySettings();
+    }
+  }, [session, status, router, isMasterAdmin]);
 
   const fetchPendingReels = async () => {
     try {
@@ -79,6 +84,8 @@ export default function AdminReelsPage() {
   };
 
   const handleReelsVisibilityToggle = async () => {
+    if (!isMasterAdmin) return;
+
     setIsUpdatingReelsVisibility(true);
     try {
       const response = await fetch("/api/admin/settings/reels", {
@@ -138,55 +145,34 @@ export default function AdminReelsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex items-center justify-center py-8">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <h3 className="text-xl font-semibold">Loading reels...</h3>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Pending Reels</h1>
-        <Link href="/dashboard/admin" className="text-blue-500 hover:underline">
-          Back to Admin
-        </Link>
+    <div className="space-y-4 p-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold tracking-tight">Reels Moderation</h1>
+        {isMasterAdmin && (
+          <div className="flex items-center gap-2">
+            <Label htmlFor="reels-visibility-toggle" className="text-sm font-normal">
+              {reelsEnabled ? "Enabled" : "Disabled"}
+            </Label>
+            <Switch
+              id="reels-visibility-toggle"
+              checked={reelsEnabled}
+              onCheckedChange={handleReelsVisibilityToggle}
+              disabled={isUpdatingReelsVisibility}
+            />
+          </div>
+        )}
       </div>
-      
-      {/* Reels Visibility Toggle */}
-      <Card className="mb-6">
-        <CardHeader className="py-4">
-          <CardTitle className="text-lg font-medium flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {reelsEnabled ? (
-                <Eye className="h-5 w-5 text-green-500" />
-              ) : (
-                <EyeOff className="h-5 w-5 text-red-500" />
-              )}
-              Platform-wide Reels Visibility
-            </div>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="reels-visibility-toggle" className="text-sm font-normal">
-                {reelsEnabled ? "Enabled" : "Disabled"}
-              </Label>
-              <Switch
-                id="reels-visibility-toggle"
-                checked={reelsEnabled}
-                onCheckedChange={handleReelsVisibilityToggle}
-                disabled={isUpdatingReelsVisibility}
-              />
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0 pb-4">
-          <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            {reelsEnabled 
-              ? "Reels are currently visible across the platform. Users can create, view, and interact with reels."
-              : "Reels are currently hidden across the platform. Users cannot create or view reels."}
-          </p>
-        </CardContent>
-      </Card>
-      
+
       {!reelsEnabled && (
         <Alert className="mb-6 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
           <AlertTitle className="text-amber-700 dark:text-amber-400 flex items-center gap-2">
@@ -198,7 +184,7 @@ export default function AdminReelsPage() {
           </AlertDescription>
         </Alert>
       )}
-      
+
       {reels.length === 0 ? (
         <p className="text-neutral-600 dark:text-neutral-400">
           No pending reels to review

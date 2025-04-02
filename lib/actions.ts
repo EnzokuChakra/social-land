@@ -101,7 +101,12 @@ export async function deletePost(postId: string) {
       throw new Error("Post not found");
     }
 
-    if (post.user_id !== session.user.id) {
+    // Allow deletion if user is post owner, MASTER_ADMIN, or ADMIN
+    const isPostOwner = post.user_id === session.user.id;
+    const isMasterAdmin = session.user.role === "MASTER_ADMIN";
+    const isAdmin = session.user.role === "ADMIN";
+
+    if (!isPostOwner && !isMasterAdmin && !isAdmin) {
       throw new Error("Not authorized to delete this post");
     }
 

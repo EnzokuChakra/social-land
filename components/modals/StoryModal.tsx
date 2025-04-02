@@ -108,6 +108,11 @@ export default function StoryModal() {
   const currentUserStories = storyModal.userStories[storyModal.currentUserIndex];
   const currentStory = currentUserStories?.stories[currentStoryIndex];
 
+  const isStoryOwner = session?.user?.id === currentStory?.user.id;
+  const isMasterAdmin = session?.user?.role === "MASTER_ADMIN";
+  const isAdmin = session?.user?.role === "ADMIN";
+  const canDelete = isStoryOwner || isMasterAdmin || isAdmin;
+
   // Function to progress to next story
   const progressToNextStory = useCallback(() => {
     if (!currentUserStories?.stories) return;
@@ -783,7 +788,7 @@ export default function StoryModal() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-40">
-                      {session?.user?.id === currentStory.user.id ? (
+                      {canDelete ? (
                         <DropdownMenuItem
                           className="text-red-500 cursor-pointer"
                           onClick={handleDeleteStory}

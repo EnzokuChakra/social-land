@@ -64,7 +64,12 @@ export async function DELETE(
       return new NextResponse("Story not found", { status: 404 });
     }
 
-    if (story.user_id !== session.user.id) {
+    // Allow deletion if user is story owner, MASTER_ADMIN, or ADMIN
+    const isStoryOwner = story.user_id === session.user.id;
+    const isMasterAdmin = session.user.role === "MASTER_ADMIN";
+    const isAdmin = session.user.role === "ADMIN";
+
+    if (!isStoryOwner && !isMasterAdmin && !isAdmin) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 

@@ -34,6 +34,8 @@ function PostOptions({ post, userId, className }: Props) {
   const { data: session } = useSession();
   const isPostOwner = post.user_id === userId;
   const isMasterAdmin = session?.user?.role === "MASTER_ADMIN";
+  const isAdmin = session?.user?.role === "ADMIN";
+  const canDelete = isPostOwner || isMasterAdmin || isAdmin;
 
   const handleDeletePost = async () => {
     try {
@@ -125,7 +127,7 @@ function PostOptions({ post, userId, className }: Props) {
                   Delete post
                 </button>
               </>
-            ) : isMasterAdmin ? (
+            ) : canDelete ? (
               <button
                 onClick={() => {
                   setIsOptionsOpen(false);
