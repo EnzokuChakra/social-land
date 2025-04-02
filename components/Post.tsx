@@ -159,6 +159,8 @@ function Post({ post }: { post: PostWithExtras }) {
                   )}
                 </div>
               )}
+              <span className="text-neutral-500 dark:text-neutral-400 text-xs">•</span>
+              <Timestamp createdAt={new Date(post.createdAt)} className="text-xs" />
             </div>
             {post.location && (
               <Link

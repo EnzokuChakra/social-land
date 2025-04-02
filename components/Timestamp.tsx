@@ -22,43 +22,41 @@ function Timestamp({ createdAt, className, showFull = false }: Props) {
   }
 
   return (
-    <ReactTimeago
-      className={cn(
-        "font-medium text-neutral-500 dark:text-neutral-400",
-        className
-      )}
-      date={createdAt}
-      formatter={(value, unit) => {
-        if (showFull) {
-          // Convert to singular unit if value is 1
-          const unitStr = value === 1 ? unit : unit + 's';
-          return `${value} ${unitStr} ago`;
-        } else {
-          // Handle each time unit with short format
-          if (value === 1) {
-            return `1${unit[0]}`;
+    <span className={cn(
+      "font-medium text-neutral-500 dark:text-neutral-400",
+      className
+    )}>
+      <ReactTimeago
+        date={createdAt}
+        formatter={(value, unit) => {
+          if (showFull) {
+            // Convert to singular unit if value is 1
+            const unitStr = value === 1 ? unit : unit + 's';
+            return `${value} ${unitStr} ago`;
+          } else {
+            // Handle each time unit with exact format
+            switch (unit) {
+              case "second":
+                return value === 1 ? "1s" : `${value}s`;
+              case "minute":
+                return value === 1 ? "1m" : `${value}m`;
+              case "hour":
+                return value === 1 ? "1h" : `${value}h`;
+              case "day":
+                return value === 1 ? "1d" : `${value}d`;
+              case "week":
+                return value === 1 ? "1w" : `${value}w`;
+              case "month":
+                return value === 1 ? "1mo" : `${value}mo`;
+              case "year":
+                return value === 1 ? "1y" : `${value}y`;
+              default:
+                return `${value}${unit[0]}`;
+            }
           }
-          switch (unit) {
-            case "second":
-              return `${value}s`;
-            case "minute":
-              return `${value}m`;
-            case "hour":
-              return `${value}h`;
-            case "day":
-              return `${value}d`;
-            case "week":
-              return `${value}w`;
-            case "month":
-              return `${value}mo`;
-            case "year":
-              return `${value}y`;
-            default:
-              return `${value}${unit[0]}`;
-          }
-        }
-      }}
-    />
+        }}
+      />
+    </span>
   );
 }
 

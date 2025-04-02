@@ -16,6 +16,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
 import { PostWithExtras } from "@/lib/definitions";
 import { useSession } from "next-auth/react";
+import { Input } from "./ui/input";
 
 type Props = {
   post: PostWithExtras;
@@ -28,6 +29,8 @@ function PostOptions({ post, userId, className }: Props) {
   const pathname = usePathname();
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
   const { data: session } = useSession();
   const isPostOwner = post.user_id === userId;
   const isMasterAdmin = session?.user?.role === "MASTER_ADMIN";
@@ -60,7 +63,19 @@ function PostOptions({ post, userId, className }: Props) {
 
   const handleReportPost = async () => {
     try {
+      if (!reportReason.trim()) {
+        toast.error("Please provide a reason for reporting");
+        return;
+      }
+
+      if (reportReason.length > 100) {
+        toast.error("Reason must be 100 characters or less");
+        return;
+      }
+
+      setIsReportDialogOpen(false);
       setIsOptionsOpen(false);
+      
       const response = await fetch("/api/posts/report", {
         method: "POST",
         headers: {
@@ -68,14 +83,14 @@ function PostOptions({ post, userId, className }: Props) {
         },
         body: JSON.stringify({
           postId: post.id,
-          reason: "Inappropriate content"
+          reason: reportReason
         }),
       });
 
       if (!response.ok) throw new Error("Failed to report post");
       
       toast.success("Post reported successfully");
-      router.back();
+      setReportReason("");
     } catch (error) {
       toast.error("Failed to report post");
     }
@@ -122,7 +137,10 @@ function PostOptions({ post, userId, className }: Props) {
               </button>
             ) : (
               <button
-                onClick={handleReportPost}
+                onClick={() => {
+                  setIsOptionsOpen(false);
+                  setIsReportDialogOpen(true);
+                }}
                 className="w-full text-left px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-md"
               >
                 Report
@@ -155,6 +173,43 @@ function PostOptions({ post, userId, className }: Props) {
             </button>
             <button
               onClick={() => setIsDeleteDialogOpen(false)}
+              className="w-full px-4 py-2.5 text-sm font-medium border hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-md"
+            >
+              Cancel
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Report Dialog */}
+      <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
+        <DialogContent className="sm:max-w-md" showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle className="text-center font-medium text-base">
+              Report Post
+            </DialogTitle>
+            <DialogDescription className="text-center text-neutral-500">
+              Please provide a reason for reporting this post.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 p-4">
+            <Input
+              placeholder="Enter reason (max 100 characters)"
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              maxLength={100}
+            />
+            <button
+              onClick={handleReportPost}
+              className="w-full px-4 py-2.5 text-sm font-medium bg-red-500 hover:bg-red-600 text-white rounded-md"
+            >
+              Report
+            </button>
+            <button
+              onClick={() => {
+                setIsReportDialogOpen(false);
+                setReportReason("");
+              }}
               className="w-full px-4 py-2.5 text-sm font-medium border hover:bg-gray-100 dark:hover:bg-neutral-800 rounded-md"
             >
               Cancel

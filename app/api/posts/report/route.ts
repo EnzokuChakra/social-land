@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 
 export async function POST(request: Request) {
   try {
@@ -17,6 +18,7 @@ export async function POST(request: Request) {
 
     const report = await prisma.report.create({
       data: {
+        id: crypto.randomUUID(),
         postId,
         reason,
         userId: session.user.id,

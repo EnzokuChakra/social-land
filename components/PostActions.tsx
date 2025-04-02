@@ -18,7 +18,7 @@ import FollowButton from "./FollowButton";
 import io from "socket.io-client";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
-import Timestamp from "@/components/Timestamp";
+
 const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5002", {
   withCredentials: true,
   transports: ['websocket', 'polling'],
@@ -123,8 +123,6 @@ function PostActions({ post, userId, className, inputRef }: Props) {
             </div>
           )}
         </div>
-
-        <Timestamp createdAt={post.createdAt} className="text-xs text-neutral-500 dark:text-neutral-400" showFull={true} />
       </div>
 
       {/* Likes Modal */}
