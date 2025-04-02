@@ -79,8 +79,47 @@ type Props = {
 
 function PostActions({ post, userId, className, inputRef }: Props) {
   const [showLikesModal, setShowLikesModal] = useState(false);
+  const [currentPost, setCurrentPost] = useState<PostWithExtras>(post);
   const router = useRouter();
   const { data: session, status } = useSession();
+
+  useEffect(() => {
+    // Listen for like updates
+    const handleLikeUpdate = (data: any) => {
+      if (data.post.id === currentPost.id) {
+        setCurrentPost(prevPost => {
+          // If it's an unlike action, remove the like
+          if (data.action === 'unlike') {
+            return {
+              ...prevPost,
+              likes: prevPost.likes.filter(like => like.user_id !== data.userId)
+            };
+          }
+          // If it's a like action, add the like
+          const newLike: Like & { user: User } = {
+            id: crypto.randomUUID(),
+            user_id: data.likedBy.id,
+            postId: data.post.id,
+            reelId: null,
+            storyId: null,
+            user: data.likedBy,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+          return {
+            ...prevPost,
+            likes: [...prevPost.likes, newLike]
+          };
+        });
+      }
+    };
+
+    socket.on('likeUpdate', handleLikeUpdate);
+
+    return () => {
+      socket.off('likeUpdate', handleLikeUpdate);
+    };
+  }, [currentPost.id]);
 
   const handleCommentClick = () => {
     if (inputRef?.current) {
@@ -92,30 +131,30 @@ function PostActions({ post, userId, className, inputRef }: Props) {
     <>
       <div className={cn("relative flex flex-col w-full gap-y-1", className)}>
         <div className="flex items-start w-full gap-x-2">
-          <LikeButton post={post} userId={userId} />
+          <LikeButton post={currentPost} userId={userId} />
           {inputRef ? (
             <ActionIcon onClick={handleCommentClick}>
               <MessageCircle className={"h-6 w-6"} />
             </ActionIcon>
           ) : (
-            <Link href={`/dashboard/p/${post.id}`}>
+            <Link href={`/dashboard/p/${currentPost.id}`}>
               <ActionIcon>
                 <MessageCircle className={"h-6 w-6"} />
               </ActionIcon>
             </Link>
           )}
-          <ShareButton postId={post.id} />
-          <BookmarkButton post={post} userId={userId} />
+          <ShareButton postId={currentPost.id} />
+          <BookmarkButton post={currentPost} userId={userId} />
         </div>
 
         {/* Like count section */}
         <div>
-          {post.likes && post.likes.length > 0 ? (
+          {currentPost.likes && currentPost.likes.length > 0 ? (
             <button
               onClick={() => setShowLikesModal(true)}
               className="font-semibold text-sm text-left hover:underline"
             >
-              {post.likes.length} {post.likes.length === 1 ? "like" : "likes"}
+              {currentPost.likes.length} {currentPost.likes.length === 1 ? "like" : "likes"}
             </button>
           ) : (
             <div className="font-normal text-sm text-neutral-500 dark:text-neutral-400">
@@ -135,8 +174,8 @@ function PostActions({ post, userId, className, inputRef }: Props) {
           </DialogHeader>
           <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
-              {post.likes && post.likes.length > 0 ? (
-                post.likes.map((like: Like & { user: User }) => {
+              {currentPost.likes && currentPost.likes.length > 0 ? (
+                currentPost.likes.map((like: Like & { user: User }) => {
                   const user = like.user as ExtendedUser;
                   return (
                     <div
