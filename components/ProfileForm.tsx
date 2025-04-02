@@ -25,17 +25,27 @@ import { Switch } from "./ui/switch";
 import { useRouter } from "next/navigation";
 import { CheckCircle, Info, Loader2, UserCheck, Lock, AlertCircle } from "lucide-react";
 import { useEditProfileModal } from "@/hooks/use-edit-profile-modal";
+import { useState } from "react";
+import { useStoryModal } from "@/hooks/use-story-modal";
+import ProfilePictureOptionsModal from "./modals/ProfilePictureOptionsModal";
+
+type ProfileFormErrors = {
+  [K in keyof z.infer<typeof UserSchema>]?: string[];
+} & {
+  form?: string[];
+};
 
 function ProfileForm({ profile }: { profile: UserWithExtras }) {
   const router = useRouter();
   const editProfileModal = useEditProfileModal();
+  const [isOptionsModalOpen, setIsOptionsModalOpen] = useState(false);
+
   const form = useForm<z.infer<typeof UserSchema>>({
     resolver: zodResolver(UserSchema),
     defaultValues: {
       id: profile.id,
       image: profile.image || "",
       name: profile.name || "",
-      username: profile.username || "",
       bio: profile.bio || "",
       isPrivate: profile.isPrivate || false,
     },
@@ -44,7 +54,7 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
   const { isDirty, isSubmitting, isValid, errors } = form.formState;
 
   const handleProfilePhotoClick = () => {
-    editProfileModal.onOpen();
+    setIsOptionsModalOpen(true);
   };
 
   return (
@@ -85,26 +95,36 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
           </div>
         </div>
 
+        {/* Profile Picture Options Modal */}
+        <ProfilePictureOptionsModal
+          open={isOptionsModalOpen}
+          onOpenChange={setIsOptionsModalOpen}
+          hasStory={profile.hasActiveStory || false}
+          userId={profile.id}
+          isOwnProfile={true}
+        />
+
         {/* Form Fields */}
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(async (values) => {
               const result = await updateProfile(values);
-              if (result.message === "Updated Profile.") {
+              if (result.message === "Profile updated successfully") {
                 toast.success(result.message);
                 router.refresh();
-              } else if (result.message === "Username already exists") {
-                toast.error(result.message);
-                form.setError("username", {
-                  type: "manual",
-                  message: "This username is already taken"
-                });
               } else {
                 toast.error(result.message);
-                if (result.errors?.form) {
-                  form.setError("form", {
-                    type: "manual",
-                    message: result.errors.form[0]
+                if (result.errors) {
+                  const errors = result.errors as ProfileFormErrors;
+                  Object.entries(errors).forEach(([key, messages]) => {
+                    if (key === "form") {
+                      toast.error(messages[0]);
+                    } else {
+                      form.setError(key as keyof z.infer<typeof UserSchema>, {
+                        type: "manual",
+                        message: messages[0]
+                      });
+                    }
                   });
                 }
               }
@@ -143,53 +163,9 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
                             <AlertCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-red-500" />
                           )}
                         </div>
-                        <FormDescription className="text-neutral-500 dark:text-neutral-400 text-xs">
+                        <FormDescription className="text-neutral-500 dark:text-neutral-400 text-xs flex justify-between">
                           Help people discover your account by using the name you're known by.
                           <span className="text-neutral-400 ml-1">
-                            {field.value?.length || 0}/30
-                          </span>
-                        </FormDescription>
-                        <FormMessage className="text-xs" />
-                      </div>
-                    </div>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-2 items-start">
-                      <div className="flex flex-col">
-                        <FormLabel className="text-neutral-900 dark:text-white font-medium mb-1">
-                          Username
-                        </FormLabel>
-                        <FormDescription className="text-neutral-500 dark:text-neutral-400 text-xs">
-                          Your unique identifier
-                        </FormDescription>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="relative">
-                          <FormControl>
-                            <Input 
-                              placeholder="username" 
-                              {...field} 
-                              className="bg-white dark:bg-black border-neutral-200 dark:border-neutral-800 rounded-md
-                              focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400 text-sm h-10 pl-3 pr-8" 
-                            />
-                          </FormControl>
-                          {field.value && !errors.username && (
-                            <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
-                          )}
-                          {errors.username && (
-                            <AlertCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-red-500" />
-                          )}
-                        </div>
-                        <FormDescription className="text-neutral-500 dark:text-neutral-400 text-xs flex justify-between">
-                          <span>You can change your username back within 14 days.</span>
-                          <span className="text-neutral-400">
                             {field.value?.length || 0}/30
                           </span>
                         </FormDescription>

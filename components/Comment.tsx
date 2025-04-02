@@ -329,7 +329,7 @@ function Comment({ comment: initialComment, inputRef, postUserId, onReply, initi
             <div className="mt-2 ml-2 pl-3 border-l border-neutral-200 dark:border-neutral-700">
               {comment.replies?.map((reply) => (
                 <Comment
-                  key={reply.id}
+                  key={`${reply.id}-${reply.createdAt}`}
                   comment={reply}
                   inputRef={inputRef}
                   postUserId={postUserId}

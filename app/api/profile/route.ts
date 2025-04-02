@@ -10,23 +10,31 @@ export async function GET(request: Request) {
   try {
     const session = await auth();
     if (!session?.user?.username) {
+      console.error("[PROFILE_GET] No authenticated user found");
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
     // Check if user is banned
     const isBanned = await checkUserBanStatus(session.user.id);
     if (isBanned) {
+      console.error("[PROFILE_GET] User is banned:", session.user.id);
       return new NextResponse("Account is banned", { status: 403 });
     }
 
     const profile = await fetchProfile(session.user.username);
     if (!profile) {
+      console.error("[PROFILE_GET] Profile not found for username:", session.user.username);
       return new NextResponse("Profile not found", { status: 404 });
     }
 
     return NextResponse.json(profile);
   } catch (error) {
-    console.error("Error in profile API route:", error);
+    console.error("[PROFILE_GET] Server error:", {
+      error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
@@ -48,22 +56,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const { name, image, username, bio, isPrivate } = validatedFields.data;
-
-    // Check if username is already taken (if changing username)
-    if (username && username !== session.user.username) {
-      const existingUser = await db.user.findUnique({
-        where: { username },
-        select: { id: true }
-      });
-
-      if (existingUser) {
-        return NextResponse.json(
-          { error: "Username already taken" },
-          { status: 400 }
-        );
-      }
-    }
+    const { name, image, bio, isPrivate } = validatedFields.data;
 
     // Update the user profile
     const updatedUser = await db.user.update({
@@ -71,7 +64,6 @@ export async function PATCH(request: Request) {
       data: {
         name,
         image,
-        username,
         bio,
         isPrivate
       }

@@ -74,7 +74,12 @@ export default function ProfileHoverCard({ user, children, align = "center" }: P
           hasPendingRequest: data.status === "PENDING",
         }));
       } catch (error) {
-        console.error("Error fetching follow status:", error);
+        console.error("[PROFILE_HOVER_CARD] Error fetching follow status:", {
+          error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          timestamp: new Date().toISOString()
+        });
       }
     };
 
@@ -93,7 +98,12 @@ export default function ProfileHoverCard({ user, children, align = "center" }: P
       const data = await response.json();
       setStats(data);
     } catch (error) {
-      console.error("Error fetching profile stats:", error);
+      console.error("[PROFILE_HOVER_CARD] Error fetching profile stats:", {
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString()
+      });
       setError(true);
       toast.error("Failed to fetch profile stats");
     }

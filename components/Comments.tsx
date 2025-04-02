@@ -66,15 +66,17 @@ function Comments({
   inputRef?: React.RefObject<HTMLInputElement>;
   showPreview?: boolean;
 }) {
-  const [optimisticComments, addOptimisticComment] = useOptimistic<
+  const [optimisticComments, setOptimisticComments] = useOptimistic<
     CommentWithExtras[],
     CommentWithExtras
   >(initialComments, (state, newComment) => [newComment, ...state]);
 
+  const [isPending, startTransition] = useTransition();
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [totalComments, setTotalComments] = useState(initialComments.length);
+  const [comments, setComments] = useState<CommentWithExtras[]>(initialComments);
   const commentRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cooldownTime, setCooldownTime] = useState(0);
@@ -91,7 +93,7 @@ function Comments({
         const response = await fetch(`/api/posts/${postId}/comments?page=1&limit=10`);
         const data = await response.json();
         setTotalComments(data.totalComments);
-        setHasMore(data.totalComments > initialComments.length);
+        setHasMore(data.totalComments > 10);
       } catch (error) {
         console.error("Error fetching comment count:", error);
       }
@@ -101,31 +103,61 @@ function Comments({
 
   // Load more comments
   const loadMoreComments = async () => {
-    if (isLoading) return;
+    console.log('[Comments] View more comments clicked:', {
+      isLoading,
+      hasMore,
+      currentPage: page,
+      currentCommentsCount: optimisticComments.length,
+      totalComments
+    });
+
+    if (isLoading) {
+      console.log('[Comments] Aborting loadMoreComments: Already loading');
+      return;
+    }
 
     setIsLoading(true);
     try {
       const nextPage = page + 1;
+      console.log('[Comments] Fetching more comments:', {
+        postId,
+        nextPage,
+        limit: 10
+      });
+
       const response = await fetch(`/api/posts/${postId}/comments?page=${nextPage}&limit=10`);
       const data = await response.json();
       
+      console.log('[Comments] Received comments data:', {
+        success: !!data.comments,
+        commentsReceived: data.comments?.length || 0,
+        hasMore: data.hasMore,
+        totalComments: data.totalComments
+      });
+      
       if (data.comments) {
+        // Filter out any comments that already exist in optimisticComments
+        const existingCommentIds = new Set(optimisticComments.map(c => c.id));
         const newComments = data.comments.filter(
-          (comment: CommentWithExtras) => 
-            !optimisticComments.some(existing => existing.id === comment.id)
+          (comment: CommentWithExtras) => !existingCommentIds.has(comment.id)
         );
-        setPage(nextPage);
-        setHasMore(data.hasMore);
         
-        // Add new comments to the state
-        if (newComments.length > 0) {
-          newComments.forEach((comment: CommentWithExtras) => {
-            addOptimisticComment(comment);
-          });
-        }
+        console.log('[Comments] After filtering:', {
+          newCommentsCount: newComments.length,
+          filteredOutCount: data.comments.length - newComments.length,
+          existingCommentsCount: existingCommentIds.size
+        });
+        
+        // Update state with new comments
+        startTransition(() => {
+          setOptimisticComments(prev => [...prev, ...newComments]);
+          setPage(nextPage);
+          setHasMore(data.hasMore);
+          setTotalComments(data.totalComments);
+        });
       }
     } catch (error) {
-      console.error("Error loading more comments:", error);
+      console.error("[Comments] Error loading more comments:", error);
     } finally {
       setIsLoading(false);
     }
@@ -133,35 +165,42 @@ function Comments({
 
   // Initialize cooldown from localStorage on component mount
   useEffect(() => {
-    if (!user?.verified) {
-      const storedCooldown = localStorage.getItem(`comment_cooldown_${user?.id}`);
+    const checkCooldown = () => {
+      const storedCooldown = localStorage.getItem('comment_cooldown');
       if (storedCooldown) {
         const cooldownEndTime = parseInt(storedCooldown);
         const now = Date.now();
         if (cooldownEndTime > now) {
           setCooldownTime(Math.ceil((cooldownEndTime - now) / 1000));
         } else {
-          localStorage.removeItem(`comment_cooldown_${user?.id}`);
+          localStorage.removeItem('comment_cooldown');
+          setCooldownTime(0);
         }
       }
-    }
-  }, [user]);
+    };
+
+    // Check immediately on mount
+    checkCooldown();
+
+    // Set up an interval to check every second
+    const interval = setInterval(checkCooldown, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Handle cooldown timer
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (cooldownTime > 0) {
       // Store end time in localStorage whenever cooldown changes
-      if (!user?.verified) {
-        const cooldownEndTime = Date.now() + cooldownTime * 1000;
-        localStorage.setItem(`comment_cooldown_${user?.id}`, cooldownEndTime.toString());
-      }
+      const cooldownEndTime = Date.now() + cooldownTime * 1000;
+      localStorage.setItem('comment_cooldown', cooldownEndTime.toString());
 
       timer = setInterval(() => {
         setCooldownTime((prev) => {
           const newTime = Math.max(0, prev - 1);
           if (newTime === 0) {
-            localStorage.removeItem(`comment_cooldown_${user?.id}`);
+            localStorage.removeItem('comment_cooldown');
           }
           return newTime;
         });
@@ -170,7 +209,7 @@ function Comments({
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [cooldownTime, user]);
+  }, [cooldownTime]);
 
   // Setup listener for real-time comment updates
   useEffect(() => {
@@ -216,7 +255,7 @@ function Comments({
         body: optimisticComment.body
       });
 
-      addOptimisticComment(optimisticComment);
+      setOptimisticComments(prev => [...prev, optimisticComment]);
     };
 
     // Add event listener for real-time updates
@@ -231,7 +270,7 @@ function Comments({
           handleOptimisticComment as EventListener);
       }
     };
-  }, [postId, user, addOptimisticComment]);
+  }, [postId, user, setOptimisticComments]);
 
   // Add a refresh mechanism that periodically fetches new comments
   useEffect(() => {
@@ -263,7 +302,7 @@ function Comments({
         console.log(`Found ${newComments.length} new comments from other users`);
         
         // Add all new comments
-        addOptimisticComment(newComments[0]);
+        setOptimisticComments(prev => [...prev, ...newComments]);
       }
     };
 
@@ -279,7 +318,7 @@ function Comments({
           handleCommentsUpdate as EventListener);
       }
     };
-  }, [addOptimisticComment, postId, optimisticComments]);
+  }, [setOptimisticComments, postId, optimisticComments]);
 
   const isDisabled = isSubmitting || (!user?.verified && cooldownTime > 0);
   
@@ -321,7 +360,7 @@ function Comments({
     
     return (
       <CommentComponent
-        key={comment.id}
+        key={`${comment.id}-${comment.createdAt}`}
         comment={comment}
         inputRef={commentRef}
         postUserId={postUserId}
@@ -386,7 +425,7 @@ function Comments({
   // Handle comment submission
   const onSubmit = async (values: z.infer<typeof CreateComment>) => {
     if (!user) return;
-    if (isSubmitting) return;
+    if (isSubmitting || cooldownTime > 0) return;
     
     setIsSubmitting(true);
     
@@ -420,13 +459,15 @@ function Comments({
         likes: [],
       };
 
-      // Add optimistic comment
-      addOptimisticComment(optimisticComment);
+      // Wrap optimistic update in startTransition
+      startTransition(() => {
+        setOptimisticComments(prev => [...prev, optimisticComment]);
+      });
 
       // Create actual comment
       const response = await createComment({
         ...values,
-        parentId: values.parentId // Ensure parentId is passed
+        parentId: values.parentId
       });
 
       if (!response || response.errors) {
@@ -441,10 +482,10 @@ function Comments({
       // Reset parentId after successful submission
       form.setValue("parentId", null);
 
-      // Set cooldown for non-verified users
-      if (!user.verified) {
-        setCooldownTime(30);
-      }
+      // Set cooldown timer to 15 seconds and store in localStorage
+      const cooldownEndTime = Date.now() + 15000; // 15 seconds
+      localStorage.setItem('comment_cooldown', cooldownEndTime.toString());
+      setCooldownTime(15);
 
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Something went wrong");
@@ -467,19 +508,40 @@ function Comments({
     // Get top-level comments (those without a parentId)
     const topLevelComments = comments.filter(comment => !comment.parentId);
     
+    // Create a Set of processed comment IDs to avoid duplicates
+    const processedCommentIds = new Set<string>();
+    
     console.log('[COMMENTS] Found top-level comments:', {
       count: topLevelComments.length,
       ids: topLevelComments.map(c => c.id)
     });
     
     // Sort comments by creation date (newest first)
-    const sortedTopLevelComments = topLevelComments.sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    const sortedTopLevelComments = topLevelComments
+      .filter(comment => {
+        // Only include comments that haven't been processed yet
+        if (processedCommentIds.has(comment.id)) {
+          return false;
+        }
+        processedCommentIds.add(comment.id);
+        return true;
+      })
+      .sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
     
     return sortedTopLevelComments.map((comment) => {
       // Get all replies for this comment
-      const replies = comments.filter(reply => reply.parentId === comment.id);
+      const replies = comments
+        .filter(reply => reply.parentId === comment.id)
+        .filter(reply => {
+          // Only include replies that haven't been processed yet
+          if (processedCommentIds.has(reply.id)) {
+            return false;
+          }
+          processedCommentIds.add(reply.id);
+          return true;
+        });
       
       console.log('[COMMENTS] Processing comment with replies:', {
         commentId: comment.id,
@@ -509,7 +571,7 @@ function Comments({
       
       return (
         <CommentComponent
-          key={comment.id}
+          key={`${comment.id}-${comment.createdAt}`}
           comment={commentWithReplies}
           postUserId={postUserId}
           inputRef={commentRef}
@@ -551,16 +613,22 @@ function Comments({
               </FormItem>
             )}
           />
-          <button
-            type="submit"
-            className={cn(
-              "text-sky-500 text-sm font-semibold hover:text-sky-700 dark:hover:text-sky-300 disabled:opacity-50 disabled:cursor-not-allowed",
-              (form.watch("body")?.length === 0 || isSubmitting) && "opacity-50"
-            )}
-            disabled={form.watch("body")?.length === 0 || isSubmitting || cooldownTime > 0}
-          >
-            {form.watch("parentId") ? "Reply" : "Post"}
-          </button>
+          {cooldownTime > 0 ? (
+            <div className="text-sm font-semibold text-neutral-500">
+              {cooldownTime}s
+            </div>
+          ) : (
+            <button
+              type="submit"
+              className={cn(
+                "text-sky-500 text-sm font-semibold hover:text-sky-700 dark:hover:text-sky-300 disabled:opacity-50 disabled:cursor-not-allowed",
+                (form.watch("body")?.length === 0 || isSubmitting) && "opacity-50"
+              )}
+              disabled={form.watch("body")?.length === 0 || isSubmitting}
+            >
+              {form.watch("parentId") ? "Reply" : "Post"}
+            </button>
+          )}
           {form.watch("parentId") && (
             <button
               type="button"
@@ -576,20 +644,12 @@ function Comments({
         </form>
       </Form>
 
-      {/* Display cooldown timer if active */}
-      {cooldownTime > 0 && !user?.verified && (
-        <div className="text-xs text-neutral-500 dark:text-neutral-400 px-3 sm:px-0">
-          You can comment again in {cooldownTime} seconds
-        </div>
-      )}
-
       {/* Comments list */}
       {showPreview && (
         <div className="space-y-4 px-3 sm:px-0">
           {renderComments(optimisticComments)}
           
-          {/* Show View more comments button only when there are more than 10 comments and more to load */}
-          {totalComments > 10 && hasMore && (
+          {totalComments > 10 && hasMore && optimisticComments.length >= 10 && (
             <button
               onClick={loadMoreComments}
               disabled={isLoading}
@@ -601,7 +661,7 @@ function Comments({
                   Loading...
                 </div>
               ) : (
-                "View more comments"
+                `View previous comments (${totalComments - optimisticComments.length} more)`
               )}
             </button>
           )}

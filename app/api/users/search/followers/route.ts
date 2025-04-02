@@ -5,23 +5,20 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: Request) {
   try {
     const session = await auth();
-    console.log("[USERS_SEARCH_FOLLOWERS] Session:", session?.user);
     
     if (!session?.user?.id) {
-      console.log("[USERS_SEARCH_FOLLOWERS] No session or user ID found");
+      console.error("[FOLLOWERS_SEARCH_API] Unauthorized request - no session");
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q")?.toLowerCase();
-    console.log("[USERS_SEARCH_FOLLOWERS] Received search query:", query);
 
     if (!query) {
-      console.log("[USERS_SEARCH_FOLLOWERS] No query provided, returning empty array");
       return NextResponse.json({ users: [] });
     }
 
-    // Get users that follow the current user (Enzoku)
+    // Get users that follow the current user
     const users = await prisma.user.findMany({
       where: {
         AND: [
@@ -60,15 +57,14 @@ export async function GET(request: Request) {
       take: 10,
     });
 
-    console.log("[USERS_SEARCH_FOLLOWERS] Search results:", {
-      query,
-      usersFound: users.length,
-      users: users.map((u: { username: string | null }) => u.username)
-    });
-
     return NextResponse.json({ users });
   } catch (error) {
-    console.error("[USERS_SEARCH_FOLLOWERS]", error);
+    console.error("[FOLLOWERS_SEARCH_API] Error:", {
+      error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
     return new NextResponse("Internal Error", { status: 500 });
   }
 } 

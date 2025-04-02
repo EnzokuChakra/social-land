@@ -166,7 +166,7 @@ export async function fetchPostById(postId: string) {
   try {
     const post = await prisma.post.findUnique({
       where: {
-        id: postId
+        id: postId,
       },
       include: {
         user: {
@@ -175,8 +175,13 @@ export async function fetchPostById(postId: string) {
             name: true,
             username: true,
             image: true,
+            bio: true,
             verified: true,
             isPrivate: true,
+            role: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
             stories: {
               where: {
                 createdAt: {
@@ -185,17 +190,6 @@ export async function fetchPostById(postId: string) {
               },
               select: {
                 id: true
-              }
-            }
-          }
-        },
-        likes: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                username: true,
-                image: true
               }
             }
           }
@@ -273,7 +267,8 @@ export async function fetchPostById(postId: string) {
           },
           orderBy: {
             createdAt: "desc"
-          }
+          },
+          take: 10 // Limit initial comments to 10
         },
         savedBy: {
           include: {
@@ -304,9 +299,18 @@ export async function fetchPostById(postId: string) {
 
     if (!post) return null;
 
-    // Transform the post to include hasActiveStory
+    // Get total comment count
+    const totalComments = await prisma.comment.count({
+      where: {
+        postId: postId,
+        parentId: null // Only count top-level comments
+      }
+    });
+
+    // Transform the post to include hasActiveStory and totalComments
     const transformedPost = {
       ...post,
+      totalComments,
       user: {
         ...post.user,
         hasActiveStory: post.user.stories && post.user.stories.length > 0,

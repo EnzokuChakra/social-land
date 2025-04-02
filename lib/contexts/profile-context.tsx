@@ -46,7 +46,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json();
       setProfile(data);
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error("[PROFILE_CONTEXT] Error fetching profile:", {
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString()
+      });
     } finally {
       setLoading(false);
     }

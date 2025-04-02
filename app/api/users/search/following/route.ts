@@ -6,19 +6,16 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    console.log("Session:", session?.user);
     
     if (!session?.user?.id) {
-      console.log("No session or user ID found");
+      console.error("[FOLLOWING_SEARCH_API] Unauthorized request - no session");
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("q")?.toLowerCase();
-    console.log("Received search query:", query);
 
     if (!query) {
-      console.log("No query provided, returning empty array");
       return NextResponse.json({ users: [] });
     }
 
@@ -61,13 +58,14 @@ export async function GET(request: Request) {
       take: 10,
     });
 
-    console.log("Search query:", query);
-    console.log("Found users:", JSON.stringify(users, null, 2));
-    console.log("Number of users found:", users.length);
-
     return NextResponse.json({ users });
   } catch (error) {
-    console.error("[USERS_SEARCH_FOLLOWING]", error);
+    console.error("[FOLLOWING_SEARCH_API] Error:", {
+      error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
     return new NextResponse("Internal Error", { status: 500 });
   }
 } 

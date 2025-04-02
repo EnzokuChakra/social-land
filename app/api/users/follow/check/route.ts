@@ -7,6 +7,7 @@ export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
+      console.error("[FOLLOW_CHECK_API] Unauthorized request - no session");
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
@@ -14,6 +15,7 @@ export async function GET(req: Request) {
     const followingId = searchParams.get("followingId");
 
     if (!followingId) {
+      console.error("[FOLLOW_CHECK_API] Missing followingId parameter");
       return new NextResponse("Following ID is required", { status: 400 });
     }
 
@@ -44,7 +46,12 @@ export async function GET(req: Request) {
       hasPendingRequestFromUser: reverseFollow?.status === "PENDING" || false
     });
   } catch (error) {
-    console.error("Error checking follow status:", error);
+    console.error("[FOLLOW_CHECK_API] Error:", {
+      error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 } 

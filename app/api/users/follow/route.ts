@@ -9,17 +9,10 @@ const FOLLOW_COOLDOWN_MS = 5000; // 5 seconds cooldown
 
 export async function POST(req: Request) {
   try {
-    console.log("[Follow API] Received follow request");
     const session = await getServerSession(authOptions);
     
-    console.log("[Follow API] Session check:", {
-      hasSession: !!session,
-      userId: session?.user?.id,
-      timestamp: new Date().toISOString()
-    });
-
     if (!session?.user?.id) {
-      console.log("[Follow API] Unauthorized request - no session");
+      console.error("[FOLLOW_API] Unauthorized request - no session");
       return new NextResponse(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401 }
@@ -27,17 +20,8 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    console.log("[Follow API] Request body:", body);
-    
     const validatedData = FollowUser.parse(body);
     const { followingId, followerId, action } = validatedData;
-    
-    console.log("[Follow API] Validated request data:", {
-      followingId,
-      followerId,
-      action,
-      sessionUserId: session.user.id
-    });
 
     // Add rate limiting for follow action
     if (action === "follow") {
@@ -45,15 +29,7 @@ export async function POST(req: Request) {
       const lastFollowTime = followCooldowns.get(cooldownKey);
       const now = Date.now();
 
-      console.log("[Follow API] Rate limit check:", {
-        cooldownKey,
-        lastFollowTime,
-        now,
-        timeSinceLastFollow: lastFollowTime ? now - lastFollowTime : null
-      });
-
       if (lastFollowTime && now - lastFollowTime < FOLLOW_COOLDOWN_MS) {
-        console.log("[Follow API] Rate limit exceeded");
         return new NextResponse(
           JSON.stringify({ 
             error: "Please wait a few seconds before following again",
@@ -68,11 +44,6 @@ export async function POST(req: Request) {
 
     // For delete/accept actions, we need followerId
     if ((action === "delete" || action === "accept") && !followerId) {
-      console.log("[Follow API] Missing followerId for action:", {
-        action,
-        followerId,
-        timestamp: new Date().toISOString()
-      });
       return new NextResponse(
         JSON.stringify({ error: "Missing followerId" }),
         { status: 400 }
@@ -81,11 +52,6 @@ export async function POST(req: Request) {
 
     // For follow/unfollow actions, we need followingId
     if ((action === "follow" || action === "unfollow") && !followingId) {
-      console.log("[Follow API] Missing followingId for action:", {
-        action,
-        followingId,
-        timestamp: new Date().toISOString()
-      });
       return new NextResponse(
         JSON.stringify({ error: "Missing followingId" }),
         { status: 400 }
@@ -93,7 +59,6 @@ export async function POST(req: Request) {
     }
 
     // Check if there's an existing follow relationship
-    console.log("[Follow API] Checking for existing follow relationship");
     const existingFollow = await prisma.follows.findUnique({
       where: {
         followerId_followingId: {
@@ -103,12 +68,8 @@ export async function POST(req: Request) {
       }
     });
 
-    console.log("[Follow API] Existing follow relationship:", existingFollow);
-
     if (action === "unfollow") {
-      console.log("[Follow API] Processing unfollow action");
       if (!existingFollow) {
-        console.log("[Follow API] No follow relationship found to unfollow");
         return new NextResponse(
           JSON.stringify({ error: "Follow relationship not found" }),
           { status: 404 }
@@ -123,8 +84,6 @@ export async function POST(req: Request) {
           }
         }
       });
-
-      console.log("[Follow API] Deleted follow relationship");
 
       // Delete ALL follow-related notifications between these users
       await prisma.notification.deleteMany({
@@ -149,8 +108,6 @@ export async function POST(req: Request) {
         },
       });
 
-      console.log("[Follow API] Deleted related notifications");
-
       return new NextResponse(
         JSON.stringify({ 
           status: "DELETED",
@@ -162,7 +119,6 @@ export async function POST(req: Request) {
 
     // Handle follow action
     if (existingFollow) {
-      console.log("[Follow API] Follow relationship already exists:", existingFollow);
       return new NextResponse(
         JSON.stringify({ 
           error: "Already following or requested",
@@ -173,16 +129,12 @@ export async function POST(req: Request) {
     }
 
     // Get the target user to check if they're private
-    console.log("[Follow API] Checking target user privacy settings");
     const targetUser = await prisma.user.findUnique({
       where: { id: followingId! },
       select: { isPrivate: true }
     });
 
-    console.log("[Follow API] Target user privacy settings:", targetUser);
-
     if (!targetUser) {
-      console.log("[Follow API] Target user not found");
       return new NextResponse(
         JSON.stringify({ error: "Target user not found" }),
         { status: 404 }
@@ -190,7 +142,6 @@ export async function POST(req: Request) {
     }
 
     // Before creating a new follow relationship, delete any existing notifications
-    console.log("[Follow API] Cleaning up existing notifications");
     await prisma.notification.deleteMany({
       where: {
         type: {
@@ -214,7 +165,6 @@ export async function POST(req: Request) {
     });
 
     // Create the follow relationship
-    console.log("[Follow API] Creating new follow relationship");
     const follow = await prisma.follows.create({
       data: {
         followerId: session.user.id,
@@ -223,10 +173,7 @@ export async function POST(req: Request) {
       }
     });
 
-    console.log("[Follow API] Created follow relationship:", follow);
-
     // Create a single new notification
-    console.log("[Follow API] Creating notification");
     await prisma.notification.create({
       data: {
         id: crypto.randomUUID(),
@@ -236,8 +183,6 @@ export async function POST(req: Request) {
         createdAt: new Date()
       }
     });
-
-    console.log("[Follow API] Created notification");
 
     return new NextResponse(
       JSON.stringify({ 
@@ -250,7 +195,7 @@ export async function POST(req: Request) {
     );
 
   } catch (error) {
-    console.error("[Follow API] Error:", {
+    console.error("[FOLLOW_API] Error:", {
       error,
       errorMessage: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,

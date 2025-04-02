@@ -37,112 +37,100 @@ type CommentWithReplies = Comment & {
 };
 
 export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ postId: string }> }
+  request: Request,
+  { params }: { params: { postId: string } }
 ) {
   try {
-    const session = await auth();
-    
-    if (!session?.user) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
-    
-    // Get the post ID from the params - properly awaiting the Promise
-    const { postId } = await params;
-    
-    if (!postId) {
-      return new NextResponse("Post ID is required", { status: 400 });
-    }
-
-    // Get pagination parameters from the URL
-    const searchParams = req.nextUrl.searchParams;
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const { searchParams } = new URL(request.url);
+    const page = Number(searchParams.get("page")) || 1;
+    const limit = Number(searchParams.get("limit")) || 10;
     const skip = (page - 1) * limit;
-    
-    // Get total count of top-level comments
+
     const totalComments = await db.comment.count({
       where: {
-        postId,
-        parentId: null // Only count top-level comments
+        postId: params.postId,
+        parentId: null
       }
     });
 
-    // Fetch paginated comments for the post
     const comments = await db.comment.findMany({
       where: {
-        postId,
-        parentId: null // Only fetch top-level comments
+        postId: params.postId,
+        parentId: null
       },
+      orderBy: {
+        createdAt: "desc"
+      },
+      skip,
+      take: limit,
       include: {
         user: {
           select: {
             id: true,
-            name: true,
             username: true,
+            name: true,
             image: true,
+            email: true,
+            bio: true,
             verified: true,
-          }
+            isPrivate: true,
+            role: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+            password: true,
+          },
         },
         likes: {
           include: {
             user: {
               select: {
-                id: true, 
-                name: true,
+                id: true,
                 username: true,
+                name: true,
                 image: true,
                 verified: true,
-              }
-            }
-          }
+              },
+            },
+          },
         },
         replies: {
           include: {
             user: {
               select: {
                 id: true,
-                name: true,
                 username: true,
+                name: true,
                 image: true,
                 verified: true,
-              }
+              },
             },
             likes: {
               include: {
                 user: {
                   select: {
                     id: true,
-                    name: true,
                     username: true,
+                    name: true,
                     image: true,
                     verified: true,
-                  }
-                }
-              }
-            }
+                  },
+                },
+              },
+            },
           },
-          orderBy: {
-            createdAt: "asc"
-          }
-        }
+        },
       },
-      orderBy: {
-        createdAt: "desc"
-      },
-      skip,
-      take: limit
     });
-    
+
+    const hasMore = totalComments > page * limit;
+
     return NextResponse.json({
       comments,
-      page,
-      limit,
+      hasMore,
       totalComments,
-      hasMore: totalComments > (skip + comments.length)
     });
   } catch (error) {
-    console.error("Error fetching comments:", error);
     return new NextResponse("Internal Error", { status: 500 });
   }
 } 

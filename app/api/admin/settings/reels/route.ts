@@ -14,18 +14,25 @@ export async function GET() {
       return NextResponse.json({ reelsEnabled: false }, { status: 401 });
     }
     
-    // Get reels visibility setting from database
-    const reelsSetting = await db.setting.findUnique({
-      where: { key: "reelsEnabled" }
-    });
-    
-    // Default to disabled if setting doesn't exist
-    return NextResponse.json({
-      reelsEnabled: reelsSetting?.value === "true"
-    });
+    try {
+      // Get reels visibility setting from database
+      const reelsSetting = await db.setting.findUnique({
+        where: { key: "reelsEnabled" }
+      });
+      
+      // Default to disabled if setting doesn't exist
+      return NextResponse.json({
+        reelsEnabled: reelsSetting?.value === "true"
+      });
+    } catch (dbError) {
+      console.error("[REELS_VISIBILITY_GET] Database error:", dbError);
+      // Return default value if database is unavailable
+      return NextResponse.json({ reelsEnabled: false });
+    }
   } catch (error) {
-    console.error("[REELS_VISIBILITY_GET]", error);
-    return NextResponse.json({ reelsEnabled: false }, { status: 500 });
+    console.error("[REELS_VISIBILITY_GET] Server error:", error);
+    // Return default value on any other error
+    return NextResponse.json({ reelsEnabled: false });
   }
 }
 

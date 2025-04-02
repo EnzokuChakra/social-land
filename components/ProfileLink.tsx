@@ -39,10 +39,14 @@ export default function ProfileLink({ user, className }: ProfileLinkProps) {
             throw new Error('Failed to fetch profile');
           }
           const data = await response.json();
-          console.log('[ProfileLink] Initial profile loaded:', data);
           setProfile(data);
         } catch (error) {
-          console.error('Error loading profile:', error);
+          console.error("[PROFILE_LINK] Error loading profile:", {
+            error,
+            errorMessage: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            timestamp: new Date().toISOString()
+          });
         }
       }
     }
@@ -53,14 +57,10 @@ export default function ProfileLink({ user, className }: ProfileLinkProps) {
     if (!socket || !user?.id) return;
 
     const handleProfileUpdate = (data: { userId: string; image: string | null }) => {
-      console.log('[ProfileLink] Received profile update:', { data, userId: user.id });
       if (data.userId === user.id) {
-        console.log('[ProfileLink] Updating profile image');
         setProfile(prev => {
           if (!prev) return null;
-          const updated = { ...prev, image: data.image };
-          console.log('[ProfileLink] Updated profile:', updated);
-          return updated;
+          return { ...prev, image: data.image };
         });
       }
     };
@@ -78,35 +78,16 @@ export default function ProfileLink({ user, className }: ProfileLinkProps) {
     <Link
       href={href}
       className={cn(
-        buttonVariants({
-          variant: "ghost",
-          size: "lg",
-          className: cn(
-            "w-full transition-all",
-            isCollapsed ? "justify-center px-3" : "justify-start px-4 gap-x-4",
-            className
-          )
-        }),
-        isActive && "font-semibold bg-neutral-100 dark:bg-neutral-800/50"
+        "flex items-center gap-3 px-4 py-2 rounded-lg transition-colors",
+        "hover:bg-neutral-100 dark:hover:bg-neutral-800",
+        isActive && "bg-neutral-100 dark:bg-neutral-800",
+        className
       )}
     >
-      <div className="relative">
-        <UserAvatar
-          user={avatarUser}
-          priority={true}
-          className={cn(
-            "h-8 w-8",
-            isActive && "ring-1 ring-black dark:ring-white"
-          )}
-        />
-      </div>
-
+      <UserAvatar user={avatarUser} className="h-8 w-8" />
       {!isCollapsed && (
-        <span className={cn(
-          "text-sm",
-          isActive && "font-semibold"
-        )}>
-          Profile
+        <span className="font-medium text-sm truncate">
+          {avatarUser.username}
         </span>
       )}
     </Link>

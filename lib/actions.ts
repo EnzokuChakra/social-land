@@ -1005,15 +1005,13 @@ export async function updateProfile(values: z.infer<typeof UpdateUser>) {
     };
   }
 
-  const { name, image, username, bio, isPrivate } = validatedFields.data;
+  const { name, image, bio, isPrivate } = validatedFields.data;
 
   try {
-    // Get current user data to check username change history
+    // Get current user data to check for existing image
     const currentUser = await db.user.findUnique({
       where: { id: user_id },
       select: { 
-        username: true,
-        lastUsernameChange: true,
         image: true
       }
     });
@@ -1037,55 +1035,10 @@ export async function updateProfile(values: z.infer<typeof UpdateUser>) {
       }
     }
 
-    // Check if username is being changed
-    if (username && username !== currentUser.username) {
-      // Check if username is already taken by another user
-      const existingUser = await db.user.findFirst({
-        where: {
-          username,
-          NOT: {
-            id: user_id
-          }
-        }
-      });
-
-      if (existingUser) {
-        console.error("[UPDATE_PROFILE] Username already taken:", username);
-        return { 
-          message: "Username already exists",
-          errors: {
-            username: ["This username is already taken"]
-          }
-        };
-      }
-
-      // Check if 14 days have passed since last username change
-      if (currentUser.lastUsernameChange) {
-        const daysSinceLastChange = Math.floor(
-          (Date.now() - currentUser.lastUsernameChange.getTime()) / (1000 * 60 * 60 * 24)
-        );
-
-        if (daysSinceLastChange < 14) {
-          const daysLeft = 14 - daysSinceLastChange;
-          console.error("[UPDATE_PROFILE] Username change too soon:", daysLeft, "days left");
-          return {
-            message: `You can only change your username once every 14 days. Please wait ${daysLeft} more days.`,
-            errors: {
-              username: [`Please wait ${daysLeft} more days before changing your username again`]
-            }
-          };
-        }
-      }
-    }
-
     // Prepare update data
     const updateData: any = {
       ...(name !== undefined && { name }),
       ...(image !== undefined && { image }),
-      ...(username && username !== currentUser.username && { 
-        username,
-        lastUsernameChange: new Date()
-      }),
       ...(bio !== undefined && { bio }),
       ...(isPrivate !== undefined && { isPrivate })
     };
@@ -1103,12 +1056,6 @@ export async function updateProfile(values: z.infer<typeof UpdateUser>) {
 
       // Revalidate all profile-related paths
       revalidatePath("/dashboard");
-      if (username) {
-        revalidatePath(`/dashboard/${username}`);
-        revalidatePath(`/dashboard/${username}/saved`);
-        revalidatePath(`/dashboard/${username}/reels`);
-        revalidatePath(`/dashboard/${username}/tagged`);
-      }
     }
 
     console.log("[UPDATE_PROFILE] Profile updated successfully");
@@ -1132,34 +1079,24 @@ export async function followUser({
   action?: FollowAction;
 }): Promise<FollowResponse> {
   try {
-    const followerId = await getUserId();
-
-    if (!followerId) {
-      return { error: "Not authenticated", status: "UNFOLLOWED" };
+    const session = await auth();
+    if (!session?.user?.id) {
+      console.error("[FOLLOW_ACTION] Unauthorized - no session");
+      return {
+        error: "Unauthorized",
+        status: "UNFOLLOWED",
+      };
     }
 
-    // Check cooldown for follow action
-    if (action === "follow") {
-      const cooldownKey = `${followerId}-${followingId}`;
-      const lastFollowTime = followCooldowns.get(cooldownKey);
-      const now = Date.now();
-
-      if (lastFollowTime && now - lastFollowTime < FOLLOW_COOLDOWN_MS) {
-        return { 
-          error: "Please wait a few seconds before following again", 
-          status: "UNFOLLOWED" 
-        };
-      }
-
-      // Set cooldown
-      followCooldowns.set(cooldownKey, now);
-    }
+    const followerId = session.user.id;
 
     // Check if there's an existing follow relationship
-    const existingFollow = await prisma.follows.findFirst({
+    const existingFollow = await prisma.follows.findUnique({
       where: {
-        followerId: action === "accept" ? followingId : followerId,
-        followingId: action === "accept" ? followerId : followingId,
+        followerId_followingId: {
+          followerId,
+          followingId,
+        },
       },
     });
 
@@ -1220,8 +1157,8 @@ export async function followUser({
       await prisma.follows.update({
         where: {
           followerId_followingId: {
-            followerId: followingId, // The person who sent the request
-            followingId: followerId, // The current user accepting the request
+            followerId: followingId,
+            followingId: followerId,
           },
         },
         data: {
@@ -1274,8 +1211,8 @@ export async function followUser({
       await prisma.follows.delete({
         where: {
           followerId_followingId: {
-            followerId: followingId, // The person who sent the request
-            followingId: followerId, // The current user deleting the request
+            followerId: followingId,
+            followingId: followerId,
           },
         },
       });
@@ -1336,8 +1273,8 @@ export async function followUser({
     // Create the follow relationship
     const newFollow = await prisma.follows.create({
       data: {
-        followerId: followerId, // The person who is following (Tony)
-        followingId: followingId, // The person being followed (Enzoku)
+        followerId: followerId,
+        followingId: followingId,
         status: targetUser.isPrivate ? "PENDING" : "ACCEPTED",
       },
     });
@@ -1361,7 +1298,12 @@ export async function followUser({
       status: newFollow.status as FollowStatus,
     };
   } catch (error) {
-    console.error("Error in followUser:", error);
+    console.error("[FOLLOW_ACTION] Error:", {
+      error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
     return { error: "Something went wrong", status: "UNFOLLOWED" };
   }
 }

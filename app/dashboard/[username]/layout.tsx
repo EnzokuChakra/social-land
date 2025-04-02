@@ -51,6 +51,7 @@ export default async function ProfileLayout({ children, params }: Props) {
     const profile = await fetchProfile(decodedUsername);
 
     if (!profile) {
+      console.error("[PROFILE_LAYOUT] Profile not found:", decodedUsername);
       notFound();
     }
 
@@ -67,7 +68,12 @@ export default async function ProfileLayout({ children, params }: Props) {
       </NavbarProvider>
     );
   } catch (error) {
-    console.error('[ProfileLayout] Error:', error);
+    console.error("[PROFILE_LAYOUT] Error:", {
+      error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
     notFound();
   }
 }

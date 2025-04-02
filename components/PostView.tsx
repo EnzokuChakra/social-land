@@ -68,12 +68,9 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     if (!socket) return;
 
     const handleCommentUpdate = (data: { postId: string; parentId: string | null; comment: any }) => {
-      console.log("[PostView] Received comment update:", data);
-      
       if (data.postId === id) {
         setComments(prevComments => {
           if (data.parentId) {
-            // Handle reply
             return prevComments.map(comment => {
               if (comment.id === data.parentId) {
                 return {
@@ -84,7 +81,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
               return comment;
             });
           } else {
-            // Handle new comment
             return [data.comment, ...prevComments];
           }
         });
@@ -92,12 +88,9 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     };
 
     const handleCommentDelete = (data: { postId: string; commentId: string; parentId: string | null }) => {
-      console.log("[PostView] Received comment delete:", data);
-      
       if (data.postId === id) {
         setComments(prevComments => {
           if (data.parentId) {
-            // Handle reply deletion
             return prevComments.map(comment => {
               if (comment.id === data.parentId) {
                 return {
@@ -108,7 +101,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
               return comment;
             });
           } else {
-            // Handle main comment deletion
             return prevComments.filter(comment => comment.id !== data.commentId);
           }
         });
@@ -170,41 +162,27 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
 
   // Handle reply to comment
   const handleReplyToComment = (username: string, commentId: string) => {
-    console.log('PostView handleReplyToComment called', { username, commentId });
-    
-    // Use the commentFormRef if available
     if (commentFormRef.current) {
-      console.log('Using CommentForm ref onReply method');
       commentFormRef.current.onReply(username, commentId);
       return;
     }
     
-    // Fallback to input ref onReply
     if (inputRef.current && 'onReply' in inputRef.current && typeof inputRef.current.onReply === 'function') {
-      console.log('Using inputRef.current.onReply method');
       inputRef.current.onReply(username, commentId);
       return;
     }
     
-    // Last resort: direct manipulation
-    console.log('Using direct input manipulation');
     if (inputRef.current) {
-      // Focus on the input field
       inputRef.current.focus();
-      // Set the @username mention
       inputRef.current.value = `@${username} `;
-      // Store the parent comment ID for submission
       (inputRef.current as any).currentParentId = commentId;
       
-      // Trigger input event to ensure form state updates
       try {
         const event = new Event('input', { bubbles: true });
         inputRef.current.dispatchEvent(event);
       } catch (error) {
         console.error('Error dispatching input event:', error);
       }
-    } else {
-      console.error('No input reference available!');
     }
   };
 
@@ -290,16 +268,26 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
 
     setIsLoadingComments(true);
     try {
-      const response = await fetch(`/api/posts/${id}/comments?page=${page + 1}&limit=10`);
+      const nextPage = page + 1;
+      const response = await fetch(`/api/posts/${id}/comments?page=${nextPage}&limit=10`);
       const data = await response.json();
-      
-      if (data.comments) {
-        setComments(prev => [...prev, ...data.comments]);
-        setPage(prev => prev + 1);
+
+      if (data.comments?.length > 0) {
+        const existingIds = new Set(comments.map(c => c.id));
+        const newComments = data.comments.filter(
+          (comment: CommentWithExtras) => !existingIds.has(comment.id)
+        );
+
+        if (newComments.length > 0) {
+          setComments(prev => [...prev, ...newComments]);
+          setPage(nextPage);
+        }
         setHasMore(data.hasMore);
+      } else {
+        setHasMore(false);
       }
     } catch (error) {
-      console.error("Error loading more comments:", error);
+      console.error("Error fetching more comments:", error);
     } finally {
       setIsLoadingComments(false);
     }
@@ -452,7 +440,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                 <div className={cn("w-full", post.caption && "pt-3 border-t border-neutral-100 dark:border-neutral-800/60")}>
                   {comments.map((comment) => (
                     <Comment
-                      key={comment.id}
+                      key={`${comment.id}-${comment.createdAt}`}
                       comment={comment}
                       inputRef={inputRef}
                       postUserId={post.user.id}
@@ -482,7 +470,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                   ))}
 
                   {/* Load more comments button */}
-                  {hasMore && (
+                  {hasMore && comments.length >= 10 && (
                     <div className="flex justify-center py-4">
                       <button
                         onClick={fetchMoreComments}

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react";
 
 interface FollowButtonProps {
   followingId: string;
@@ -38,48 +39,43 @@ export default function FollowButton({
     isFollowedByUser,
     hasPendingRequestFromUser: false
   });
+  const { data: session } = useSession();
+  const isOwnProfile = session?.user?.id === followingId;
 
-  console.log("[FollowButton] Initial props:", {
-    followingId,
+  console.log("[FollowButton] Initial state:", {
+    userId: followingId,
+    username: followingId,
     isFollowing,
     hasPendingRequest,
-    isPrivate,
-    isFollowedByUser
+    isFollowedByUser,
+    isOwnProfile
   });
 
   const handleFollow = async () => {
+    if (isLoading) return;
+    
+    console.log("[FollowButton] Follow action initiated:", {
+      targetUserId: followingId,
+      targetUsername: followingId,
+      currentState: { isFollowing, hasPendingRequest }
+    });
+
+    setIsLoading(true);
     try {
-      console.log("[FollowButton] Starting follow action for user:", followingId);
-      setIsLoading(true);
-
-      // Optimistically update the UI
-      setFollowState(prev => {
-        console.log("[FollowButton] Optimistic update - Previous state:", prev);
-        const newState = {
-          ...prev,
-          isFollowing: true,
-          hasPendingRequest: false
-        };
-        console.log("[FollowButton] Optimistic update - New state:", newState);
-        return newState;
-      });
-
-      const res = await fetch("/api/users/follow", {
+      const response = await fetch("/api/users/follow", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           followingId,
-          action: "follow"
-        }),
+          action: isFollowing ? "unfollow" : "follow"
+        })
       });
 
-      console.log("[FollowButton] Follow API response status:", res.status);
-      const data = await res.json();
-      console.log("[FollowButton] Follow API response data:", data);
+      console.log("[FollowButton] Follow action response:", response);
 
-      if (!res.ok) {
+      if (!response.ok) {
         console.log("[FollowButton] Follow request failed, reverting optimistic update");
         setFollowState(prev => ({
           ...prev,
@@ -89,19 +85,23 @@ export default function FollowButton({
         throw new Error("Failed to follow user");
       }
 
-      // Update state based on the response
-      setFollowState(prev => {
-        const newState = {
-          ...prev,
+      const data = await response.json();
+
+      console.log("[FollowButton] State updated:", {
+        newState: { 
           isFollowing: data.status === "ACCEPTED",
-          hasPendingRequest: data.status === "PENDING"
-        };
-        console.log("[FollowButton] Updated state after API response:", newState);
-        return newState;
+          hasPendingRequest: data.status === "PENDING",
+          isFollowedByUser: data.status === "ACCEPTED"
+        }
       });
 
-      // Show success message
       toast.success(data.status === "ACCEPTED" ? "Following user" : "Follow request sent");
+
+      setFollowState(prev => ({
+        ...prev,
+        isFollowing: data.status === "ACCEPTED",
+        hasPendingRequest: data.status === "PENDING"
+      }));
 
       // Remove user from suggestions immediately after successful follow request
       if (onSuccess) {
@@ -113,8 +113,13 @@ export default function FollowButton({
       console.log("[FollowButton] Refreshing router");
       router.refresh();
     } catch (error) {
-      console.error("[FollowButton] Error following user:", error);
-      toast.error("Failed to follow user");
+      console.error("[FOLLOW_BUTTON] Error:", {
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString()
+      });
+      toast.error("Something went wrong");
     } finally {
       setIsLoading(false);
     }
@@ -182,33 +187,15 @@ export default function FollowButton({
 
       router.refresh();
     } catch (error) {
-      console.error("[FollowButton] Error unfollowing user:", error);
+      console.error("[FOLLOW_BUTTON] Error unfollowing user:", {
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString()
+      });
       toast.error("Failed to unfollow user");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const getButtonText = () => {
-    if (followState.hasPendingRequest) {
-      return isHovered ? "Cancel" : "Requested";
-    }
-    if (followState.isFollowing) {
-      return isHovered ? "Unfollow" : "Following";
-    }
-    if (followState.hasPendingRequestFromUser) {
-      return "Accept Request";
-    }
-    return followState.isFollowedByUser ? "Follow Back" : "Follow";
-  };
-
-  const handleClick = async () => {
-    if (followState.isFollowing) {
-      await handleUnfollow();
-    } else if (followState.hasPendingRequest) {
-      await handleCancelRequest();
-    } else {
-      await handleFollow();
     }
   };
 
@@ -247,11 +234,39 @@ export default function FollowButton({
       toast.success("Follow request cancelled");
       router.refresh();
     } catch (error) {
-      console.error("Error cancelling follow request:", error);
+      console.error("[FOLLOW_BUTTON] Error cancelling follow request:", {
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString()
+      });
       toast.error(error instanceof Error ? error.message : "Failed to cancel follow request");
       onSuccess?.(false);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const getButtonText = () => {
+    if (followState.hasPendingRequest) {
+      return isHovered ? "Cancel" : "Requested";
+    }
+    if (followState.isFollowing) {
+      return isHovered ? "Unfollow" : "Following";
+    }
+    if (followState.hasPendingRequestFromUser) {
+      return "Accept Request";
+    }
+    return followState.isFollowedByUser ? "Follow Back" : "Follow";
+  };
+
+  const handleClick = async () => {
+    if (followState.isFollowing) {
+      await handleUnfollow();
+    } else if (followState.hasPendingRequest) {
+      await handleCancelRequest();
+    } else {
+      await handleFollow();
     }
   };
 
