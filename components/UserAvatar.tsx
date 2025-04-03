@@ -1,69 +1,90 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import type { AvatarProps } from "@radix-ui/react-avatar";
+import type { User } from "next-auth";
+import { UserWithExtras } from "@/lib/definitions";
+import { cn } from "@/lib/utils";
 import Image from "next/image";
-import { memo } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useSocket } from "@/hooks/use-socket";
 
-interface UserAvatarProps {
-  user: {
-    id: string;
-    username: string | null;
-    name: string | null;
-    image: string | null;
-  };
-  className?: string;
-  size?: "default" | "lg" | "sm";
+type UserAvatarUser = {
+  id: string;
+  username: string | null;
+  name: string | null;
+  image: string | null;
+};
+
+interface Props extends AvatarProps {
+  user: UserAvatarUser | User | UserWithExtras | null;
   priority?: boolean;
 }
 
-const sizeMap = {
-  default: "h-8 w-8",
-  lg: "h-12 w-12",
-  sm: "h-6 w-6",
-};
+export default function UserAvatar({ user, priority = false, className, ...avatarProps }: Props) {
+  const [isMounted, setIsMounted] = useState(false);
+  const [currentImage, setCurrentImage] = useState<string | null>(user?.image || null);
+  const [timestamp, setTimestamp] = useState<number>(Date.now());
+  const socket = useSocket();
 
-const UserAvatar = memo(({ 
-  user, 
-  className = "", 
-  size = "default",
-  priority = false
-}: UserAvatarProps) => {
-  const imageUrl = user?.image || "/images/profile_placeholder.webp";
-  const imageSize = size === "lg" ? 48 : size === "sm" ? 24 : 32;
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    setCurrentImage(user?.image || null);
+  }, [user?.image]);
+
+  useEffect(() => {
+    if (!socket || !user?.id) return;
+
+    const handleProfileUpdate = (data: { userId: string; image: string | null }) => {
+      console.log('[UserAvatar] Received profile update:', { data, userId: user.id });
+      if (data.userId === user.id) {
+        console.log('[UserAvatar] Updating image for user:', user.id);
+        setCurrentImage(data.image);
+        setTimestamp(Date.now());
+      }
+    };
+
+    socket.on('profileUpdate', handleProfileUpdate);
+    return () => {
+      socket.off('profileUpdate', handleProfileUpdate);
+    };
+  }, [socket, user?.id]);
+
+  const imageUrl = useMemo(() => {
+    if (!currentImage) return "/images/profile_placeholder.webp";
+    
+    const baseUrl = currentImage.startsWith('http')
+      ? currentImage
+      : currentImage.startsWith('/')
+        ? currentImage
+        : `/uploads/${currentImage}`;
+    
+    return `${baseUrl}?t=${timestamp}`;
+  }, [currentImage, timestamp]);
+
   const altText = user ? `${user.name || user.username || 'User'}'s profile picture` : 'User profile picture';
 
+  if (!isMounted) {
+    return null;
+  }
+
   return (
-    <Avatar className={`${sizeMap[size]} ${className}`}>
-      <AvatarImage
-        asChild
-        className="object-cover"
-      >
+    <Avatar className={cn(className)} {...avatarProps}>
+      <div className="relative aspect-square h-full w-full">
         <Image
           src={imageUrl}
           alt={altText}
-          width={imageSize}
-          height={imageSize}
+          referrerPolicy="no-referrer"
           priority={priority}
+          fill
+          sizes="(max-width: 768px) 77px, 150px"
           className="object-cover"
-          loading={priority ? "eager" : "lazy"}
-          unoptimized={true}
+          unoptimized
         />
-      </AvatarImage>
-      <AvatarFallback>
-        <Image
-          src="/images/profile_placeholder.webp"
-          alt="Profile placeholder"
-          width={imageSize}
-          height={imageSize}
-          priority={true}
-          className="object-cover"
-          unoptimized={true}
-        />
-      </AvatarFallback>
+      </div>
     </Avatar>
   );
-});
-
-UserAvatar.displayName = "UserAvatar";
-
-export default UserAvatar;
+}
