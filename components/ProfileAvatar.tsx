@@ -148,6 +148,14 @@ function ProfileAvatar({
     return hours < 24;
   });
 
+  const hasUnviewedStories = hasStories && stories.some(story => {
+    const storyDate = new Date(story.createdAt);
+    const now = new Date();
+    const diff = now.getTime() - storyDate.getTime();
+    const hours = diff / (1000 * 60 * 60);
+    return hours < 24 && (!story.views || !story.views.some(view => view.user.id === session?.user?.id));
+  });
+
   const handleProfileClick = () => {
     if (hasStories) {
       const activeStories = stories.filter(story => {
@@ -218,7 +226,8 @@ function ProfileAvatar({
       <div 
         className={cn(
           "relative cursor-pointer",
-          hasStories && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[0.5px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-0.5 before:-top-0.5"
+          hasStories && !hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-neutral-300 dark:before:bg-neutral-700 before:p-[0.5px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-0.5 before:-top-0.5",
+          hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[0.5px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-0.5 before:-top-0.5"
         )}
         onClick={handleProfileClick}
         suppressHydrationWarning

@@ -17,6 +17,7 @@ import { z } from "zod";
 import { useEffect, useState, forwardRef, useImperativeHandle, Ref } from "react";
 import { useSocket } from "@/hooks/use-socket";
 import { toast } from "react-hot-toast";
+import { useSession } from "next-auth/react";
 
 const MAX_COMMENT_LENGTH = 1000;
 
@@ -48,8 +49,10 @@ const CommentForm = forwardRef<
     inputRef?: React.RefObject<HTMLInputElement>;
   }
 >(function CommentForm({ postId, className, inputRef }, forwardedRef) {
+  const { data: session, status } = useSession();
   const [replyingTo, setReplyingTo] = useState<{username: string, commentId: string} | null>(null);
   const [internalInputRef, setInternalInputRef] = useState<HTMLInputElement | null>(null);
+  const [cooldownTime, setCooldownTime] = useState(0);
   const socket = useSocket();
   
   const form = useForm<z.infer<typeof CreateComment>>({
@@ -60,6 +63,66 @@ const CommentForm = forwardRef<
       postId: postId || null,
     },
   });
+
+  // Initialize cooldown from localStorage on component mount
+  useEffect(() => {
+    const checkCooldown = () => {
+      const storedCooldown = localStorage.getItem('comment_cooldown');
+      if (storedCooldown) {
+        const cooldownEndTime = parseInt(storedCooldown);
+        const now = Date.now();
+        if (cooldownEndTime > now) {
+          setCooldownTime(Math.ceil((cooldownEndTime - now) / 1000));
+        } else {
+          localStorage.removeItem('comment_cooldown');
+          setCooldownTime(0);
+        }
+      }
+    };
+
+    // Check immediately on mount
+    checkCooldown();
+
+    // Set up an interval to check every second
+    const interval = setInterval(checkCooldown, 1000);
+
+    // Listen for storage events from other tabs/windows
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'comment_cooldown') {
+        checkCooldown();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  // Handle cooldown timer
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (cooldownTime > 0) {
+      // Store end time in localStorage whenever cooldown changes
+      const cooldownEndTime = Date.now() + cooldownTime * 1000;
+      localStorage.setItem('comment_cooldown', cooldownEndTime.toString());
+
+      timer = setInterval(() => {
+        setCooldownTime((prev) => {
+          const newTime = Math.max(0, prev - 1);
+          if (newTime === 0) {
+            localStorage.removeItem('comment_cooldown');
+          }
+          return newTime;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [cooldownTime]);
 
   // Function to handle reply click from Comment component
   const handleReplyToComment = (username: string, commentId: string) => {
@@ -134,11 +197,20 @@ const CommentForm = forwardRef<
       // Reset form state after success
       form.reset();
       setReplyingTo(null);
+
+      // Set cooldown timer for non-verified users
+      if (!session?.user?.verified) {
+        const cooldownEndTime = Date.now() + 15000; // 15 seconds
+        localStorage.setItem('comment_cooldown', cooldownEndTime.toString());
+        setCooldownTime(15);
+      }
     } catch (error) {
       console.error("Error creating comment:", error);
       toast.error("Failed to create comment");
     }
   };
+
+  const isDisabled = isSubmitting || (!session?.user?.verified && cooldownTime > 0);
 
   return (
     <Form {...form}>
@@ -158,6 +230,7 @@ const CommentForm = forwardRef<
           <button 
             type="button"
             className="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+            disabled={isDisabled}
           >
             <Smile className="h-5 w-5" />
           </button>
@@ -170,7 +243,7 @@ const CommentForm = forwardRef<
                   <FormItem className="w-full flex-1">
                     <FormControl>
                       <input
-                        disabled={isSubmitting}
+                        disabled={isDisabled}
                         type="text"
                         placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : "Add a comment..."}
                         className="bg-transparent text-sm border-none focus:outline-none w-full dark:text-neutral-200 placeholder-neutral-500 disabled:opacity-30"
@@ -189,9 +262,13 @@ const CommentForm = forwardRef<
               }}
             />
           </div>
-          {body.trim().length > 0 && (
+          {cooldownTime > 0 ? (
+            <div className="text-sm font-semibold text-neutral-500">
+              {cooldownTime}s
+            </div>
+          ) : (
             <button
-              disabled={isSubmitting || isAtLimit}
+              disabled={isDisabled || isAtLimit || !body.trim()}
               type="submit"
               className="text-sky-500 text-sm font-semibold hover:text-sky-700 dark:hover:text-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
