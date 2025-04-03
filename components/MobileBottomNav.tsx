@@ -41,6 +41,9 @@ const navigation = [
   },
 ];
 
+// Add paths where bottom nav should be hidden
+const hiddenPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
+
 export default function MobileBottomNav() {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -49,7 +52,8 @@ export default function MobileBottomNav() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
-  if (!isMobile) return null;
+  // Hide on non-mobile devices and auth pages
+  if (!isMobile || hiddenPaths.includes(pathname)) return null;
 
   const handleSearchClick = (e: React.MouseEvent) => {
     e.preventDefault();

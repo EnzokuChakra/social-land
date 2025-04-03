@@ -9,17 +9,11 @@ import Image from "next/image";
 import { useState } from "react";
 import Link from "next/link";
 import UserAvatar from "./UserAvatar";
+import { useMediaQuery } from "@/lib/hooks/use-media-query";
+import { UserWithFollows } from "@/lib/definitions";
 
 interface Props {
-  profile: {
-    id: string;
-    username: string | null;
-    name?: string | null;
-    image?: string | null;
-    bio?: string | null;
-    followers?: any[];
-    following?: any[];
-  };
+  profile: UserWithFollows;
   hasStories?: boolean;
   stories?: any[];
   reelsEnabled?: boolean;
@@ -29,6 +23,7 @@ interface Props {
 export default function ProfileHeader({ profile, hasStories = false, stories = [], reelsEnabled = false, isCurrentUser = false }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
+  const isMobile = useMediaQuery("(max-width: 768px)");
 
   if (!profile || !profile.username) return null;
 
@@ -41,7 +36,10 @@ export default function ProfileHeader({ profile, hasStories = false, stories = [
   };
 
   return (
-    <div className="flex flex-col items-center gap-4 py-8">
+    <div className={cn(
+      "flex flex-col items-center gap-4",
+      isMobile ? "pt-0" : "py-8"
+    )}>
       <button
         className={cn(
           "rounded-full",
@@ -53,13 +51,19 @@ export default function ProfileHeader({ profile, hasStories = false, stories = [
         <div className={cn("rounded-full", hasStories && "p-0.5 bg-white")}>
           <UserAvatar
             user={profile}
-            className="h-20 w-20 border-2"
+            className={cn(
+              "border-2",
+              isMobile ? "h-16 w-16" : "h-20 w-20"
+            )}
             priority={true}
           />
         </div>
       </button>
 
-      <div className="flex flex-col items-center gap-2">
+      <div className={cn(
+        "flex flex-col items-center gap-2",
+        isMobile && "hidden"
+      )}>
         <h1 className="text-2xl font-semibold">{profile.username}</h1>
         {profile.name && (
           <p className="text-muted-foreground">{profile.name}</p>
