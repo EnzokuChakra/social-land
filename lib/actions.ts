@@ -212,7 +212,7 @@ async function createNotification({
   postId,
   commentId,
 }: {
-  type: "LIKE" | "COMMENT" | "FOLLOW" | "FOLLOW_REQUEST" | "COMMENT_REPLY";
+  type: "LIKE" | "COMMENT" | "FOLLOW" | "FOLLOW_REQUEST" | "COMMENT_REPLY" | "REPLY";
   user_id: string;
   postId?: string;
   commentId?: string;
@@ -324,7 +324,7 @@ async function createNotification({
         });
       }
     } else {
-      // For other notification types (FOLLOW, FOLLOW_REQUEST, COMMENT_REPLY)
+      // For other notification types (FOLLOW, FOLLOW_REQUEST, COMMENT_REPLY, REPLY)
       const data: any = {
         id: crypto.randomUUID(),
         type,
@@ -334,7 +334,7 @@ async function createNotification({
       };
 
       if (commentId) {
-        data.metadata = { commentId };
+        data.metadata = JSON.stringify({ commentId });
       }
 
       await prisma.notification.create({ data });
@@ -802,73 +802,40 @@ export async function bookmarkPost(value: FormDataEntryValue | null) {
 
 export async function createComment(values: z.infer<typeof CreateComment>) {
   const userId = await getUserId();
-  const validatedFields = CreateComment.safeParse(values);
-
-  console.log("[CREATE_COMMENT] Received values:", values);
-
-  if (!validatedFields.success) {
-    console.error("[CREATE_COMMENT] Validation failed:", validatedFields.error.flatten().fieldErrors);
-    return {
-      errors: validatedFields.error.flatten().fieldErrors,
-      message: "Missing Fields. Failed to Create Comment.",
-    };
-  }
-
-  const { postId, body, parentId } = validatedFields.data;
-  console.log("[CREATE_COMMENT] Validated data:", { postId, body, parentId });
 
   try {
+    const { postId, body, parentId } = values;
+
+    // Verify the post exists
     const post = await db.post.findUnique({
-      where: {
-        id: postId,
-      },
-      select: {
-        user_id: true,
-      },
+      where: { id: postId },
+      select: { id: true, user_id: true }
     });
 
     if (!post) {
       throw new Error("Post not found");
     }
 
-    // If this is a reply, verify the parent comment exists
-    if (parentId) {
-      console.log("[CREATE_COMMENT] Verifying parent comment:", parentId);
-      const parentComment = await db.comment.findUnique({
-        where: { id: parentId },
-        select: { id: true, postId: true }
-      });
-
-      if (!parentComment) {
-        console.error("[CREATE_COMMENT] Parent comment not found");
-        throw new Error("Parent comment not found");
-      }
-
-      if (parentComment.postId !== postId) {
-        console.error("[CREATE_COMMENT] Parent comment belongs to different post");
-        throw new Error("Invalid parent comment");
-      }
-      
-      console.log("[CREATE_COMMENT] Parent comment verified");
-    }
-
+    // Create the comment
     const comment = await db.comment.create({
       data: {
         id: crypto.randomUUID(),
         body,
         postId,
+        parentId: parentId || null,
         user_id: userId,
-        parentId,
         updatedAt: new Date(),
       },
       include: {
         user: true,
+        likes: true,
         replies: {
           include: {
-            user: true
+            user: true,
+            likes: true,
           }
         }
-      },
+      }
     });
 
     console.log("[CREATE_COMMENT] Created comment:", {
@@ -887,7 +854,7 @@ export async function createComment(values: z.infer<typeof CreateComment>) {
       if (parentComment && parentComment.user_id !== userId) {
         // Create notification for comment reply
         await createNotification({
-          type: "COMMENT_REPLY",
+          type: "REPLY",
           user_id: parentComment.user_id,
           postId: postId ?? undefined,
           commentId: comment.id,
@@ -905,7 +872,24 @@ export async function createComment(values: z.infer<typeof CreateComment>) {
       console.log("[CREATE_COMMENT] Created comment notification");
     }
 
+    // Revalidate both dashboard and specific post page
     revalidatePath("/dashboard");
+    revalidatePath(`/dashboard/p/${postId}`);
+    revalidatePath(`/dashboard/p/${postId}/`);
+
+    // Emit socket event for real-time update
+    if (global.io) {
+      global.io.emit("commentCreate", {
+        postId,
+        comment: {
+          ...comment,
+          user: comment.user,
+          likes: comment.likes,
+          replies: comment.replies,
+        },
+      });
+    }
+
     return { 
       message: "Comment Created Successfully",
       comment: comment

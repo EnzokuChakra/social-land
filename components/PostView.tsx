@@ -82,19 +82,39 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     const handleCommentUpdate = (data: { postId: string; parentId: string | null; comment: any }) => {
       if (data.postId !== id) return;
 
+      console.log('[PostView] Received comment update:', {
+        postId: data.postId,
+        parentId: data.parentId,
+        comment: data.comment
+      });
+
       setComments(prevComments => {
+        // Deep clone the previous comments to avoid mutation
+        const newComments = prevComments.map(c => ({
+          ...c,
+          replies: c.replies ? [...c.replies] : []
+        }));
+
         if (data.parentId) {
-          return prevComments.map(comment => {
-            if (comment.id === data.parentId) {
-              return {
-                ...comment,
-                replies: [...(comment.replies || []).map(reply => ({ ...reply })), data.comment],
-              };
+          // This is a reply - find the parent comment and add the reply
+          const parentIndex = newComments.findIndex(c => c.id === data.parentId);
+          if (parentIndex !== -1) {
+            // Initialize replies array if it doesn't exist
+            if (!newComments[parentIndex].replies) {
+              newComments[parentIndex].replies = [];
             }
-            return { ...comment, replies: comment.replies ? [...comment.replies] : [] };
-          });
+            // Add the new reply
+            newComments[parentIndex].replies.push(data.comment);
+            console.log('[PostView] Added reply to parent comment:', {
+              parentId: data.parentId,
+              replyId: data.comment.id,
+              repliesCount: newComments[parentIndex].replies.length
+            });
+          }
+          return newComments;
         } else {
-          return [{ ...data.comment }, ...prevComments]; // Ensure new object reference
+          // This is a top-level comment - add it to the beginning
+          return [data.comment, ...newComments];
         }
       });
     };

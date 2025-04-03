@@ -203,7 +203,7 @@ function getNotificationText(notification: NotificationWithExtras): string | nul
     case "FOLLOW_REQUEST":
       return "requested to follow you";
     case "REPLY":
-      return "replied to your comment";
+      return `replied to your comment: ${notification.comment?.text ?? ''}`;
     case "MENTION":
       return "mentioned you in a comment";
     case "TAG":

@@ -82,7 +82,14 @@ export type SavedPost = {
   user_id: string;
 };
 
-export type NotificationType = "LIKE" | "COMMENT" | "FOLLOW" | "FOLLOW_REQUEST" | "COMMENT_REPLY" | "REPLY" | "MENTION" | "TAG";
+export type NotificationType = 
+  | "LIKE" 
+  | "COMMENT" 
+  | "FOLLOW" 
+  | "FOLLOW_REQUEST" 
+  | "REPLY" 
+  | "MENTION" 
+  | "TAG";
 
 export type Notification = {
   id: string;
