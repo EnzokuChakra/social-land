@@ -98,7 +98,7 @@ function MoreDropdown() {
 
   const handleThemeChange = () => {
     const newTheme = theme === "dark" ? "light" : "dark";
-    console.log("Toggling theme from", theme, "to", newTheme);
+    window.dispatchEvent(new Event('theme-change'));
     setTheme(newTheme);
     setOpen(false);
   };
