@@ -8,12 +8,14 @@ const nextConfig = {
         hostname: 'social-land.ro'
       }
     ],
-    domains: ['localhost', 'social-land.ro'],
+    domains: ['localhost', 'social-land.ro', 'uploadthing.com', 'utfs.io', 'img.clerk.com', 'images.clerk.dev'],
     unoptimized: true,
     minimumCacheTTL: 31536000, // Cache for 1 year
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    deviceSizes: [96, 128, 256, 384, 512, 640, 750, 828, 1080, 1200],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
   webpack: (config, { isServer }) => {
     // Exclude problematic files from webpack processing
@@ -119,7 +121,10 @@ const nextConfig = {
         ]
       }
     ]
-  }
+  },
+  experimental: {
+    optimizePackageImports: ['@uploadthing/react'],
+  },
 };
 
 module.exports = nextConfig;
