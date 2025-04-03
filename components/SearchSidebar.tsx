@@ -158,7 +158,7 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
         }}
         className={cn(
           "fixed z-50",
-          isMobile ? "inset-0" : "inset-y-0 left-[240px]",
+          isMobile ? "inset-0" : "inset-y-0 left-[72px]",
           "border-r border-neutral-200 dark:border-neutral-800",
           "bg-white dark:bg-black",
           "shadow-sm dark:shadow-neutral-800/10",
@@ -295,7 +295,7 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
         <div
           className={cn(
             "fixed z-40 bg-black/20",
-            isMobile ? "inset-0" : "inset-y-0 left-[240px] right-0"
+            isMobile ? "inset-0" : "inset-y-0 left-[72px] right-0"
           )}
           onClick={onClose}
         />

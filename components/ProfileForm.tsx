@@ -28,6 +28,7 @@ import { useEditProfileModal } from "@/hooks/use-edit-profile-modal";
 import { useState } from "react";
 import { useStoryModal } from "@/hooks/use-story-modal";
 import ProfilePictureOptionsModal from "./modals/ProfilePictureOptionsModal";
+import { cn } from "@/lib/utils";
 
 type ProfileFormErrors = {
   [K in keyof z.infer<typeof UserSchema>]?: string[];
@@ -61,13 +62,13 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
     <div className="bg-white dark:bg-black rounded-xl overflow-hidden">
       <div className="flex flex-col">
         {/* Profile Header with Avatar */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-black dark:to-black p-8 border-b border-neutral-200 dark:border-neutral-800">
-          <div className="flex flex-col sm:flex-row items-center gap-6">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-black dark:to-black p-4 sm:p-8 border-b border-neutral-200 dark:border-neutral-800">
+          <div className="flex flex-col items-center gap-6">
             <div className="relative group">
               <div className="relative cursor-pointer" onClick={handleProfilePhotoClick}>
                 <UserAvatar 
                   user={profile} 
-                  className="w-24 h-24 border-4 border-white dark:border-black shadow-md cursor-pointer transition-transform group-hover:scale-105" 
+                  className="w-20 h-20 sm:w-24 sm:h-24 border-4 border-white dark:border-black shadow-md cursor-pointer transition-transform group-hover:scale-105" 
                 />
                 <div className="absolute inset-0 bg-black/20 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer">
                   <span className="text-white text-xs font-medium">Change</span>
@@ -75,7 +76,7 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
               </div>
             </div>
             
-            <div className="flex flex-col items-center sm:items-start gap-1">
+            <div className="flex flex-col items-center gap-1">
               <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">
                 {profile.username}
               </h3>
@@ -129,7 +130,7 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
                 }
               }
             })}
-            className="p-6 space-y-6"
+            className="p-4 sm:p-6 space-y-6"
           >
             <div className="space-y-6 max-w-2xl mx-auto">
               <FormField
@@ -137,7 +138,7 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
                 name="name"
                 render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-2 items-start">
+                    <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-2 md:gap-4 items-start">
                       <div className="flex flex-col">
                         <FormLabel className="text-neutral-900 dark:text-white font-medium mb-1">
                           Name
@@ -164,8 +165,8 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
                           )}
                         </div>
                         <FormDescription className="text-neutral-500 dark:text-neutral-400 text-xs flex justify-between">
-                          Help people discover your account by using the name you're known by.
-                          <span className="text-neutral-400 ml-1">
+                          <span className="hidden sm:inline">Help people discover your account by using the name you're known by.</span>
+                          <span className="text-neutral-400 sm:ml-1">
                             {field.value?.length || 0}/30
                           </span>
                         </FormDescription>
@@ -181,7 +182,7 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
                 name="bio"
                 render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-2 items-start">
+                    <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-2 md:gap-4 items-start">
                       <div className="flex flex-col">
                         <FormLabel className="text-neutral-900 dark:text-white font-medium mb-1">
                           Bio
@@ -214,7 +215,7 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
                 name="isPrivate"
                 render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-2 items-start">
+                    <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-2 md:gap-4 items-start">
                       <div className="flex flex-col">
                         <FormLabel className="text-neutral-900 dark:text-white font-medium mb-1">
                           Privacy
@@ -225,11 +226,11 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
                       </div>
                       <div className="space-y-2">
                         <div className="flex items-center gap-x-3 bg-neutral-50 dark:bg-black p-3 rounded-lg border border-neutral-200 dark:border-neutral-800">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center 
+                          <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center 
                             ${field.value 
                               ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" 
                               : "bg-neutral-100 dark:bg-black text-neutral-500 dark:text-neutral-400"}`}>
-                            <Lock className="h-5 w-5" />
+                            <Lock className="h-4 w-4 sm:h-5 sm:w-5" />
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center justify-between">
@@ -252,17 +253,28 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
                   </FormItem>
                 )}
               />
-            </div>
 
-            <div className="flex justify-end">
-              <Button
-                type="submit"
-                disabled={!isDirty || !isValid || isSubmitting}
-                className="bg-blue-500 hover:bg-blue-600 text-white dark:bg-blue-500 dark:hover:bg-blue-600"
-              >
-                {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Save Changes
-              </Button>
+              <div className="flex justify-end pt-4 border-t border-neutral-200 dark:border-neutral-800">
+                <Button
+                  type="submit"
+                  disabled={!isDirty || isSubmitting || !isValid}
+                  className={cn(
+                    "bg-blue-500 hover:bg-blue-600 text-white",
+                    "dark:bg-blue-500 dark:hover:bg-blue-600",
+                    "w-full sm:w-auto px-8",
+                    "disabled:opacity-50 disabled:cursor-not-allowed"
+                  )}
+                >
+                  {isSubmitting ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Saving...</span>
+                    </div>
+                  ) : (
+                    "Save"
+                  )}
+                </Button>
+              </div>
             </div>
           </form>
         </Form>
