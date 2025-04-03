@@ -901,95 +901,80 @@ export async function createComment(values: z.infer<typeof CreateComment>) {
 }
 
 export async function deleteComment(formData: FormData) {
-  const user_id = await getUserId();
+  const userId = await getUserId();
 
   const { id } = DeleteComment.parse({
     id: formData.get("id"),
   });
 
+  if (!id || typeof id !== 'string') {
+    throw new Error("Invalid comment ID");
+  }
+
   try {
-    // Find the comment with its replies
-    const comment = await db.comment.findUnique({
-      where: {
-        id,
-      },
-      select: {
-        id: true,
-        user_id: true,
-        postId: true,
-        replies: {
+    // First verify the comment exists and get post ownership info
+    const comment = await prisma.comment.findFirst({
+      where: { id },
+      include: {
+        post: {
           select: {
             id: true,
-          },
-        },
-      },
+            user_id: true
+          }
+        }
+      }
     });
 
     if (!comment) {
       throw new Error("Comment not found");
     }
 
-    // Check authorization
-    const post = comment.postId
-      ? await db.post.findUnique({
-          where: { id: comment.postId },
-          select: { user_id: true },
-        })
-      : null;
+    // Check if user is either comment owner or post owner
+    const isCommentOwner = comment.user_id === userId;
+    const isPostOwner = comment.post.user_id === userId;
 
-    const canDelete = comment.user_id === user_id || post?.user_id === user_id;
-
-    if (!canDelete) {
-      throw new Error("Not authorized to delete comment");
+    if (!isCommentOwner && !isPostOwner) {
+      throw new Error("You don't have permission to delete this comment");
     }
 
-    // Log debug information
-    console.log(
-      `Attempting to delete comment ${id} with ${
-        comment.replies?.length || 0
-      } replies`
-    );
-
-    // Get all reply IDs to delete them later
-    const replyIds = comment.replies?.map((reply: { id: string }) => reply.id) || [];
-
-    // Delete all replies first (outside of transaction to avoid constraint issues)
-    if (replyIds.length > 0) {
-      console.log(`Deleting ${replyIds.length} replies...`);
-
-      // Delete each reply one by one
-      for (const replyId of replyIds) {
-        try {
-          await db.comment.delete({
-            where: { id: replyId },
-          });
-        } catch (error) {
-          console.error(`Failed to delete reply ${replyId}:`, error);
-          // Continue with other replies
-        }
+    // Delete all likes associated with the comment
+    await prisma.commentlike.deleteMany({
+      where: {
+        commentId: id
       }
-
-      console.log(`Replies deleted successfully`);
-    }
-
-    // Now delete the parent comment
-    await db.comment.delete({
-      where: { id },
     });
 
-    // Emit socket event for real-time update
+    // Delete all replies to this comment (if it's a parent comment)
+    await prisma.comment.deleteMany({
+      where: {
+        parentId: id
+      }
+    });
+
+    // Finally delete the comment itself
+    await prisma.comment.delete({
+      where: {
+        id
+      }
+    });
+
+    // Emit socket event for real-time updates
     if (global.io) {
       global.io.emit("commentDelete", {
-        postId: comment.postId,
+        postId: comment.post.id,
         commentId: id,
-        parentId: null
+        parentId: comment.parentId
       });
     }
 
+    revalidatePath("/dashboard");
     return { message: "Comment deleted successfully" };
   } catch (error) {
-    console.error("Error deleting comment:", error);
-    throw new Error(error instanceof Error ? error.message : "Failed to delete comment");
+    console.error("[DELETE_COMMENT]", error);
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
+    throw new Error("Error deleting comment");
   }
 }
 
