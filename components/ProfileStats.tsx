@@ -6,6 +6,8 @@ import FollowersModal from "./FollowersModal";
 import FollowingModal from "./FollowingModal";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useStats } from "@/lib/hooks/use-stats";
+import { Skeleton } from "./ui/skeleton";
 
 interface Props {
   profile: UserWithExtras;
@@ -16,6 +18,7 @@ interface Props {
 export default function ProfileStats({ profile, isCurrentUser, isFollowing }: Props) {
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const { data: stats, isLoading } = useStats(profile.username || null);
 
   // Ensure username is not null
   const username = profile.username || '';
@@ -35,9 +38,13 @@ export default function ProfileStats({ profile, isCurrentUser, isFollowing }: Pr
           isButton && "hover:opacity-75 active:scale-95 cursor-pointer"
         )}
       >
-        <span className="font-semibold text-lg md:text-base" suppressHydrationWarning>
-          {count}
-        </span>
+        {isLoading ? (
+          <Skeleton className="h-6 w-12" />
+        ) : (
+          <span className="font-semibold text-lg md:text-base" suppressHydrationWarning>
+            {count}
+          </span>
+        )}
         <span className="text-neutral-500 dark:text-neutral-400 text-[11px] md:text-sm tracking-wide uppercase">
           {label}
         </span>
@@ -45,41 +52,38 @@ export default function ProfileStats({ profile, isCurrentUser, isFollowing }: Pr
     );
   };
 
-  const followerCount = profile.followers.filter(f => f.status === "ACCEPTED").length;
-  const followingCount = profile.following.filter(f => f.status === "ACCEPTED").length;
-
   return (
     <>
       <div className="flex items-center justify-around w-full md:justify-start md:gap-x-10 text-sm border-y md:border-y-0 border-neutral-200 dark:border-neutral-800 py-3 md:py-0" suppressHydrationWarning>
         <StatItem 
-          count={profile.posts.length} 
+          count={stats?.posts || 0} 
           label="posts" 
         />
         
         {(isCurrentUser || isFollowing || !profile.isPrivate) ? (
           <StatItem 
-            count={followerCount} 
-            label={followerCount === 1 ? "follower" : "followers"}
+            count={stats?.followers || 0} 
+            label={(stats?.followers || 0) === 1 ? "follower" : "followers"}
             onClick={() => setShowFollowersModal(true)}
             isButton={true}
           />
         ) : (
           <StatItem 
-            count={followerCount} 
-            label={followerCount === 1 ? "follower" : "followers"}
+            count={stats?.followers || 0} 
+            label={(stats?.followers || 0) === 1 ? "follower" : "followers"}
           />
         )}
         
         {(isCurrentUser || isFollowing || !profile.isPrivate) ? (
           <StatItem 
-            count={followingCount} 
+            count={stats?.following || 0} 
             label="following"
             onClick={() => setShowFollowingModal(true)}
             isButton={true}
           />
         ) : (
           <StatItem 
-            count={followingCount} 
+            count={stats?.following || 0} 
             label="following"
           />
         )}

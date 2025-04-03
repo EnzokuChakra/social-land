@@ -7,12 +7,28 @@ import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { useNavbar } from "@/lib/hooks/use-navbar";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
+import { memo } from "react";
 
 interface PageLayoutProps {
   children: React.ReactNode;
   className?: string;
   noPadding?: boolean;
 }
+
+const MemoizedContent = memo(({ children, className, style }: { 
+  children: React.ReactNode;
+  className?: string;
+  style: React.CSSProperties;
+}) => (
+  <div
+    suppressHydrationWarning
+    className={className}
+    style={style}
+  >
+    {children}
+  </div>
+));
+MemoizedContent.displayName = "MemoizedContent";
 
 export default function PageLayout({
   children,
@@ -45,21 +61,24 @@ export default function PageLayout({
     }
   }, [session, status, router]);
 
+  const contentStyle = {
+    marginLeft: isMobile ? 0 : navbarWidth,
+    width: isMobile ? "100%" : `calc(100% - ${navbarWidth})`,
+  };
+
+  const contentClassName = cn(
+    "min-h-screen transition-all duration-300 ease-in-out",
+    !noPadding && "px-4 sm:px-6 md:px-8 lg:px-12",
+    "pb-20 md:pb-0",
+    className
+  );
+
   return (
-    <div
-      suppressHydrationWarning
-      className={cn(
-        "min-h-screen transition-all duration-300 ease-in-out",
-        !noPadding && "px-4 sm:px-6 md:px-8 lg:px-12",
-        "pb-20 md:pb-0",
-        className
-      )}
-      style={{
-        marginLeft: isMobile ? 0 : navbarWidth,
-        width: isMobile ? "100%" : `calc(100% - ${navbarWidth})`,
-      }}
+    <MemoizedContent
+      className={contentClassName}
+      style={contentStyle}
     >
       {children}
-    </div>
+    </MemoizedContent>
   );
 } 

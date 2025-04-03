@@ -21,7 +21,7 @@ import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, memo } from "react";
 import MiniPost from "./MiniPost";
 import Comment from "./Comment";
 import PostOptions from "./PostOptions";
@@ -39,6 +39,55 @@ import Timestamp from "@/components/Timestamp";
 import { useSocket } from "@/hooks/use-socket";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { getSocket } from "@/lib/socket";
+
+const MemoizedImage = memo(({ src, alt, aspectRatio }: { 
+  src: string;
+  alt: string;
+  aspectRatio: number;
+}) => (
+  <Image
+    src={src}
+    alt={alt}
+    className={cn(
+      "w-full h-auto",
+      aspectRatio === 1 ? "object-cover" : "object-contain"
+    )}
+    width={1200}
+    height={1200}
+    priority
+    quality={100}
+  />
+));
+MemoizedImage.displayName = "MemoizedImage";
+
+const MemoizedDesktopImage = memo(({ src, alt, aspectRatio }: {
+  src: string;
+  alt: string;
+  aspectRatio: number;
+}) => (
+  <div className={cn(
+    "relative flex-1 bg-black flex items-center justify-center",
+    "h-full w-auto",
+    "min-h-0",
+    "max-h-full"
+  )}>
+    <div className="relative w-full h-full flex items-center justify-center">
+      <Image
+        src={src}
+        alt={alt}
+        className={cn(
+          "max-h-full w-auto",
+          aspectRatio === 1 ? "object-cover" : "object-contain"
+        )}
+        width={1200}
+        height={1200}
+        priority
+        quality={100}
+      />
+    </div>
+  </div>
+));
+MemoizedDesktopImage.displayName = "MemoizedDesktopImage";
 
 function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const pathname = usePathname();
@@ -66,7 +115,25 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   // Initialize currentPost with expanded likes data
   const [currentPost, setCurrentPost] = useState<PostWithExtras>({
     ...post,
-    likes: post.likes || [],
+    likes: post.likes.map(like => {
+      console.log("[PostView] Initializing like data:", {
+        likeId: like.id,
+        userId: like.user?.id,
+        username: like.user?.username,
+        isFollowing: like.user?.isFollowing,
+        hasPendingRequest: like.user?.hasPendingRequest,
+        isPrivate: like.user?.isPrivate
+      });
+      return {
+        ...like,
+        user: {
+          ...like.user,
+          isFollowing: like.user.isFollowing || false,
+          hasPendingRequest: like.user.hasPendingRequest || false,
+          isPrivate: like.user.isPrivate || false
+        }
+      };
+    }),
     savedBy: post.savedBy || [],
     comments: post.comments || [],
     tags: post.tags || []
@@ -150,35 +217,106 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
 
   // Update currentPost when post prop changes
   useEffect(() => {
-    setCurrentPost(prevPost => ({
-      ...prevPost,
-      ...post,
-      likes: post.likes || prevPost.likes,
-      savedBy: post.savedBy || prevPost.savedBy,
-      comments: post.comments || prevPost.comments,
-      tags: post.tags || prevPost.tags
-    }));
+    console.log("[PostView] Post data received:", {
+      postId: post.id,
+      likesCount: post.likes.length,
+      likes: post.likes.map(like => ({
+        userId: like.user?.id,
+        username: like.user?.username,
+        isFollowing: like.user?.isFollowing
+      }))
+    });
+
+    setCurrentPost(prevPost => {
+      const updatedPost = {
+        ...prevPost,
+        ...post,
+        likes: post.likes.map(like => {
+          console.log("[PostView] Updating like data:", {
+            likeId: like.id,
+            userId: like.user?.id,
+            username: like.user?.username,
+            isFollowing: like.user?.isFollowing,
+            hasPendingRequest: like.user?.hasPendingRequest,
+            isPrivate: like.user?.isPrivate
+          });
+          return {
+            ...like,
+            user: {
+              ...like.user,
+              isFollowing: like.user.isFollowing || false,
+              hasPendingRequest: like.user.hasPendingRequest || false,
+              isPrivate: like.user.isPrivate || false
+            }
+          };
+        }),
+        savedBy: post.savedBy || prevPost.savedBy,
+        comments: post.comments || prevPost.comments,
+        tags: post.tags || prevPost.tags
+      };
+      
+      console.log("[PostView] Updated post state:", {
+        postId: updatedPost.id,
+        likesCount: updatedPost.likes.length,
+        likes: updatedPost.likes.map(like => ({
+          userId: like.user?.id,
+          username: like.user?.username,
+          isFollowing: like.user?.isFollowing
+        }))
+      });
+      
+      return updatedPost;
+    });
   }, [post]);
 
+  // Add logging for likes updates
   useEffect(() => {
     if (!socket) return;
 
     const handleLikeUpdate = (data: any) => {
-      if (data.post?.id === id) {
-        setCurrentPost(prevPost => ({
+      console.log("[PostView] Received like update:", data);
+      
+      setCurrentPost(prevPost => {
+        // Preserve existing likes data
+        const existingLikes = new Map(prevPost.likes.map(like => [like.user.id, like]));
+        
+        let updatedLikes = [...prevPost.likes];
+        if (data.action === "unlike") {
+          updatedLikes = updatedLikes.filter(like => like.user_id !== data.user_id);
+        } else {
+          const newLike = {
+            id: crypto.randomUUID(),
+            user_id: data.likedBy.id,
+            postId: data.post.id,
+            reelId: null,
+            storyId: null,
+            user: {
+              ...data.likedBy,
+              // Preserve follow status if we have it
+              isFollowing: existingLikes.get(data.likedBy.id)?.user.isFollowing || false,
+              hasPendingRequest: existingLikes.get(data.likedBy.id)?.user.hasPendingRequest || false,
+              isPrivate: existingLikes.get(data.likedBy.id)?.user.isPrivate || false
+            },
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+          updatedLikes.push(newLike);
+        }
+
+        console.log("[PostView] Updated likes:", updatedLikes);
+
+        return {
           ...prevPost,
-          ...data.post,
-          likes: data.post.likes || prevPost.likes
-        }));
-      }
+          likes: updatedLikes
+        };
+      });
     };
 
     socket.on("likeUpdate", handleLikeUpdate);
-
     return () => {
       socket.off("likeUpdate", handleLikeUpdate);
     };
-  }, [socket, id]);
+  }, [socket]);
 
   // Transform comments to include all required fields
   const transformedComments = post.comments.map(comment => ({
@@ -396,17 +534,10 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
           <div className="w-full flex flex-col pb-[60px]">
             {/* Image Section */}
             <div className="w-full bg-black flex items-center justify-center">
-              <Image
+              <MemoizedImage
                 src={post.fileUrl}
                 alt={post.caption || "Post image"}
-                className={cn(
-                  "w-full h-auto",
-                  post.aspectRatio === 1 ? "object-cover" : "object-contain"
-                )}
-                width={1200}
-                height={1200}
-                priority
-                quality={100}
+                aspectRatio={post.aspectRatio}
               />
             </div>
 
@@ -440,6 +571,29 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                         </Link>
                       </ProfileHoverCard>
                       {post.user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
+                      {post.tags && post.tags.length > 0 && (
+                        <span className="flex items-center gap-1">
+                          <span className="text-[13px] text-neutral-500 dark:text-neutral-400">with</span>
+                          {post.tags.length === 1 ? (
+                            <ProfileHoverCard user={post.tags[0].user}>
+                              <Link
+                                href={`/dashboard/${post.tags[0].user.username}`}
+                                className="font-semibold hover:underline text-[13px] inline-flex items-center gap-1"
+                              >
+                                {post.tags[0].user.username}
+                                {post.tags[0].user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
+                              </Link>
+                            </ProfileHoverCard>
+                          ) : (
+                            <button
+                              onClick={() => setShowTaggedModal(true)}
+                              className="font-semibold hover:underline text-[13px]"
+                            >
+                              {post.tags.length} others
+                            </button>
+                          )}
+                        </span>
+                      )}
                     </div>
                     {post.location && (
                       <Link
@@ -545,28 +699,11 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
         ) : (
           // Desktop Layout
           <>
-            {/* Image Section */}
-            <div className={cn(
-              "relative flex-1 bg-black flex items-center justify-center",
-              "h-full w-auto",
-              "min-h-0",
-              "max-h-full"
-            )}>
-              <div className="relative w-full h-full flex items-center justify-center">
-                <Image
-                  src={post.fileUrl}
-                  alt={post.caption || "Post image"}
-                  className={cn(
-                    "max-h-full w-auto",
-                    post.aspectRatio === 1 ? "object-cover" : "object-contain"
-                  )}
-                  width={1200}
-                  height={1200}
-                  priority
-                  quality={100}
-                />
-              </div>
-            </div>
+            <MemoizedDesktopImage
+              src={post.fileUrl}
+              alt={post.caption || "Post image"}
+              aspectRatio={post.aspectRatio}
+            />
 
             {/* Content Section */}
             <div className={cn(
@@ -606,6 +743,29 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                           </Link>
                         </ProfileHoverCard>
                         {post.user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
+                        {post.tags && post.tags.length > 0 && (
+                          <span className="flex items-center gap-1">
+                            <span className="text-[13px] text-neutral-500 dark:text-neutral-400">with</span>
+                            {post.tags.length === 1 ? (
+                              <ProfileHoverCard user={post.tags[0].user}>
+                                <Link
+                                  href={`/dashboard/${post.tags[0].user.username}`}
+                                  className="font-semibold hover:underline text-[13px] inline-flex items-center gap-1"
+                                >
+                                  {post.tags[0].user.username}
+                                  {post.tags[0].user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
+                                </Link>
+                              </ProfileHoverCard>
+                            ) : (
+                              <button
+                                onClick={() => setShowTaggedModal(true)}
+                                className="font-semibold hover:underline text-[13px]"
+                              >
+                                {post.tags.length} others
+                              </button>
+                            )}
+                          </span>
+                        )}
                       </div>
                       {post.location && (
                         <Link

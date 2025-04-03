@@ -13,7 +13,8 @@ const PUBLIC_PATHS = [
   '/api/status',
   '/_next',
   '/favicon.ico',
-  '/banned'
+  '/banned',
+  '/uploads'
 ];
 
 // Check if the path is public
@@ -24,7 +25,6 @@ const isPublicPath = (pathname: string) => {
 // Check maintenance mode
 async function checkMaintenanceMode(request: NextRequest, token: any) {
   try {
-    console.log('[MIDDLEWARE] Checking maintenance mode for request:', request.url);
     const response = await fetch(`${request.nextUrl.origin}/api/admin/settings/maintenance`, {
       headers: {
         'Content-Type': 'application/json',
@@ -35,13 +35,10 @@ async function checkMaintenanceMode(request: NextRequest, token: any) {
 
     if (response.ok) {
       const data = await response.json();
-      console.log('[MIDDLEWARE] Maintenance mode status:', data.maintenanceMode);
       return data.maintenanceMode === true;
     }
-    console.log('[MIDDLEWARE] Failed to get maintenance status:', response.status);
     return false;
   } catch (error) {
-    console.error('[MIDDLEWARE] Error checking maintenance mode:', error);
     return false;
   }
 }
@@ -51,54 +48,52 @@ export default withAuth(
   async function middleware(request) {
     const { pathname } = request.nextUrl;
     const token = await getToken({ req: request });
+    const response = NextResponse.next();
     
     // Clean up the pathname by removing query parameters
     const cleanPathname = pathname.split('?')[0];
 
-    console.log('[MIDDLEWARE] Processing request:', {
-      pathname: cleanPathname,
-      userRole: token?.role,
-      isPublicPath: isPublicPath(cleanPathname)
-    });
+    // Add caching headers for static files
+    if (cleanPathname.startsWith('/uploads/')) {
+      response.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+      
+      // Set content type based on file extension
+      const ext = cleanPathname.split('.').pop()?.toLowerCase();
+      if (ext === 'jpg' || ext === 'jpeg') {
+        response.headers.set('Content-Type', 'image/jpeg');
+      } else if (ext === 'png') {
+        response.headers.set('Content-Type', 'image/png');
+      } else if (ext === 'webp') {
+        response.headers.set('Content-Type', 'image/webp');
+      } else if (ext === 'gif') {
+        response.headers.set('Content-Type', 'image/gif');
+      }
+      return response;
+    }
 
-    // Skip maintenance check for:
-    // 1. Public paths
-    // 2. MASTER_ADMIN users
-    // 3. API routes
+    // Skip maintenance check for public paths, MASTER_ADMIN users, or API routes
     if (
       isPublicPath(cleanPathname) ||
       token?.role === 'MASTER_ADMIN' ||
       cleanPathname.startsWith('/api')
     ) {
-      console.log('[MIDDLEWARE] Skipping maintenance check for:', {
-        reason: isPublicPath(cleanPathname) ? 'public path' : 
-                token?.role === 'MASTER_ADMIN' ? 'MASTER_ADMIN' : 'API route'
-      });
-      return NextResponse.next();
+      return response;
     }
 
     // Check maintenance mode
     const isMaintenance = await checkMaintenanceMode(request, token);
     if (isMaintenance) {
-      console.log('[MIDDLEWARE] Maintenance mode active, redirecting to maintenance page');
       const maintenanceUrl = new URL('/maintenance', request.url);
       return NextResponse.redirect(maintenanceUrl);
     }
 
-    console.log('[MIDDLEWARE] Maintenance mode inactive, allowing access');
-    return NextResponse.next();
+    return response;
   },
   {
     callbacks: {
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
         const cleanPathname = pathname.split('?')[0];
-
-        console.log('[MIDDLEWARE] Authorization check:', {
-          pathname: cleanPathname,
-          hasToken: !!token,
-          isPublicPath: isPublicPath(cleanPathname)
-        });
 
         // Allow access to public paths
         if (isPublicPath(cleanPathname)) {
@@ -127,7 +122,7 @@ export default withAuth(
 // Middleware matcher configuration
 export const config = {
   matcher: [
-    // Include all paths except static files and public assets
-    '/((?!_next/static|_next/image|favicon.ico|uploads|.png).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.png).*)',
+    '/uploads/:path*'
   ],
 };

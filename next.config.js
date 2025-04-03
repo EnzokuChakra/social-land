@@ -9,7 +9,11 @@ const nextConfig = {
       }
     ],
     domains: ['localhost', 'social-land.ro'],
-    unoptimized: true
+    unoptimized: true,
+    minimumCacheTTL: 31536000, // Cache for 1 year
+    dangerouslyAllowSVG: true,
+    contentDispositionType: 'attachment',
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   webpack: (config, { isServer }) => {
     // Exclude problematic files from webpack processing

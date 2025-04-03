@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { PostWithExtras, User, Like } from "@/lib/definitions";
+import { PostWithExtras, User, Like as PrismaLike } from "@/lib/definitions";
 import { cn } from "@/lib/utils";
 import ActionIcon from "@/components/ActionIcon";
 import { MessageCircle } from "lucide-react";
@@ -27,6 +27,24 @@ type ExtendedUser = User & {
   isFollowedByUser?: boolean;
 };
 
+type LikeUser = Pick<User, keyof User> & {
+  isFollowing?: boolean;
+  hasPendingRequest?: boolean;
+  isPrivate?: boolean;
+};
+
+type PostUser = PostWithExtras['user'];
+type Like = PrismaLike & {
+  user: PostUser;
+};
+
+type LikeUpdateData = {
+  post: { id: string };
+  action: "like" | "unlike";
+  user_id: string;
+  likedBy: PostUser;
+};
+
 type Props = {
   post: PostWithExtras;
   userId?: string;
@@ -37,11 +55,38 @@ type Props = {
 function PostActions({ post, userId, className, inputRef }: Props) {
   const [showLikesModal, setShowLikesModal] = useState(false);
   const [currentPost, setCurrentPost] = useState<PostWithExtras>(post);
-  const [currentPostInit, setCurrentPostInit] = useState<PostWithExtras>(post);
   const router = useRouter();
   const { data: session, status } = useSession();
   const socket = getSocket();
-  const handleLikeUpdate = useCallback((data: any) => {
+
+  // Initialize currentPost with follow status
+  useEffect(() => {
+    console.log("[PostActions] Initializing post data:", {
+      postId: post.id,
+      likes: post.likes.map(like => ({
+        userId: like.user?.id,
+        username: like.user?.username,
+        isFollowing: like.user?.isFollowing,
+        hasPendingRequest: like.user?.hasPendingRequest,
+        isPrivate: like.user?.isPrivate
+      }))
+    });
+
+    setCurrentPost(prevPost => ({
+      ...prevPost,
+      likes: post.likes.map(like => ({
+        ...like,
+        user: {
+          ...like.user,
+          isFollowing: like.user.isFollowing || false,
+          hasPendingRequest: like.user.hasPendingRequest || false,
+          isPrivate: like.user.isPrivate || false
+        }
+      }))
+    }));
+  }, [post]);
+
+  const handleLikeUpdate = useCallback((data: LikeUpdateData) => {
     if (data.post.id === post.id) {
       setCurrentPost((prevPost) => {
         let updatedLikes = [...prevPost.likes];
@@ -49,20 +94,68 @@ function PostActions({ post, userId, className, inputRef }: Props) {
         if (data.action === "unlike") {
           updatedLikes = updatedLikes.filter((like) => like.user_id !== data.user_id);
         } else {
-          updatedLikes.push({
+          const newLike: Like = {
             id: crypto.randomUUID(),
             user_id: data.likedBy.id,
             postId: data.post.id,
+            reelId: null,
+            storyId: null,
             user: data.likedBy,
             createdAt: new Date(),
             updatedAt: new Date(),
-          });
+          };
+          updatedLikes.push(newLike);
         }
 
         return { ...prevPost, likes: updatedLikes };
       });
     }
   }, [post.id]);
+
+  const handleLikesModalOpen = () => {
+    console.log("[PostActions] Opening likes modal for post:", {
+      postId: post.id,
+      likesCount: currentPost.likes.length,
+      currentUserId: session?.user?.id
+    });
+
+    // Log each like's data
+    currentPost.likes.forEach((like) => {
+      console.log("[PostActions] Like data:", {
+        likeId: like.id,
+        userId: like.user?.id,
+        username: like.user?.username,
+        isFollowing: like.user?.isFollowing,
+        hasPendingRequest: like.user?.hasPendingRequest,
+        isPrivate: like.user?.isPrivate
+      });
+    });
+
+    setShowLikesModal(true);
+  };
+
+  // Add effect to log modal state changes
+  useEffect(() => {
+    if (showLikesModal) {
+      console.log("[PostActions] Likes modal opened, current post data:", {
+        postId: post.id,
+        likes: currentPost.likes.map(like => ({
+          userId: like.user?.id,
+          username: like.user?.username,
+          isFollowing: like.user?.isFollowing
+        }))
+      });
+    }
+  }, [showLikesModal, post.id, currentPost.likes]);
+
+  // Add effect to log post data changes
+  useEffect(() => {
+    console.log("[PostActions] Post data updated:", {
+      postId: post.id,
+      likesCount: post.likes.length,
+      currentPostLikesCount: currentPost.likes.length
+    });
+  }, [post, currentPost.likes.length]);
 
   // This effect will run when the component is mounted
   useEffect(() => {
@@ -72,8 +165,7 @@ function PostActions({ post, userId, className, inputRef }: Props) {
     return () => {
       socket.off("likeUpdate", handleLikeUpdate);
     };
-  }, [socket]);
-
+  }, [socket, handleLikeUpdate]);
 
   const handleCommentClick = () => {
     if (inputRef?.current) {
@@ -105,7 +197,7 @@ function PostActions({ post, userId, className, inputRef }: Props) {
         <div>
           {currentPost.likes && currentPost.likes.length > 0 ? (
             <button
-              onClick={() => setShowLikesModal(true)}
+              onClick={handleLikesModalOpen}
               className="font-semibold text-sm text-left hover:underline"
             >
               {currentPost.likes.length} {currentPost.likes.length === 1 ? "like" : "likes"}
@@ -129,53 +221,58 @@ function PostActions({ post, userId, className, inputRef }: Props) {
           <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
               {currentPost.likes && currentPost.likes.length > 0 ? (
-                currentPost.likes.map((like: Like & { user: User }) => {
-                  const user = like.user as ExtendedUser;
+                currentPost.likes.map((like) => {
+                  if (!like.user) {
+                    console.log("[PostActions] Like missing user data:", like);
+                    return null;
+                  }
+                  
+                  console.log("[PostActions] Rendering like for user:", {
+                    userId: like.user.id,
+                    username: like.user.username,
+                    isFollowing: like.user.isFollowing,
+                    hasPendingRequest: like.user.hasPendingRequest,
+                    isPrivate: like.user.isPrivate
+                  });
+                  
                   return (
                     <div
                       key={like.id}
                       className="flex items-center justify-between p-4"
                     >
-                      <div className="flex items-center gap-3 flex-1">
-                        <Link href={`/dashboard/${user.username}`}>
-                          <UserAvatar user={user} className="h-9 w-9" />
+                      <div className="flex items-center gap-x-2">
+                        <Link href={`/dashboard/${like.user.username}`}>
+                          <UserAvatar user={like.user} />
                         </Link>
                         <div className="flex flex-col">
-                          <div className="flex items-center gap-1">
-                            <Link
-                              href={`/dashboard/${user.username}`}
-                              className="font-semibold text-sm hover:underline"
-                            >
-                              {user.username}
+                          <div className="flex items-center gap-x-1">
+                            <Link href={`/dashboard/${like.user.username}`}>
+                              <p className="font-semibold text-sm hover:underline">
+                                {like.user.username}
+                              </p>
                             </Link>
-                            {user.verified && (
-                              <VerifiedBadge className="h-3.5 w-3.5" />
+                            {like.user.verified && (
+                              <VerifiedBadge className="h-4 w-4" />
                             )}
                           </div>
-                          {user.name && (
-                            <p className="text-sm text-neutral-500 dark:text-neutral-400 line-clamp-1">
-                              {user.name}
-                            </p>
-                          )}
+                          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                            {like.user.name}
+                          </p>
                         </div>
                       </div>
-                      {session?.user?.id !== user.id && (
+
+                      {session?.user?.id !== like.user.id && (
                         <FollowButton
-                          followingId={user.id}
-                          isFollowing={user.isFollowing || false}
-                          hasPendingRequest={user.hasPendingRequest || false}
-                          isPrivate={user.isPrivate || false}
+                          followingId={like.user.id}
+                          isFollowing={like.user.isFollowing || false}
+                          hasPendingRequest={like.user.hasPendingRequest || false}
+                          isPrivate={like.user.isPrivate || false}
                           className={cn(
                             "text-xs",
-                            user.isFollowing
+                            like.user.isFollowing
                               ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-red-500/10 hover:text-red-500"
                               : "bg-blue-500 hover:bg-blue-600 text-white"
                           )}
-                          onSuccess={(success) => {
-                            if (success) {
-                              router.refresh();
-                            }
-                          }}
                         />
                       )}
                     </div>

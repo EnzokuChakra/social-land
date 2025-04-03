@@ -176,7 +176,13 @@ export type PostWithExtras = Post & {
     isFollowedByUser?: boolean;
     hasActiveStory?: boolean;
   };
-  likes: (Like & { user: User })[];
+  likes: (Like & { 
+    user: User & {
+      isFollowing?: boolean;
+      hasPendingRequest?: boolean;
+      isPrivate?: boolean;
+    }
+  })[];
   savedBy: (SavedPost & { user: User })[];
   comments: CommentWithExtras[];
   tags: PostTag[];

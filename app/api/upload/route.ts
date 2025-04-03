@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { writeFile } from 'fs/promises';
+import { writeFile, mkdir } from 'fs/promises';
 import { nanoid } from 'nanoid';
 import path from 'path';
 import { ensureUploadDirectories } from '@/lib/server-utils';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
     console.log("[UPLOAD] Starting file upload process...");
     // Check authentication
-    const session = await auth();
-    if (!session?.user) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -32,6 +36,24 @@ export async function POST(request: NextRequest) {
       console.error("[UPLOAD] No file provided");
       return NextResponse.json(
         { error: 'No file received.' },
+        { status: 400 }
+      );
+    }
+
+    // Validate file type
+    const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!validTypes.includes(file.type)) {
+      return NextResponse.json(
+        { error: "Invalid file type" },
+        { status: 400 }
+      );
+    }
+
+    // Validate file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { error: "File too large" },
         { status: 400 }
       );
     }
@@ -62,10 +84,9 @@ export async function POST(request: NextRequest) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      // Generate a unique filename with timestamp to avoid conflicts
-      const timestamp = Date.now();
+      // Generate a unique filename without timestamp
       const ext = path.extname(file.name);
-      const filename = `${nanoid()}_${timestamp}${ext}`;
+      const filename = `${nanoid()}${ext}`;
       
       // Create the upload directory path based on type
       const uploadDir = path.join(process.cwd(), 'public', 'uploads', type);
@@ -78,6 +99,9 @@ export async function POST(request: NextRequest) {
         size: buffer.length
       });
 
+      // Ensure upload directory exists
+      await mkdir(uploadDir, { recursive: true });
+
       // Write the file
       await writeFile(filepath, buffer);
       console.log('File written successfully to:', filepath);
@@ -87,10 +111,18 @@ export async function POST(request: NextRequest) {
       console.log('Upload successful, returning URL:', fileUrl);
       
       console.log("[UPLOAD] File uploaded successfully:", { fileUrl });
-      return NextResponse.json({ 
+
+      // Create response with caching headers
+      const response = NextResponse.json({ 
         fileUrl,
         message: 'File uploaded successfully!' 
       });
+
+      // Add caching headers
+      response.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+      response.headers.set('Content-Type', file.type);
+
+      return response;
     } catch (error: any) {
       console.error('Error processing file:', {
         error,

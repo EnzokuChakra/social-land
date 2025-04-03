@@ -57,6 +57,12 @@ interface FollowingData {
   status: string;
 }
 
+type UserWithFollowStatus = User & {
+  isFollowing?: boolean;
+  hasPendingRequest?: boolean;
+  isPrivate?: boolean;
+};
+
 export async function fetchPosts(userId?: string) {
   try {
     const posts = await prisma.post.findMany({
@@ -202,7 +208,8 @@ export async function fetchPostById(postId: string) {
                 username: true,
                 image: true,
                 name: true,
-                verified: true
+                verified: true,
+                isPrivate: true
               }
             }
           }
@@ -320,32 +327,69 @@ export async function fetchPostById(postId: string) {
       }
     });
 
+    // Get follow status for each user in likes array
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Not authenticated");
+    }
+
+    console.log("[fetchPostById] Fetching follow status for likes, current user:", session.user.id);
+
+    const likesWithFollowStatus = await Promise.all(
+      post.likes.map(async (like: Like & { user: UserWithFollowStatus | null }) => {
+        if (!like.user) {
+          console.log("[fetchPostById] Like missing user:", like.id);
+          return like;
+        }
+
+        console.log("[fetchPostById] Checking follow status for user:", like.user.id);
+        
+        const follow = await prisma.follows.findUnique({
+          where: {
+            followerId_followingId: {
+              followerId: session.user.id,
+              followingId: like.user.id
+            }
+          }
+        });
+
+        console.log("[fetchPostById] Follow status result:", {
+          userId: like.user.id,
+          username: like.user.username,
+          followStatus: follow?.status,
+          isFollowing: follow?.status === "ACCEPTED",
+          hasPendingRequest: follow?.status === "PENDING"
+        });
+
+        return {
+          ...like,
+          user: {
+            ...like.user,
+            isFollowing: follow?.status === "ACCEPTED" || false,
+            hasPendingRequest: follow?.status === "PENDING" || false,
+            isPrivate: like.user.isPrivate || false
+          }
+        };
+      })
+    );
+
     // Transform the post to include hasActiveStory and totalComments
     const transformedPost = {
       ...post,
-      totalComments,
+      likes: likesWithFollowStatus,
       user: {
         ...post.user,
-        hasActiveStory: post.user.stories && post.user.stories.length > 0,
-        stories: undefined // Remove stories from the response
+        hasActiveStory: post.user.stories && post.user.stories.length > 0
       },
-      comments: post.comments.map((comment: CommentWithExtras) => ({
-        ...comment,
-        user: {
-          ...comment.user,
-          hasActiveStory: comment.user.stories && comment.user.stories.length > 0,
-          stories: undefined
-        },
-        replies: comment.replies?.map((reply: CommentWithExtras) => ({
-          ...reply,
-          user: {
-            ...reply.user,
-            hasActiveStory: reply.user.stories && reply.user.stories.length > 0,
-            stories: undefined
-          }
-        }))
-      }))
+      hasMore: totalComments > post.comments.length,
+      totalComments
     };
+
+    console.log("[fetchPostById] Transformed post likes:", transformedPost.likes.map((like: Like & { user: UserWithFollowStatus | null }) => ({
+      userId: like.user?.id,
+      username: like.user?.username,
+      isFollowing: like.user?.isFollowing
+    })));
 
     return transformedPost;
   } catch (error) {

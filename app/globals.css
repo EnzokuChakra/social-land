@@ -4,7 +4,7 @@
 
 @layer base {
   * {
-    @apply transition-[background-color] duration-200;
+    @apply transition-[background-color,color,border-color] duration-150;
   }
 
   :root {

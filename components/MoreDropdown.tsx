@@ -81,6 +81,14 @@ function MoreDropdown() {
     };
   }, [ref]);
 
+  // Reset state when dropdown closes
+  useEffect(() => {
+    if (!open) {
+      setShowModeToggle(false);
+      setShowLanguageToggle(false);
+    }
+  }, [open]);
+
   useEffect(() => {
     // Ensure theme is set to dark by default
     if (!theme || theme === 'system') {
@@ -88,24 +96,29 @@ function MoreDropdown() {
     }
   }, [theme, setTheme]);
 
+  const handleThemeChange = () => {
+    const newTheme = theme === "dark" ? "light" : "dark";
+    console.log("Toggling theme from", theme, "to", newTheme);
+    setTheme(newTheme);
+    setOpen(false);
+  };
+
   return (
-    <DropdownMenu open={open}>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button
-          onClick={() => setOpen(!open)}
-          variant={"ghost"}
-          size={"lg"}
-          className="md:w-full !justify-start space-x-2 !px-3"
+          variant="ghost"
+          size="icon"
+          className="rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
         >
-          <Menu />
-          <div className="hidden lg:block">{t("common.more")}</div>
+          <Menu size={20} />
         </Button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent
         ref={ref}
         className={cn(
-          "dark:bg-black w-64 !rounded-xl !p-0 transition-opacity",
+          "w-64 dark:bg-black !rounded-xl !p-0",
           !open && "opacity-0"
         )}
         align="end"
@@ -174,18 +187,21 @@ function MoreDropdown() {
 
             <DropdownMenuItem
               className="flex items-center gap-2 p-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
-              onClick={() => setShowModeToggle(true)}
+              onClick={handleThemeChange}
             >
               {theme === "dark" ? (
                 <Moon size={20} />
               ) : (
                 <Sun size={20} />
               )}
-              <p>{t("common.switchAppearance")}</p>
+              <p>{theme === "dark" ? t("common.lightMode") : t("common.darkMode")}</p>
             </DropdownMenuItem>
             <DropdownMenuItem
               className="flex items-center gap-2 p-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800/50"
-              onClick={() => setShowLanguageToggle(true)}
+              onClick={() => {
+                setShowLanguageToggle(true);
+                setOpen(false);
+              }}
             >
               <Globe size={20} />
               <p>{t("common.language")}</p>
@@ -203,19 +219,26 @@ function MoreDropdown() {
         {showModeToggle && (
           <>
             <div className="flex items-center border-b border-gray-200 dark:border-neutral-700 py-3.5 px-2.5">
-              <ChevronLeft size={18} onClick={() => setShowModeToggle(false)} className="cursor-pointer" />
+              <ChevronLeft 
+                size={18} 
+                onClick={() => {
+                  setShowModeToggle(false);
+                  setOpen(false);
+                }} 
+                className="cursor-pointer" 
+              />
               <p className="font-bold ml-1">{t("common.switchAppearance")}</p>
             </div>
             <div className="p-6">
-              <Label htmlFor="dark-mode">{theme === "dark" ? "Dark" : "Light"} mode</Label>
+              <Label htmlFor="dark-mode" className="block mb-2">
+                {theme === "dark" ? "Dark" : "Light"} mode
+              </Label>
               <div className="flex items-center space-x-2 mt-4">
                 <Switch
                   id="dark-mode"
                   checked={theme === "dark"}
                   defaultChecked={true}
-                  onCheckedChange={(checked) => {
-                    setTheme(checked ? "dark" : "light");
-                  }}
+                  onCheckedChange={handleThemeChange}
                 />
               </div>
             </div>
@@ -225,7 +248,14 @@ function MoreDropdown() {
         {showLanguageToggle && (
           <>
             <div className="flex items-center border-b border-gray-200 dark:border-neutral-700 py-3.5 px-2.5">
-              <ChevronLeft size={18} onClick={() => setShowLanguageToggle(false)} className="cursor-pointer" />
+              <ChevronLeft 
+                size={18} 
+                onClick={() => {
+                  setShowLanguageToggle(false);
+                  setOpen(false);
+                }} 
+                className="cursor-pointer" 
+              />
               <p className="font-bold ml-1">{t("common.language")}</p>
             </div>
             <div className="p-6">

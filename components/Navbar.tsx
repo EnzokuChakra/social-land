@@ -124,6 +124,17 @@ export default function Navbar() {
   const userRole = session?.user?.role;
   const isAdmin = userRole && ["MODERATOR", "ADMIN", "MASTER_ADMIN"].includes(userRole);
 
+  const handleThemeChange = (checked: boolean) => {
+    const newTheme = checked ? "dark" : "light";
+    console.log("Toggling theme from", theme, "to", newTheme);
+    setTheme(newTheme);
+    // Keep the dropdown open
+    setStates(prev => ({
+      ...prev,
+      showDropdown: true
+    }));
+  };
+
   // Ensure theme is set to dark by default
   useEffect(() => {
     if (!theme || theme === 'system') {
@@ -605,10 +616,16 @@ export default function Navbar() {
 
                   <DropdownMenuItem
                     className="flex items-center gap-2 p-3 cursor-pointer"
-                    onClick={() => setStates(prev => ({
-                      ...prev,
-                      showModeToggle: true
-                    }))}
+                    onClick={() => {
+                      const newTheme = theme === "dark" ? "light" : "dark";
+                      console.log("Toggling theme from", theme, "to", newTheme);
+                      setTheme(newTheme);
+                      // Keep the dropdown open
+                      setStates(prev => ({
+                        ...prev,
+                        showDropdown: true
+                      }));
+                    }}
                   >
                     <div className="flex items-center gap-2">
                       {theme === "dark" ? (
@@ -664,7 +681,7 @@ export default function Navbar() {
                         id="dark-mode"
                         checked={theme === "dark"}
                         defaultChecked={true}
-                        onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+                        onCheckedChange={handleThemeChange}
                       />
                     </div>
                   </div>
