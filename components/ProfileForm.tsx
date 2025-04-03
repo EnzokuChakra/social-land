@@ -109,7 +109,16 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(async (values) => {
-              const result = await updateProfile(values);
+              // Only include fields that have been changed
+              const changedValues = {
+                id: values.id,
+                ...(form.formState.dirtyFields.name && { name: values.name }),
+                ...(form.formState.dirtyFields.bio && { bio: values.bio }),
+                ...(form.formState.dirtyFields.isPrivate && { isPrivate: values.isPrivate }),
+                ...(form.formState.dirtyFields.image && { image: values.image })
+              };
+
+              const result = await updateProfile(changedValues);
               if (result.message === "Profile updated successfully") {
                 toast.success(result.message);
                 router.refresh();
@@ -157,7 +166,7 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
                               focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400 text-sm h-10 pl-3 pr-8"
                             />
                           </FormControl>
-                          {field.value && !errors.name && (
+                          {field.value && !errors.name && form.formState.dirtyFields.name && (
                             <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
                           )}
                           {errors.name && (
@@ -200,8 +209,11 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
                             {...field} 
                           />
                         </FormControl>
-                        <FormDescription className="text-neutral-500 dark:text-neutral-400 text-xs flex justify-end">
-                          {field.value?.length || 0} / 150
+                        <FormDescription className="text-neutral-500 dark:text-neutral-400 text-xs flex justify-between">
+                          <span>Add a bio to tell more about yourself</span>
+                          <span className="text-neutral-400 sm:ml-1">
+                            {field.value?.length || 0}/150
+                          </span>
                         </FormDescription>
                         <FormMessage className="text-xs" />
                       </div>
@@ -218,63 +230,47 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
                     <div className="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-2 md:gap-4 items-start">
                       <div className="flex flex-col">
                         <FormLabel className="text-neutral-900 dark:text-white font-medium mb-1">
-                          Privacy
+                          Private Account
                         </FormLabel>
                         <FormDescription className="text-neutral-500 dark:text-neutral-400 text-xs">
-                          Control who sees your content
+                          Control your account privacy
                         </FormDescription>
                       </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-x-3 bg-neutral-50 dark:bg-black p-3 rounded-lg border border-neutral-200 dark:border-neutral-800">
-                          <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center 
-                            ${field.value 
-                              ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" 
-                              : "bg-neutral-100 dark:bg-black text-neutral-500 dark:text-neutral-400"}`}>
-                            <Lock className="h-4 w-4 sm:h-5 sm:w-5" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <h4 className="text-sm font-medium text-neutral-900 dark:text-white">Private account</h4>
-                              <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                  className="data-[state=checked]:bg-blue-500"
-                                />
-                              </FormControl>
-                            </div>
-                            <FormDescription className="text-neutral-500 dark:text-neutral-400 text-xs mt-1">
-                              When your account is private, only people you approve can see your photos and videos.
-                            </FormDescription>
-                          </div>
-                        </div>
+                      <div className="flex items-center space-x-2">
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                          {field.value ? "Private" : "Public"}
+                        </span>
                       </div>
                     </div>
                   </FormItem>
                 )}
               />
+            </div>
 
-              <div className="flex justify-end pt-4 border-t border-neutral-200 dark:border-neutral-800">
-                <Button
-                  type="submit"
-                  disabled={!isDirty || isSubmitting || !isValid}
-                  className={cn(
-                    "bg-blue-500 hover:bg-blue-600 text-white",
-                    "dark:bg-blue-500 dark:hover:bg-blue-600",
-                    "w-full sm:w-auto px-8",
-                    "disabled:opacity-50 disabled:cursor-not-allowed"
-                  )}
-                >
-                  {isSubmitting ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Saving...</span>
-                    </div>
-                  ) : (
-                    "Save"
-                  )}
-                </Button>
-              </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="submit"
+                disabled={!isDirty || isSubmitting || !isValid}
+                className={cn(
+                  "bg-blue-500 hover:bg-blue-600 text-white",
+                  (!isDirty || !isValid) && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
+              </Button>
             </div>
           </form>
         </Form>
