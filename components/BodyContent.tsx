@@ -9,6 +9,7 @@ import StoryModal from "@/components/modals/StoryModal";
 import EditProfileModal from "@/components/modals/EditProfileModal";
 import { NavbarProvider } from "@/lib/hooks/use-navbar";
 import { useEffect, useState, Suspense } from "react";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default function BodyContent({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
@@ -29,7 +30,9 @@ export default function BodyContent({ children }: { children: React.ReactNode })
           >
             <AuthProvider>
               <NavbarProvider>
-                {children}
+                <div className="pb-14 md:pb-0">
+                  {children}
+                </div>
                 {mounted && (
                   <Toaster 
                     position="bottom-right" 
@@ -42,6 +45,7 @@ export default function BodyContent({ children }: { children: React.ReactNode })
                 <Suspense fallback={null}>
                   <StoryModal />
                   <EditProfileModal />
+                  <MobileBottomNav />
                 </Suspense>
               </NavbarProvider>
             </AuthProvider>

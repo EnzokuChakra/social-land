@@ -18,51 +18,7 @@ import FollowButton from "./FollowButton";
 import io from "socket.io-client";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
-
-const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5002", {
-  withCredentials: true,
-  transports: ['websocket', 'polling'],
-  autoConnect: true,
-  reconnection: true,
-  reconnectionAttempts: Infinity,
-  reconnectionDelay: 1000,
-  reconnectionDelayMax: 5000,
-  timeout: 100000,
-  forceNew: true,
-  secure: false,
-  rejectUnauthorized: false,
-  path: '/socket.io/',
-  extraHeaders: {
-    'Access-Control-Allow-Origin': '*'
-  }
-});
-
-socket.on('connect_error', (error) => {
-  console.error('Socket connection error:', error);
-  toast.error('Failed to connect to real-time updates');
-  
-  // Attempt to reconnect on connection error
-  setTimeout(() => {
-    if (!socket.connected) {
-      socket.connect();
-    }
-  }, 1000);
-});
-
-socket.on('disconnect', (reason) => {
-  console.log('Socket disconnected:', reason);
-  if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
-    setTimeout(() => {
-      if (!socket.connected) {
-        socket.connect();
-      }
-    }, 1000);
-  }
-});
-
-socket.on('connect', () => {
-  console.log('Socket connected successfully');
-});
+import {useSocket} from "@/hooks/use-socket";
 
 type ExtendedUser = User & {
   isFollowing?: boolean;
@@ -80,46 +36,43 @@ type Props = {
 function PostActions({ post, userId, className, inputRef }: Props) {
   const [showLikesModal, setShowLikesModal] = useState(false);
   const [currentPost, setCurrentPost] = useState<PostWithExtras>(post);
+  const [currentPostInit, setCurrentPostInit] = useState<PostWithExtras>(post);
   const router = useRouter();
   const { data: session, status } = useSession();
+  const socket = useSocket();
+  const handleLikeUpdate = useCallback((data: any) => {
+    if (data.post.id === post.id) {
+      setCurrentPost((prevPost) => {
+        let updatedLikes = [...prevPost.likes];
 
-  useEffect(() => {
-    // Listen for like updates
-    const handleLikeUpdate = (data: any) => {
-      if (data.post.id === currentPost.id) {
-        setCurrentPost(prevPost => {
-          // If it's an unlike action, remove the like
-          if (data.action === 'unlike') {
-            return {
-              ...prevPost,
-              likes: prevPost.likes.filter(like => like.user_id !== data.userId)
-            };
-          }
-          // If it's a like action, add the like
-          const newLike: Like & { user: User } = {
+        if (data.action === "unlike") {
+          updatedLikes = updatedLikes.filter((like) => like.user_id !== data.user_id);
+        } else {
+          updatedLikes.push({
             id: crypto.randomUUID(),
             user_id: data.likedBy.id,
             postId: data.post.id,
-            reelId: null,
-            storyId: null,
             user: data.likedBy,
             createdAt: new Date(),
-            updatedAt: new Date()
-          };
-          return {
-            ...prevPost,
-            likes: [...prevPost.likes, newLike]
-          };
-        });
-      }
-    };
+            updatedAt: new Date(),
+          });
+        }
 
-    socket.on('likeUpdate', handleLikeUpdate);
+        return { ...prevPost, likes: updatedLikes };
+      });
+    }
+  }, [post.id]);
 
-    return () => {
-      socket.off('likeUpdate', handleLikeUpdate);
-    };
-  }, [currentPost.id]);
+  // This effect will run when the component is mounted
+  useEffect(() => {
+    if (!socket) return;
+    socket.on("likeUpdate", handleLikeUpdate);
+
+    // return () => {
+    //   socket.off("likeUpdate", handleLikeUpdate);
+    // };
+  }, [socket]);
+
 
   const handleCommentClick = () => {
     if (inputRef?.current) {
@@ -131,7 +84,7 @@ function PostActions({ post, userId, className, inputRef }: Props) {
     <>
       <div className={cn("relative flex flex-col w-full gap-y-1", className)}>
         <div className="flex items-start w-full gap-x-2">
-          <LikeButton post={currentPost} userId={userId} />
+          <LikeButton post={currentPost} userId={userId} onLikeUpdate={handleLikeUpdate}/>
           {inputRef ? (
             <ActionIcon onClick={handleCommentClick}>
               <MessageCircle className={"h-6 w-6"} />

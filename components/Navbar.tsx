@@ -99,12 +99,12 @@ export default function Navbar() {
   const [reelsEnabled, setReelsEnabled] = useState(false);
   const [isLoadingReels, setIsLoadingReels] = useState(true);
   const { profile } = useProfile();
+  const [showModeToggle, setShowModeToggle] = useState(false);
   
   // Combined state object for better performance
   const [states, setStates] = useState({
     isSearchOpen: false,
     isNotificationsOpen: false,
-    showModeToggle: false,
     showDropdown: false,
     hasUnreadNotifications: false
   });
@@ -112,7 +112,6 @@ export default function Navbar() {
   const { 
     isSearchOpen, 
     isNotificationsOpen, 
-    showModeToggle, 
     showDropdown, 
     hasUnreadNotifications 
   } = states;
@@ -376,20 +375,11 @@ export default function Navbar() {
 
   return (
     <>
-      <motion.nav
-        initial={false}
-        animate={{ 
-          width: isCollapsed ? "88px" : "245px",
-          x: isMobile && !isCollapsed ? 0 : isMobile && isCollapsed ? "-88px" : 0
-        }}
-        transition={{ 
-          type: "spring", 
-          stiffness: 300, 
-          damping: 30 
-        }}
+      <nav 
         className={cn(
-          "h-screen fixed left-0 top-0 z-40 border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black flex flex-col",
-          "shadow-sm dark:shadow-neutral-800/10"
+          "fixed inset-y-0 left-0 z-50 flex h-full w-[240px] flex-col bg-white dark:bg-black border-r border-neutral-200 dark:border-neutral-800 transition-all duration-300 ease-in-out",
+          isCollapsed && "w-[72px]",
+          isMobile && "hidden" // Hide on mobile
         )}
       >
         {/* Collapse Toggle Button */}
@@ -397,15 +387,10 @@ export default function Navbar() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={toggleCollapse}
-            className={cn(
-              "absolute -right-3 top-6 w-6 h-6 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black",
-              "hover:bg-neutral-100 dark:hover:bg-neutral-800/50",
-              "transition-transform duration-200",
-              isCollapsed && "rotate-180"
-            )}
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="absolute -right-3 top-6 h-6 w-6 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black hover:bg-neutral-100 dark:hover:bg-neutral-800"
           >
-            <ChevronLeftIcon className="w-4 h-4" />
+            <ChevronLeftIcon className={cn("h-4 w-4 transition-transform", isCollapsed && "rotate-180")} />
           </Button>
         )}
 
@@ -707,7 +692,7 @@ export default function Navbar() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </motion.nav>
+      </nav>
 
       <SearchSidebar
         isOpen={isSearchOpen}

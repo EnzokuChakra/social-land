@@ -8,6 +8,7 @@ import NotificationItem from "./NotificationItem";
 import FollowRequests from "./FollowRequests";
 import { ChevronLeftIcon } from "lucide-react";
 import { Button } from "./ui/button";
+import { useMediaQuery } from "@/lib/hooks/use-media-query";
 
 interface NotificationSidebarProps {
   isOpen: boolean;
@@ -22,25 +23,19 @@ export default function NotificationSidebar({
 }: NotificationSidebarProps) {
   const [showFollowRequests, setShowFollowRequests] = useState(false);
   const [notifications, setNotifications] = useState<NotificationWithExtras[]>(initialNotifications);
+  const isMobile = useMediaQuery("(max-width: 768px)");
 
-  // Update notifications when initialNotifications changes
   useEffect(() => {
     setNotifications(initialNotifications);
   }, [initialNotifications]);
 
-  // Filter follow request notifications
-  const followRequests = notifications.filter(
-    (n) => n.type === "FOLLOW_REQUEST" && n.sender
-  );
-  
-  const regularNotifications = notifications.filter(
-    (n) => n.type !== "FOLLOW_REQUEST"
-  );
+  const followRequests = notifications.filter(n => n.type === "FOLLOW" && !n.isRead);
+  const otherNotifications = notifications.filter(n => n.type !== "FOLLOW" || n.isRead);
 
-  // Handle follow request action (accept/delete)
   const handleFollowRequestAction = (notificationId: string) => {
-    // Optimistically remove the notification from the list
-    setNotifications(prev => prev.filter(n => n.id !== notificationId));
+    setNotifications(prev => prev.map(n => 
+      n.id === notificationId ? { ...n, isRead: true } : n
+    ));
   };
 
   return (
@@ -48,9 +43,9 @@ export default function NotificationSidebar({
       <motion.div
         initial={false}
         animate={{ 
-          width: isOpen ? "397px" : "0px",
+          width: isOpen ? (isMobile ? "100%" : "397px") : "0px",
           opacity: isOpen ? 1 : 0,
-          x: isOpen ? 0 : -20
+          x: isOpen ? 0 : -100
         }}
         transition={{ 
           type: "spring",
@@ -60,7 +55,7 @@ export default function NotificationSidebar({
             damping: 30
           },
           opacity: {
-            duration: 0.15
+            duration: 0.2
           },
           x: {
             type: "spring",
@@ -69,40 +64,52 @@ export default function NotificationSidebar({
           }
         }}
         className={cn(
-          "fixed left-[88px] top-0 h-screen z-[100]",
+          "fixed z-50",
+          isMobile ? "inset-0" : "inset-y-0 left-[240px]",
           "border-r border-neutral-200 dark:border-neutral-800",
           "bg-white dark:bg-black",
           "shadow-sm dark:shadow-neutral-800/10",
           "overflow-hidden",
-          "will-change-[width,opacity,transform]",
-          "backface-visibility-hidden",
-          "transform-gpu"
+          "will-change-[width,opacity,transform]"
         )}
         data-notification-sidebar
       >
-        <motion.div 
-          className="flex flex-col h-full"
-          initial={false}
-          animate={{
-            x: showFollowRequests ? -397 : 0,
-            opacity: isOpen ? 1 : 0
-          }}
-          transition={{
-            type: "spring",
-            stiffness: 400,
-            damping: 30,
-            opacity: { duration: 0.2 }
-          }}
-        >
+        <div className="sticky top-0 z-10 bg-white dark:bg-black border-b border-neutral-200 dark:border-neutral-800 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Notifications</h2>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="hover:bg-neutral-100 dark:hover:bg-neutral-800/50 rounded-full"
+            >
+              <ChevronLeftIcon className="w-5 h-5" />
+            </Button>
+          </div>
+          {followRequests.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => setShowFollowRequests(true)}
+              className="w-full justify-between"
+            >
+              Follow Requests
+              <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1">
+                {followRequests.length}
+              </span>
+            </Button>
+          )}
+        </div>
+
+        <div className="p-4">
           {showFollowRequests ? (
             <FollowRequests
               requests={followRequests.map(n => ({
                 id: n.id,
                 sender: {
                   id: n.sender!.id,
-                  username: n.sender!.username || '',
-                  name: n.sender!.username || '',
-                  image: n.sender!.image || null
+                  username: n.sender!.username,
+                  name: n.sender!.username,
+                  image: n.sender!.image
                 },
                 createdAt: n.createdAt
               }))}
@@ -110,56 +117,24 @@ export default function NotificationSidebar({
               onAction={handleFollowRequestAction}
             />
           ) : (
-            <>
-              <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-800">
-                <h1 className="text-xl font-bold">Notifications</h1>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onClose}
-                  className="hover:bg-neutral-100 dark:hover:bg-neutral-800/50 rounded-full"
-                >
-                  <ChevronLeftIcon className="w-5 h-5" />
-                </Button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto">
-                {followRequests.length > 0 && (
-                  <button
-                    onClick={() => setShowFollowRequests(true)}
-                    className="w-full p-4 flex items-center justify-between hover:bg-neutral-50 dark:hover:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-800"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">Follow Requests</span>
-                      <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                        {followRequests.length}
-                      </span>
-                    </div>
-                    <ChevronLeftIcon className="w-5 h-5 rotate-180" />
-                  </button>
-                )}
-
-                {regularNotifications.length === 0 && followRequests.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-[calc(100vh-80px)] gap-2 p-6 text-neutral-500">
-                    <p className="text-sm">No notifications yet</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                    {regularNotifications.map((notification) => (
-                      <NotificationItem key={notification.id} notification={notification} />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </>
+            <div className="space-y-4">
+              {otherNotifications.map((notification) => (
+                <NotificationItem
+                  key={notification.id}
+                  notification={notification}
+                />
+              ))}
+            </div>
           )}
-        </motion.div>
+        </div>
       </motion.div>
 
-      {/* Backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-[90] bg-black/20"
+          className={cn(
+            "fixed z-40 bg-black/20",
+            isMobile ? "inset-0" : "inset-y-0 left-[240px] right-0"
+          )}
           onClick={onClose}
         />
       )}

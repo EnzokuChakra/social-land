@@ -58,7 +58,7 @@ export function PostsGrid({ posts: initialPosts }: { posts: PostWithExtras[] | u
         <Link
           href={`/dashboard/p/${post.id}`}
           key={post.id}
-          className="relative aspect-square"
+          className="relative aspect-square group"
         >
           <Image
             src={post.fileUrl}
@@ -69,15 +69,15 @@ export function PostsGrid({ posts: initialPosts }: { posts: PostWithExtras[] | u
             className="object-cover"
           />
 
-          <div className="absolute inset-0 hover:bg-black/20 group">
-            <div className="absolute inset-0 hidden group-hover:flex items-center justify-center gap-4">
+          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="absolute inset-0 flex items-center justify-center gap-4">
               <div className="flex items-center gap-1 font-bold text-white">
                 <HeartIcon className="w-5 h-5 fill-white text-white" />
-                <p>{post.likes.length}</p>
+                <p className="text-sm md:text-base">{post.likes.length}</p>
               </div>
               <div className="flex items-center gap-1 font-bold text-white">
                 <MessageCircle className="w-5 h-5 fill-transparent text-white" />
-                <p>{post.comments.length}</p>
+                <p className="text-sm md:text-base">{post.comments.length}</p>
               </div>
             </div>
           </div>

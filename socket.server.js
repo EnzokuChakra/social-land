@@ -76,17 +76,19 @@ io.on("connection", (socket) => {
   });
 
   // Post events
-  socket.on("like", (data) => {
+  socket.on("likeUpdate", (data) => {
     io.emit("likeUpdate", data);
   });
 
-  socket.on("comment", (data) => {
+  socket.on("commentUpdate", (data) => {
     io.emit("commentUpdate", data);
   });
 
   socket.on("deleteComment", (data) => {
     io.emit("commentDelete", data);
   });
+
+  socket.on("commentLikeUpdate", (data) => { io.emit("commentLikeUpdate", data); });
 
   socket.on("profileUpdate", (data) => {
     io.emit("profileUpdate", data);

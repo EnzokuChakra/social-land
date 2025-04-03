@@ -21,45 +21,60 @@ export default function ProfileStats({ profile, isCurrentUser, isFollowing }: Pr
 
   return (
     <>
-      <div className="flex items-center justify-around md:justify-start md:gap-x-7 text-sm" suppressHydrationWarning>
-        <span suppressHydrationWarning>
-          <strong className="font-semibold">{profile.posts.length}</strong>{" "}
-          posts
-        </span>
+      <div className="flex items-center justify-around w-full md:justify-start md:gap-x-10 text-sm" suppressHydrationWarning>
+        <div className="flex flex-col items-center md:items-start">
+          <span suppressHydrationWarning>
+            <strong className="font-semibold text-lg md:text-base">{profile.posts.length}</strong>
+          </span>
+          <span className="text-neutral-500 dark:text-neutral-400 text-[11px] md:text-sm tracking-wide uppercase">posts</span>
+        </div>
         {(!profile.isPrivate || isCurrentUser || isFollowing) ? (
-          <button onClick={() => setShowFollowersModal(true)}>
+          <button 
+            onClick={() => setShowFollowersModal(true)} 
+            className="flex flex-col items-center md:items-start transition-transform active:scale-95"
+          >
             <span className="hover:opacity-75 transition" suppressHydrationWarning>
-              <strong className="font-semibold">
+              <strong className="font-semibold text-lg md:text-base">
                 {profile.followers.filter(f => f.status === "ACCEPTED").length}
-              </strong>{" "}
+              </strong>
+            </span>
+            <span className="text-neutral-500 dark:text-neutral-400 text-[11px] md:text-sm tracking-wide uppercase">
               {profile.followers.filter(f => f.status === "ACCEPTED").length === 1 ? "follower" : "followers"}
             </span>
           </button>
         ) : (
-          <span className="cursor-default" suppressHydrationWarning>
-            <strong className="font-semibold">
-              {profile.followers.filter(f => f.status === "ACCEPTED").length}
-            </strong>{" "}
-            {profile.followers.filter(f => f.status === "ACCEPTED").length === 1 ? "follower" : "followers"}
-          </span>
-        )}
-        
-        {(!profile.isPrivate || isCurrentUser || isFollowing) ? (
-          <button onClick={() => setShowFollowingModal(true)}>
-            <span className="hover:opacity-75 transition" suppressHydrationWarning>
-              <strong className="font-semibold">
-                {profile.following.filter(f => f.status === "ACCEPTED").length}
-              </strong>{" "}
-              following
+          <div className="flex flex-col items-center md:items-start">
+            <span className="cursor-default" suppressHydrationWarning>
+              <strong className="font-semibold text-lg md:text-base">
+                {profile.followers.filter(f => f.status === "ACCEPTED").length}
+              </strong>
             </span>
+            <span className="text-neutral-500 dark:text-neutral-400 text-[11px] md:text-sm tracking-wide uppercase">
+              {profile.followers.filter(f => f.status === "ACCEPTED").length === 1 ? "follower" : "followers"}
+            </span>
+          </div>
+        )}
+        {(!profile.isPrivate || isCurrentUser || isFollowing) ? (
+          <button 
+            onClick={() => setShowFollowingModal(true)} 
+            className="flex flex-col items-center md:items-start transition-transform active:scale-95"
+          >
+            <span className="hover:opacity-75 transition" suppressHydrationWarning>
+              <strong className="font-semibold text-lg md:text-base">
+                {profile.following.filter(f => f.status === "ACCEPTED").length}
+              </strong>
+            </span>
+            <span className="text-neutral-500 dark:text-neutral-400 text-[11px] md:text-sm tracking-wide uppercase">following</span>
           </button>
         ) : (
-          <span className="cursor-default" suppressHydrationWarning>
-            <strong className="font-semibold">
-              {profile.following.filter(f => f.status === "ACCEPTED").length}
-            </strong>{" "}
-            following
-          </span>
+          <div className="flex flex-col items-center md:items-start">
+            <span className="cursor-default" suppressHydrationWarning>
+              <strong className="font-semibold text-lg md:text-base">
+                {profile.following.filter(f => f.status === "ACCEPTED").length}
+              </strong>
+            </span>
+            <span className="text-neutral-500 dark:text-neutral-400 text-[11px] md:text-sm tracking-wide uppercase">following</span>
+          </div>
         )}
       </div>
 

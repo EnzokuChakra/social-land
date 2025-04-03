@@ -10,9 +10,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "./ui/button";
-import { useMediaQuery } from "@/lib/hooks/use-media-query";
 
-interface SearchSidebarProps {
+interface MobileSearchSidebarProps {
   isOpen: boolean;
   onClose: () => void;
 }
@@ -33,16 +32,14 @@ interface RecentSearch {
   createdAt: Date;
 }
 
-export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
+export default function MobileSearchSidebar({ isOpen, onClose }: MobileSearchSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const debouncedSearch = useDebounce(searchQuery, 300);
   const router = useRouter();
-  const isMobile = useMediaQuery("(max-width: 768px)");
 
-  // Reset search and fetch recent searches when sidebar is opened
   useEffect(() => {
     if (isOpen) {
       setSearchQuery("");
@@ -51,7 +48,6 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
     }
   }, [isOpen]);
 
-  // Handle search when debounced query changes
   useEffect(() => {
     if (debouncedSearch) {
       searchUsers();
@@ -91,7 +87,6 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
 
   const handleUserClick = async (user: User) => {
     try {
-      // Save to recent searches
       await fetch("/api/search/recent", {
         method: "POST",
         headers: {
@@ -99,8 +94,6 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
         },
         body: JSON.stringify({ userId: user.id }),
       });
-
-      // Navigate to user profile
       router.push(`/dashboard/${user.username}`);
       onClose();
     } catch (error) {
@@ -113,7 +106,6 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
       await fetch(`/api/search/recent/${searchId}`, {
         method: "DELETE",
       });
-      // Update local state
       setRecentSearches(prev => prev.filter(search => search.id !== searchId));
     } catch (error) {
       console.error("Error removing recent search:", error);
@@ -136,7 +128,7 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
       <motion.div
         initial={false}
         animate={{ 
-          width: isOpen ? (isMobile ? "100%" : "397px") : "0px",
+          width: isOpen ? "100%" : "0px",
           opacity: isOpen ? 1 : 0,
           x: isOpen ? 0 : -100
         }}
@@ -157,11 +149,8 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
           }
         }}
         className={cn(
-          "fixed z-50",
-          isMobile ? "inset-0" : "inset-y-0 left-[240px]",
-          "border-r border-neutral-200 dark:border-neutral-800",
+          "fixed inset-0 z-[200]",
           "bg-white dark:bg-black",
-          "shadow-sm dark:shadow-neutral-800/10",
           "overflow-hidden",
           "will-change-[width,opacity,transform]"
         )}
@@ -244,59 +233,53 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
             </div>
           )}
 
-          {searchQuery && (
-            <div className="space-y-4">
-              {isLoading ? (
-                <p className="text-center text-neutral-600 dark:text-neutral-400">
-                  Searching...
-                </p>
-              ) : searchResults.length > 0 ? (
-                searchResults.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center gap-3 cursor-pointer"
-                    onClick={() => handleUserClick(user)}
-                  >
-                    <div className="relative h-12 w-12">
-                      <Image
-                        src={user?.image || "/images/profile_placeholder.webp"}
-                        alt={user?.username || "User"}
-                        fill
-                        className="rounded-full object-cover"
-                      />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1">
-                        <p className="font-semibold">{user?.username || "Unknown User"}</p>
-                        {user?.verified && (
-                          <Badge variant="secondary" className="h-4 w-4 p-0" />
-                        )}
-                      </div>
-                      {user?.name && (
-                        <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                          {user.name}
-                        </p>
+          <div className="space-y-4">
+            {isLoading ? (
+              <p className="text-center text-neutral-600 dark:text-neutral-400">
+                Searching...
+              </p>
+            ) : searchResults.length > 0 ? (
+              searchResults.map((user) => (
+                <div
+                  key={user.id}
+                  className="flex items-center gap-3 cursor-pointer"
+                  onClick={() => handleUserClick(user)}
+                >
+                  <div className="relative h-12 w-12">
+                    <Image
+                      src={user?.image || "/images/profile_placeholder.webp"}
+                      alt={user?.username || "User"}
+                      fill
+                      className="rounded-full object-cover"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-1">
+                      <p className="font-semibold">{user?.username || "Unknown User"}</p>
+                      {user?.verified && (
+                        <Badge variant="secondary" className="h-4 w-4 p-0" />
                       )}
                     </div>
+                    {user?.name && (
+                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                        {user.name}
+                      </p>
+                    )}
                   </div>
-                ))
-              ) : (
-                <p className="text-center text-neutral-600 dark:text-neutral-400">
-                  No users found
-                </p>
-              )}
-            </div>
-          )}
+                </div>
+              ))
+            ) : (
+              <p className="text-center text-neutral-600 dark:text-neutral-400">
+                No users found
+              </p>
+            )}
+          </div>
         </div>
       </motion.div>
 
-      {/* Backdrop */}
       {isOpen && (
         <div
-          className={cn(
-            "fixed z-40 bg-black/20",
-            isMobile ? "inset-0" : "inset-y-0 left-[240px] right-0"
-          )}
+          className="fixed inset-0 z-[190] bg-black/20"
           onClick={onClose}
         />
       )}

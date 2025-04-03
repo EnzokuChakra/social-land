@@ -26,7 +26,7 @@ import MiniPost from "./MiniPost";
 import Comment from "./Comment";
 import PostOptions from "./PostOptions";
 import { Button } from "./ui/button";
-import { Flag, X, MoreHorizontal } from "lucide-react";
+import { Flag, X, MoreHorizontal, ChevronLeft } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import VerifiedBadge from "./VerifiedBadge";
@@ -37,6 +37,7 @@ import ProfileHoverCard from "@/components/ProfileHoverCard";
 import { useStoryModal } from "@/hooks/use-story-modal";
 import Timestamp from "@/components/Timestamp";
 import { useSocket } from "@/hooks/use-socket";
+import { useMediaQuery } from "@/lib/hooks/use-media-query";
 
 function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const pathname = usePathname();
@@ -59,6 +60,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const [page, setPage] = useState(1);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const socket = useSocket();
+  const isMobile = useMediaQuery("(max-width: 768px)");
   
   // Initialize currentPost with expanded likes data
   const [currentPost, setCurrentPost] = useState<PostWithExtras>({
@@ -347,49 +349,69 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
       }}
     >
       <DialogContentWithoutClose 
-        className="flex gap-0 flex-col md:flex-row items-start p-0 md:max-w-5xl lg:max-w-6xl xl:max-w-7xl h-[calc(100vh-80px)] max-h-[calc(100vh-80px)] bg-white dark:bg-neutral-950"
+        className={cn(
+          "flex gap-0 flex-col md:flex-row items-start p-0",
+          "md:max-w-5xl lg:max-w-6xl xl:max-w-7xl",
+          "h-[100dvh] md:h-[calc(100vh-80px)]",
+          "max-h-[100dvh] md:max-h-[calc(100vh-80px)]",
+          "bg-white dark:bg-neutral-950",
+          "overflow-y-auto md:overflow-hidden"
+        )}
       >
-        <DialogTitle className="sr-only">Post by {username}</DialogTitle>
-        <div className="relative flex-1 bg-black flex items-center justify-center h-[400px] md:h-full">
-          <div className="relative w-full h-full flex items-center justify-center">
-            <Image
-              src={post.fileUrl}
-              alt={post.caption || "Post image"}
-              className={cn(
-                "max-h-full w-auto",
-                post.aspectRatio === 1 ? "object-cover" : "object-contain"
-              )}
-              width={1200}
-              height={1200}
-              priority
-              quality={100}
-            />
-          </div>
-        </div>
+        {/* Mobile Back Button */}
+        {isMobile && (
+          <button
+            onClick={() => router.back()}
+            className="fixed top-4 left-4 z-50 p-2 rounded-full bg-black/50 text-white"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        )}
 
-        <div className="flex flex-col md:w-[350px] lg:w-[450px] h-full max-h-full bg-white dark:bg-black border-l border-neutral-200 dark:border-neutral-800">
-          <DialogHeader className="flex p-0 border-b border-neutral-200 dark:border-neutral-800 space-y-0">
-            <div className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-3">
-                <div
-                  onClick={handleAvatarClick}
-                  className={cn(
-                    "relative cursor-pointer",
-                    post.user.hasActiveStory && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]"
-                  )}
-                >
-                  <div className={cn(
-                    "relative rounded-full overflow-hidden w-[32px] h-[32px]",
-                    post.user.hasActiveStory && "p-[2px] bg-white dark:bg-black"
-                  )}>
-                    <UserAvatar 
-                      user={post.user}
-                      className="w-full h-full object-cover"
-                    />
+        <DialogTitle className="sr-only">Post by {username}</DialogTitle>
+        
+        {/* Mobile Layout */}
+        {isMobile ? (
+          <div className="w-full flex flex-col pb-[60px]">
+            {/* Image Section */}
+            <div className="w-full bg-black flex items-center justify-center">
+              <Image
+                src={post.fileUrl}
+                alt={post.caption || "Post image"}
+                className={cn(
+                  "w-full h-auto",
+                  post.aspectRatio === 1 ? "object-cover" : "object-contain"
+                )}
+                width={1200}
+                height={1200}
+                priority
+                quality={100}
+              />
+            </div>
+
+            {/* Content Section */}
+            <div className="flex flex-col w-full bg-white dark:bg-black">
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-800">
+                <div className="flex items-center gap-3">
+                  <div
+                    onClick={handleAvatarClick}
+                    className={cn(
+                      "relative cursor-pointer",
+                      post.user.hasActiveStory && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]"
+                    )}
+                  >
+                    <div className={cn(
+                      "relative rounded-full overflow-hidden w-[32px] h-[32px]",
+                      post.user.hasActiveStory && "p-[2px] bg-white dark:bg-black"
+                    )}>
+                      <UserAvatar 
+                        user={post.user}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className="text-sm flex-grow min-w-0">
-                  <div className="flex items-center gap-1 flex-wrap">
+                  <div className="text-sm flex-grow min-w-0">
                     <div className="flex items-center gap-1">
                       <ProfileHoverCard user={post.user}>
                         <Link href={href} className="font-semibold hover:underline truncate">
@@ -398,94 +420,42 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                       </ProfileHoverCard>
                       {post.user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
                     </div>
-                    {post.tags && post.tags.length > 0 && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-[15px] text-neutral-500 dark:text-neutral-400">with</span>
-                        {post.tags.length === 1 ? (
-                          <ProfileHoverCard user={post.tags[0].user}>
-                            <Link
-                              href={`/dashboard/${post.tags[0].user.username}`}
-                              className="font-semibold hover:underline text-[15px] inline-flex items-center gap-1"
-                            >
-                              {post.tags[0].user.username}
-                              {post.tags[0].user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
-                            </Link>
-                          </ProfileHoverCard>
-                        ) : (
-                          <button
-                            onClick={() => setShowTaggedModal(true)}
-                            className="font-semibold hover:underline text-[15px]"
-                          >
-                            {post.tags.length} others
-                          </button>
-                        )}
-                      </div>
+                    {post.location && (
+                      <Link
+                        href={`/dashboard/location/${encodeURIComponent(post.location)}`}
+                        className="text-xs text-neutral-500 dark:text-neutral-400 hover:underline block mt-0.5"
+                      >
+                        {post.location}
+                      </Link>
                     )}
                   </div>
-                  {post.location && (
-                    <Link
-                      href={`/dashboard/location/${encodeURIComponent(post.location)}`}
-                      className="text-xs text-neutral-500 dark:text-neutral-400 hover:underline block mt-0.5"
-                    >
-                      {post.location}
-                    </Link>
-                  )}
                 </div>
+                <PostOptions post={post} userId={user?.id} />
               </div>
-              <PostOptions post={post} userId={user?.id} />
-            </div>
-          </DialogHeader>
 
-          <ScrollArea className="flex-1 border-b border-neutral-200 dark:border-neutral-800 scrollbar-hide">
-            {post.caption && (
-              <div className="px-4 py-3">
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0">
-                    <div
-                      onClick={handleAvatarClick}
-                      className={cn(
-                        "relative cursor-pointer",
-                        post.user.hasActiveStory && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]"
-                      )}
-                    >
-                      <div className={cn(
-                        "relative rounded-full overflow-hidden w-8 h-8",
-                        post.user.hasActiveStory && "p-[2px] bg-white dark:bg-black"
-                      )}>
-                        <UserAvatar 
-                          user={post.user} 
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm">
-                      <div className="inline-flex items-center">
+              {/* Caption */}
+              {post.caption && (
+                <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
+                  <div className="flex gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1">
                         <ProfileHoverCard user={post.user}>
-                          <Link href={href} className="font-semibold hover:underline inline">
+                          <Link href={href} className="font-semibold hover:underline">
                             {username}
                           </Link>
                         </ProfileHoverCard>
-                        {post.user.verified && (
-                          <VerifiedBadge className="h-3.5 w-3.5 fill-blue-500 inline-block ml-1" />
-                        )}
+                        {post.user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
                       </div>
-                      <span className="text-neutral-800 dark:text-neutral-200 ml-1.5 inline">
-                        {post.caption}
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-neutral-500 mt-1">
-                      <Timestamp createdAt={post.createdAt} />
+                      <p className="text-sm whitespace-pre-line break-words mt-0.5">{post.caption}</p>
+                      <Timestamp className="text-xs text-neutral-500 dark:text-neutral-400 mt-1" createdAt={post.createdAt} />
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {comments.length > 0 && (
-              <div className={cn("w-full", post.caption ? "px-4" : "px-4 pt-3")}>
-                <div className={cn("w-full", post.caption && "pt-3 border-t border-neutral-100 dark:border-neutral-800/60")}>
+              {/* Comments */}
+              {comments.length > 0 && (
+                <div className="px-4 py-2">
                   {comments.map((comment) => (
                     <Comment
                       key={`${comment.id}-${comment.createdAt}`}
@@ -517,56 +487,214 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                     />
                   ))}
 
-                  {/* Load more comments button */}
-                  {hasMore && comments.length >= 10 && (
-                    <div className="flex justify-center py-4">
+                  {hasMore && (
+                    <button
+                      onClick={fetchMoreComments}
+                      disabled={isLoadingComments}
+                      className={cn(
+                        "text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300",
+                        "py-3 w-full text-center",
+                        isLoadingComments && "cursor-not-allowed opacity-50"
+                      )}
+                    >
+                      {isLoadingComments ? "Loading..." : "Load more comments"}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Actions and Comment Form */}
+              <div className="px-4 py-2 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black">
+                <PostActions
+                  post={currentPost}
+                  userId={user?.id}
+                  className="pb-2"
+                  inputRef={inputRef}
+                />
+                <CommentForm
+                  ref={commentFormRef}
+                  postId={id}
+                  className="pt-3 mt-2 border-t border-neutral-200 dark:border-neutral-800"
+                  inputRef={inputRef}
+                />
+              </div>
+            </div>
+          </div>
+        ) : (
+          // Desktop Layout
+          <>
+            {/* Image Section */}
+            <div className={cn(
+              "relative flex-1 bg-black flex items-center justify-center",
+              "h-full w-auto",
+              "min-h-0",
+              "max-h-full"
+            )}>
+              <div className="relative w-full h-full flex items-center justify-center">
+                <Image
+                  src={post.fileUrl}
+                  alt={post.caption || "Post image"}
+                  className={cn(
+                    "max-h-full w-auto",
+                    post.aspectRatio === 1 ? "object-cover" : "object-contain"
+                  )}
+                  width={1200}
+                  height={1200}
+                  priority
+                  quality={100}
+                />
+              </div>
+            </div>
+
+            {/* Content Section */}
+            <div className={cn(
+              "flex flex-col",
+              "w-[350px] lg:w-[450px]",
+              "h-full",
+              "bg-white dark:bg-black",
+              "border-l border-neutral-200 dark:border-neutral-800",
+              "overflow-hidden"
+            )}>
+              {/* Header */}
+              <DialogHeader className="flex-shrink-0 p-0 border-b border-neutral-200 dark:border-neutral-800 space-y-0">
+                <div className="flex items-center justify-between p-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      onClick={handleAvatarClick}
+                      className={cn(
+                        "relative cursor-pointer",
+                        post.user.hasActiveStory && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]"
+                      )}
+                    >
+                      <div className={cn(
+                        "relative rounded-full overflow-hidden w-[32px] h-[32px]",
+                        post.user.hasActiveStory && "p-[2px] bg-white dark:bg-black"
+                      )}>
+                        <UserAvatar 
+                          user={post.user}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+                    <div className="text-sm flex-grow min-w-0">
+                      <div className="flex items-center gap-1">
+                        <ProfileHoverCard user={post.user}>
+                          <Link href={href} className="font-semibold hover:underline truncate">
+                            {username}
+                          </Link>
+                        </ProfileHoverCard>
+                        {post.user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
+                      </div>
+                      {post.location && (
+                        <Link
+                          href={`/dashboard/location/${encodeURIComponent(post.location)}`}
+                          className="text-xs text-neutral-500 dark:text-neutral-400 hover:underline block mt-0.5"
+                        >
+                          {post.location}
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                  <PostOptions post={post} userId={user?.id} />
+                </div>
+              </DialogHeader>
+
+              {/* Scrollable Content */}
+              <ScrollArea className="flex-1">
+                {/* Caption */}
+                {post.caption && (
+                  <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
+                    <div className="flex gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1">
+                          <ProfileHoverCard user={post.user}>
+                            <Link href={href} className="font-semibold hover:underline">
+                              {username}
+                            </Link>
+                          </ProfileHoverCard>
+                          {post.user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
+                        </div>
+                        <p className="text-sm whitespace-pre-line break-words mt-0.5">{post.caption}</p>
+                        <Timestamp className="text-xs text-neutral-500 dark:text-neutral-400 mt-1" createdAt={post.createdAt} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Comments */}
+                {comments.length > 0 && (
+                  <div className="px-4 py-2">
+                    {comments.map((comment) => (
+                      <Comment
+                        key={`${comment.id}-${comment.createdAt}`}
+                        comment={comment}
+                        inputRef={inputRef}
+                        postUserId={post.user.id}
+                        onReply={handleReplyToComment}
+                        hasStoryRing={comment.user.hasActiveStory}
+                        onAvatarClick={async (e) => {
+                          e.preventDefault();
+                          if (comment.user.hasActiveStory) {
+                            try {
+                              const response = await fetch(`/api/user-stories/${comment.user.id}`);
+                              const { success, data: stories } = await response.json();
+                              
+                              if (success && stories && stories.length > 0) {
+                                storyModal.setUserStories([{ userId: comment.user.id, stories }]);
+                                storyModal.setUserId(comment.user.id);
+                                storyModal.setCurrentUserIndex(0);
+                                storyModal.onOpen();
+                              }
+                            } catch (error) {
+                              console.error("Error fetching stories:", error);
+                            }
+                          } else {
+                            router.push(`/dashboard/${comment.user.username}`);
+                          }
+                        }}
+                      />
+                    ))}
+
+                    {hasMore && (
                       <button
                         onClick={fetchMoreComments}
                         disabled={isLoadingComments}
                         className={cn(
-                          "text-sm font-semibold text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100",
-                          "flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          "text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300",
+                          "py-3 w-full text-center",
+                          isLoadingComments && "cursor-not-allowed opacity-50"
                         )}
                       >
-                        {isLoadingComments ? (
-                          <>
-                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-500 border-t-transparent" />
-                            Loading...
-                          </>
-                        ) : (
-                          <>
-                            View more comments
-                            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M12 5V19M12 19L19 12M12 19L5 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          </>
-                        )}
+                        {isLoadingComments ? "Loading..." : "Load more comments"}
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                )}
+              </ScrollArea>
+
+              {/* Actions and Comment Form */}
+              <div className="flex-shrink-0 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black">
+                <div className="px-4 py-2 flex flex-col gap-2">
+                  <PostActions
+                    post={currentPost}
+                    userId={user?.id}
+                    className="pb-2"
+                    inputRef={inputRef}
+                  />
+                  <CommentForm
+                    ref={commentFormRef}
+                    postId={id}
+                    className="pt-3 mt-2 border-t border-neutral-200 dark:border-neutral-800"
+                    inputRef={inputRef}
+                  />
                 </div>
               </div>
-            )}
-          </ScrollArea>
-
-          <div className="flex flex-col border-t border-neutral-200 dark:border-neutral-800">
-            <div className="px-4 py-2">
-              <PostActions
-                post={currentPost}
-                userId={user?.id}
-                className="px-0"
-                inputRef={inputRef}
-              />
             </div>
-
-            <CommentForm
-              ref={commentFormRef}
-              postId={id}
-              className="px-4 py-2 flex items-center gap-2"
-            />
-          </div>
-        </div>
+          </>
+        )}
       </DialogContentWithoutClose>
+
+      {/* Tagged Users Modal */}
       {post.tags && post.tags.length > 0 && (
         <TaggedUsersModal
           isOpen={showTaggedModal}

@@ -69,20 +69,20 @@ function ProfileTabs({
 
   return (
     <div>
-      <Tabs defaultValue={defaultTab} className="pt-14 md:pt-32">
+      <Tabs defaultValue={defaultTab} className="pt-4 md:pt-16">
         <TabsList className="flex justify-center w-full h-auto p-0 bg-transparent border-t border-b border-neutral-200 dark:border-neutral-800">
           {filteredTabs.map((tab) => (
             <TabsTrigger
               key={tab.value}
               value={tab.value}
               className={cn(
-                "px-12 pt-4 pb-4 rounded-none border-t-2 -mt-[1px] border-transparent transition-colors",
+                "flex-1 md:flex-none px-4 md:px-12 pt-3 pb-3 rounded-none border-t-2 -mt-[1px] border-transparent transition-colors",
                 "hover:bg-neutral-50 dark:hover:bg-neutral-900/50",
                 "data-[state=active]:border-neutral-700 dark:data-[state=active]:border-neutral-200",
               )}
             >
-              <div className="flex items-center gap-2">
-                <tab.Icon className="w-3.5 h-3.5" />
+              <div className="flex items-center justify-center md:justify-start gap-2">
+                <tab.Icon className="w-4 h-4 md:w-3.5 md:h-3.5" />
                 <span className="text-xs font-semibold tracking-wider uppercase">
                   {tab.title}
                 </span>
@@ -91,7 +91,7 @@ function ProfileTabs({
           ))}
         </TabsList>
 
-        <TabsContent value="posts" className="mt-6">
+        <TabsContent value="posts" className="mt-0.5">
           {(!ownPosts || ownPosts.length === 0) ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <ImageIcon className="w-12 h-12 text-neutral-500 mb-4" />
@@ -105,7 +105,7 @@ function ProfileTabs({
           )}
         </TabsContent>
 
-        <TabsContent value="saved" className="mt-6">
+        <TabsContent value="saved" className="mt-0.5">
           {(!uniqueSavedPosts || uniqueSavedPosts.length === 0) ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <BookmarkX className="w-12 h-12 text-neutral-500 mb-4" />
@@ -119,7 +119,7 @@ function ProfileTabs({
           )}
         </TabsContent>
 
-        <TabsContent value="tagged" className="mt-6">
+        <TabsContent value="tagged" className="mt-0.5">
           {(!taggedPosts || taggedPosts.length === 0) ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <UserX2 className="w-12 h-12 text-neutral-500 mb-4" />

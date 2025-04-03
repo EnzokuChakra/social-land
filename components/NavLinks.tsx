@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { UserRole } from "@/lib/definitions";
+import { UserRole, NotificationWithExtras } from "@/lib/definitions";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,10 @@ import {
 } from "@/components/ui/dialog";
 import SearchUsers from "./SearchUsers";
 import CreateModal from "./CreateModal";
+import { useMediaQuery } from "@/lib/hooks/use-media-query";
+import { useNotifications } from "@/lib/hooks/use-notifications";
+import SearchSidebar from "./SearchSidebar";
+import NotificationSidebar from "./NotificationSidebar";
 
 // Base links without reels
 const baseLinks = [
@@ -56,8 +60,12 @@ function NavLinks() {
   const router = useRouter();
   const [showSearch, setShowSearch] = useState(false);
   const { data: session } = useSession();
-  const [reelsEnabled, setReelsEnabled] = useState(false); // Default to false
+  const [reelsEnabled, setReelsEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const isMobile = useMediaQuery("(max-width: 768px)");
+  const { notifications } = useNotifications();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   
   const userRole = session?.user?.role as UserRole | undefined;
   const isAdmin = userRole && ["MODERATOR", "ADMIN", "MASTER_ADMIN"].includes(userRole);
@@ -81,7 +89,7 @@ function NavLinks() {
     };
 
     fetchReelsVisibility();
-  }, []); // Remove pathname dependency as it's not needed
+  }, []);
 
   // Construct links array based on permissions and settings
   const links = [...baseLinks];
@@ -151,33 +159,37 @@ function NavLinks() {
             );
           })}
 
-          <Button
-            variant="ghost"
-            size="lg"
-            className="w-full justify-start gap-x-4 transition-all md:px-3"
-            onClick={() => setShowSearch(true)}
-          >
-            <Search className="w-6 h-6" />
-            <span className="hidden md:block text-sm">Search</span>
-          </Button>
+          {!isMobile && (
+            <>
+              <Button
+                variant="ghost"
+                size="lg"
+                className="w-full justify-start gap-x-4 transition-all md:px-3"
+                onClick={() => setShowSearch(true)}
+              >
+                <Search className="w-6 h-6" />
+                <span className="hidden md:block text-sm">Search</span>
+              </Button>
 
-          <Button
-            variant="ghost"
-            size="lg"
-            className={cn(
-              "w-full justify-start gap-x-4 transition-all md:px-3",
-              pathname === "/dashboard/notifications" && "font-semibold bg-neutral-100 dark:bg-neutral-800/50"
-            )}
-            onClick={() => router.push("/dashboard/notifications")}
-          >
-            <div className="relative">
-              <Bell className="w-6 h-6 transition-colors" />
-              {pathname === "/dashboard/notifications" && (
-                <span className="absolute -right-1 -top-1 w-2 h-2 bg-red-500 rounded-full" />
-              )}
-            </div>
-            <span className="hidden md:block text-sm">Notifications</span>
-          </Button>
+              <Button
+                variant="ghost"
+                size="lg"
+                className={cn(
+                  "w-full justify-start gap-x-4 transition-all md:px-3",
+                  pathname === "/dashboard/notifications" && "font-semibold bg-neutral-100 dark:bg-neutral-800/50"
+                )}
+                onClick={() => router.push("/dashboard/notifications")}
+              >
+                <div className="relative">
+                  <Bell className="w-6 h-6 transition-colors" />
+                  {pathname === "/dashboard/notifications" && (
+                    <span className="absolute -right-1 -top-1 w-2 h-2 bg-red-500 rounded-full" />
+                  )}
+                </div>
+                <span className="hidden md:block text-sm">Notifications</span>
+              </Button>
+            </>
+          )}
 
           <CreateModal>
             <Button
@@ -191,6 +203,41 @@ function NavLinks() {
           </CreateModal>
         </nav>
       </div>
+
+      {isMobile && (
+        <>
+          <SearchSidebar
+            isOpen={isSearchOpen}
+            onClose={() => setIsSearchOpen(false)}
+          />
+
+          <NotificationSidebar
+            isOpen={isNotificationsOpen}
+            onClose={() => setIsNotificationsOpen(false)}
+            notifications={notifications.map(n => ({
+              ...n,
+              sender: n.sender ? {
+                id: n.sender.id,
+                username: n.sender.username,
+                image: n.sender.image,
+                isFollowing: n.sender.isFollowing,
+                hasPendingRequest: n.sender.hasPendingRequest,
+                isFollowedByUser: n.sender.isFollowedByUser,
+                isPrivate: n.sender.isPrivate
+              } : undefined,
+              post: n.post ? {
+                id: n.post.id,
+                fileUrl: n.post.fileUrl
+              } : null,
+              comment: n.comment ? {
+                id: n.comment.id,
+                text: n.comment.text
+              } : null,
+              metadata: n.metadata as Record<string, any> | null
+            })) as NotificationWithExtras[]}
+          />
+        </>
+      )}
     </>
   );
 }
