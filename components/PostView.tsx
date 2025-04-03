@@ -613,15 +613,18 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                 <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
                   <div className="flex gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1">
-                        <ProfileHoverCard user={post.user}>
-                          <Link href={href} className="font-semibold hover:underline">
-                            {username}
-                          </Link>
-                        </ProfileHoverCard>
-                        {post.user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
+                      <div className="text-sm">
+                        <span className="inline-flex items-center gap-1">
+                          <ProfileHoverCard user={post.user}>
+                            <Link href={href} className="font-semibold hover:underline">
+                              {username}
+                            </Link>
+                          </ProfileHoverCard>
+                          {post.user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
+                        </span>
+                        {' '}
+                        <span className="whitespace-pre-line break-words">{post.caption}</span>
                       </div>
-                      <p className="text-sm whitespace-pre-line break-words mt-0.5">{post.caption}</p>
                       <Timestamp className="text-xs text-neutral-500 dark:text-neutral-400 mt-1" createdAt={post.createdAt} />
                     </div>
                   </div>
@@ -788,15 +791,18 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                   <div className="px-4 py-3 border-b border-neutral-200 dark:border-neutral-800">
                     <div className="flex gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1">
-                          <ProfileHoverCard user={post.user}>
-                            <Link href={href} className="font-semibold hover:underline">
-                              {username}
-                            </Link>
-                          </ProfileHoverCard>
-                          {post.user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
+                        <div className="text-sm">
+                          <span className="inline-flex items-center gap-1">
+                            <ProfileHoverCard user={post.user}>
+                              <Link href={href} className="font-semibold hover:underline">
+                                {username}
+                              </Link>
+                            </ProfileHoverCard>
+                            {post.user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
+                          </span>
+                          {' '}
+                          <span className="whitespace-pre-line break-words">{post.caption}</span>
                         </div>
-                        <p className="text-sm whitespace-pre-line break-words mt-0.5">{post.caption}</p>
                         <Timestamp className="text-xs text-neutral-500 dark:text-neutral-400 mt-1" createdAt={post.createdAt} />
                       </div>
                     </div>
