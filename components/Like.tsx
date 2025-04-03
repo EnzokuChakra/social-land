@@ -11,6 +11,7 @@ import ActionIcon from "./ActionIcon";
 import { likePost } from "@/lib/actions";
 import { toast } from "sonner";
 import {useSocket} from "@/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 
 
 function LikeButton({
@@ -24,7 +25,7 @@ function LikeButton({
 }) {
   const [isPending, startTransition] = useTransition();
   const session = useSession();
-    const socket = useSocket();
+    const socket = getSocket();
 
   const predicate = (like: Like) =>
       like.user_id === userId && like.postId === post.id;
@@ -73,7 +74,7 @@ function LikeButton({
                 // Emit the event to notify other clients
                 if (socket) {
                     try {
-                        socket.emit("likeUpdate", eventData);
+                        socket.emit("like", eventData);
                         console.log("[LikeButton] Emitted likeUpdate event:", eventData);
                     } catch (error) {
                         console.error("[LikeButton] Socket emit error:", error);

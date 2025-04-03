@@ -38,6 +38,7 @@ import { useStoryModal } from "@/hooks/use-story-modal";
 import Timestamp from "@/components/Timestamp";
 import { useSocket } from "@/hooks/use-socket";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
+import { getSocket } from "@/lib/socket";
 
 function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const pathname = usePathname();
@@ -59,7 +60,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(1);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
-  const socket = useSocket();
+  const socket = getSocket();
   const isMobile = useMediaQuery("(max-width: 768px)");
   
   // Initialize currentPost with expanded likes data
@@ -79,23 +80,23 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     if (!socket) return;
 
     const handleCommentUpdate = (data: { postId: string; parentId: string | null; comment: any }) => {
-      if (data.postId === id) {
-        setComments(prevComments => {
-          if (data.parentId) {
-            return prevComments.map(comment => {
-              if (comment.id === data.parentId) {
-                return {
-                  ...comment,
-                  replies: [...(comment.replies || []), data.comment]
-                };
-              }
-              return comment;
-            });
-          } else {
-            return [data.comment, ...prevComments];
-          }
-        });
-      }
+      if (data.postId !== id) return;
+
+      setComments(prevComments => {
+        if (data.parentId) {
+          return prevComments.map(comment => {
+            if (comment.id === data.parentId) {
+              return {
+                ...comment,
+                replies: [...(comment.replies || []).map(reply => ({ ...reply })), data.comment],
+              };
+            }
+            return { ...comment, replies: comment.replies ? [...comment.replies] : [] };
+          });
+        } else {
+          return [{ ...data.comment }, ...prevComments]; // Ensure new object reference
+        }
+      });
     };
 
     const handleCommentDelete = (data: { postId: string; commentId: string; parentId: string | null }) => {
@@ -459,7 +460,8 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                   {comments.map((comment) => (
                     <Comment
                       key={`${comment.id}-${comment.createdAt}`}
-                      comment={comment}
+                      comment={comment} 
+                      replies={comment.replies}
                       inputRef={inputRef}
                       postUserId={post.user.id}
                       onReply={handleReplyToComment}

@@ -17,10 +17,11 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import FollowButton from "./FollowButton";
 import { useRouter } from "next/navigation";
-import { useSocket } from "@/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 
 type Props = {
   comment: CommentWithExtras;
+  replies?: CommentWithExtras[];
   inputRef?: RefObject<HTMLInputElement>;
   postUserId: string;
   onReply?: (username: string, commentId: string) => void;
@@ -29,7 +30,7 @@ type Props = {
   onAvatarClick?: (e: React.MouseEvent) => Promise<void>;
 };
 
-function Comment({ comment: initialComment, inputRef, postUserId, onReply, initialShowReplies = false, hasStoryRing, onAvatarClick }: Props) {
+function Comment({ comment: initialComment, replies, inputRef, postUserId, onReply, initialShowReplies = false, hasStoryRing, onAvatarClick }: Props) {
   const [comment, setComment] = useState<CommentWithExtras | null>(initialComment);
   const [likesCount, setLikesCount] = useState(initialComment.likes?.length || 0);
   const [isLiked, setIsLiked] = useState(false);
@@ -39,7 +40,7 @@ function Comment({ comment: initialComment, inputRef, postUserId, onReply, initi
   const { data: session, status } = useSession();
   const [showOptions, setShowOptions] = useState(false);
   const router = useRouter();
-  const socket = useSocket();
+  const socket = getSocket();
 
   // Handle comment deletion event
   useEffect(() => {
@@ -66,9 +67,8 @@ function Comment({ comment: initialComment, inputRef, postUserId, onReply, initi
 
   // Auto-expand comments with new replies
   useEffect(() => {
-    if (comment?.replies && comment.replies.length > 0) {
-      // Check if there are any replies that were created in the last 5 seconds
-      const hasNewReplies = comment.replies.some(
+    if (replies && replies.length > 0) {
+      const hasNewReplies = replies.some(
         reply => new Date().getTime() - new Date(reply.createdAt).getTime() < 5000
       );
       
@@ -76,7 +76,7 @@ function Comment({ comment: initialComment, inputRef, postUserId, onReply, initi
         setShowReplies(true);
       }
     }
-  }, [comment?.replies]);
+  }, [replies]);
 
   // Initialize likes count and liked status from the actual comment data
   useEffect(() => {
@@ -170,7 +170,7 @@ function Comment({ comment: initialComment, inputRef, postUserId, onReply, initi
   const href = username === "deleted" ? "#" : `/dashboard/${username}`;
   
   // Check if comment has replies
-  const hasReplies = comment.replies && comment.replies.length > 0;
+  const hasReplies = replies && replies.length > 0;
   
   const handleLikeClick = async () => {
     if (!session?.user || isLoading) return;
@@ -330,7 +330,7 @@ function Comment({ comment: initialComment, inputRef, postUserId, onReply, initi
                 ) : (
                   <ChevronDown className="h-3 w-3 mr-1" />
                 )}
-                {showReplies ? "Hide replies" : `View ${comment.replies?.length} ${comment.replies?.length === 1 ? 'reply' : 'replies'}`}
+                {showReplies ? "Hide replies" : `View ${replies?.length} ${replies?.length === 1 ? 'reply' : 'replies'}`}
               </div>
             </button>
           )}
@@ -338,7 +338,7 @@ function Comment({ comment: initialComment, inputRef, postUserId, onReply, initi
           {/* Replies section */}
           {hasReplies && showReplies && (
             <div className="mt-2 ml-2 pl-3 border-l border-neutral-200 dark:border-neutral-700">
-              {comment.replies?.map((reply) => (
+              {replies?.map((reply) => (
                 <Comment
                   key={`${reply.id}-${reply.createdAt}`}
                   comment={reply}

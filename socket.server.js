@@ -76,7 +76,7 @@ io.on("connection", (socket) => {
   });
 
   // Post events
-  socket.on("likeUpdate", (data) => {
+  socket.on("like", (data) => {
     io.emit("likeUpdate", data);
   });
 

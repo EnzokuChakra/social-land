@@ -19,6 +19,7 @@ import io from "socket.io-client";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import {useSocket} from "@/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 
 type ExtendedUser = User & {
   isFollowing?: boolean;
@@ -39,7 +40,7 @@ function PostActions({ post, userId, className, inputRef }: Props) {
   const [currentPostInit, setCurrentPostInit] = useState<PostWithExtras>(post);
   const router = useRouter();
   const { data: session, status } = useSession();
-  const socket = useSocket();
+  const socket = getSocket();
   const handleLikeUpdate = useCallback((data: any) => {
     if (data.post.id === post.id) {
       setCurrentPost((prevPost) => {
@@ -68,9 +69,9 @@ function PostActions({ post, userId, className, inputRef }: Props) {
     if (!socket) return;
     socket.on("likeUpdate", handleLikeUpdate);
 
-    // return () => {
-    //   socket.off("likeUpdate", handleLikeUpdate);
-    // };
+    return () => {
+      socket.off("likeUpdate", handleLikeUpdate);
+    };
   }, [socket]);
 
 

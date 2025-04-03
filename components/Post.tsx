@@ -20,7 +20,7 @@ import { useRouter } from "next/navigation";
 import TaggedUsersModal from "./TaggedUsersModal";
 import { useStoryModal } from "@/hooks/use-story-modal";
 import { cn } from "@/lib/utils";
-import { useSocket } from "@/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 
 function Post({ post }: { post: PostWithExtras }) {
   const { data: session, status } = useSession();
@@ -35,7 +35,7 @@ function Post({ post }: { post: PostWithExtras }) {
   const [isLoading, setIsLoading] = useState(false);
   const [showLikesModal, setShowLikesModal] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
-  const socket = useSocket();
+  const socket = getSocket();
   const storyModal = useStoryModal();
 
   // Initialize likes count and liked status from the actual post data

@@ -15,9 +15,9 @@ import { Loader2, Smile, X } from "lucide-react";
 import { useForm, UseFormReturn } from "react-hook-form";
 import { z } from "zod";
 import { useEffect, useState, forwardRef, useImperativeHandle, Ref } from "react";
-import { useSocket } from "@/hooks/use-socket";
 import { toast } from "react-hot-toast";
 import { useSession } from "next-auth/react";
+import { getSocket } from "@/lib/socket";
 
 const MAX_COMMENT_LENGTH = 1000;
 
@@ -53,7 +53,7 @@ const CommentForm = forwardRef<
   const [replyingTo, setReplyingTo] = useState<{username: string, commentId: string} | null>(null);
   const [internalInputRef, setInternalInputRef] = useState<HTMLInputElement | null>(null);
   const [cooldownTime, setCooldownTime] = useState(0);
-  const socket = useSocket();
+  const socket = getSocket();
   
   const form = useForm<z.infer<typeof CreateComment>>({
     resolver: zodResolver(CreateComment),
