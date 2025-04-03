@@ -10,6 +10,7 @@ import {
   CalendarIcon,
   HeartIcon,
   UserIcon,
+  CompassIcon,
 } from "lucide-react";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { useState } from "react";
@@ -25,8 +26,13 @@ const navigation = [
     icon: HomeIcon,
   },
   {
-    name: "Search",
+    name: "Explore",
     href: "/dashboard/explore",
+    icon: CompassIcon,
+  },
+  {
+    name: "Search",
+    href: "/dashboard/search",
     icon: SearchIcon,
   },
   {
@@ -79,29 +85,28 @@ export default function MobileBottomNav() {
               href={item.href}
               onClick={isSearch ? handleSearchClick : isNotifications ? handleNotificationsClick : undefined}
               className={cn(
-                "flex flex-col items-center justify-center gap-1 p-2",
+                "flex items-center justify-center p-2",
                 isActive
                   ? "text-black dark:text-white"
                   : "text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white"
               )}
             >
               <item.icon className="h-6 w-6" />
-              <span className="text-xs">{item.name}</span>
             </Link>
           );
         })}
+        
         {session?.user && (
           <Link
             href={`/dashboard/${session.user.username}`}
             className={cn(
-              "flex flex-col items-center justify-center gap-1 p-2",
+              "flex items-center justify-center p-2",
               pathname === `/dashboard/${session.user.username}`
                 ? "text-black dark:text-white"
                 : "text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white"
             )}
           >
             <UserIcon className="h-6 w-6" />
-            <span className="text-xs">Profile</span>
           </Link>
         )}
       </nav>

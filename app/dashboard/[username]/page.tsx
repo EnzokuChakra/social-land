@@ -280,7 +280,7 @@ export default async function ProfilePage({ params }: Props) {
 
     return (
       <div className="flex flex-col min-h-screen">
-        <main className="flex-1 pb-[56px] md:pb-0 bg-white dark:bg-black mt-[60px]" suppressHydrationWarning>
+        <main className="flex-1 pb-[56px] md:pb-0 bg-white dark:bg-black mt-[72px]" suppressHydrationWarning>
           <div className="max-w-[935px] mx-auto" suppressHydrationWarning>
             <section className="flex flex-col md:flex-row gap-y-4 px-4 pb-6" suppressHydrationWarning>
               <div className="shrink-0 md:w-[290px] md:mr-7 flex justify-center md:justify-center" suppressHydrationWarning>

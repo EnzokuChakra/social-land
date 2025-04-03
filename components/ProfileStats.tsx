@@ -5,6 +5,7 @@ import { UserWithExtras } from "@/lib/definitions";
 import FollowersModal from "./FollowersModal";
 import FollowingModal from "./FollowingModal";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface Props {
   profile: UserWithExtras;
@@ -19,62 +20,68 @@ export default function ProfileStats({ profile, isCurrentUser, isFollowing }: Pr
   // Ensure username is not null
   const username = profile.username || '';
 
+  const StatItem = ({ count, label, onClick, isButton = false }: { 
+    count: number, 
+    label: string, 
+    onClick?: () => void,
+    isButton?: boolean 
+  }) => {
+    const Component = isButton ? 'button' : 'div';
+    return (
+      <Component
+        onClick={onClick}
+        className={cn(
+          "flex flex-col md:flex-row items-center md:items-center gap-0 md:gap-1 transition-all",
+          isButton && "hover:opacity-75 active:scale-95 cursor-pointer"
+        )}
+      >
+        <span className="font-semibold text-lg md:text-base" suppressHydrationWarning>
+          {count}
+        </span>
+        <span className="text-neutral-500 dark:text-neutral-400 text-[11px] md:text-sm tracking-wide uppercase">
+          {label}
+        </span>
+      </Component>
+    );
+  };
+
+  const followerCount = profile.followers.filter(f => f.status === "ACCEPTED").length;
+  const followingCount = profile.following.filter(f => f.status === "ACCEPTED").length;
+
   return (
     <>
-      <div className="flex items-center justify-around w-full md:justify-start md:gap-x-10 text-sm" suppressHydrationWarning>
-        <div className="flex flex-col items-center md:items-start">
-          <span suppressHydrationWarning>
-            <strong className="font-semibold text-lg md:text-base">{profile.posts.length}</strong>
-          </span>
-          <span className="text-neutral-500 dark:text-neutral-400 text-[11px] md:text-sm tracking-wide uppercase">posts</span>
-        </div>
-        {(!profile.isPrivate || isCurrentUser || isFollowing) ? (
-          <button 
-            onClick={() => setShowFollowersModal(true)} 
-            className="flex flex-col items-center md:items-start transition-transform active:scale-95"
-          >
-            <span className="hover:opacity-75 transition" suppressHydrationWarning>
-              <strong className="font-semibold text-lg md:text-base">
-                {profile.followers.filter(f => f.status === "ACCEPTED").length}
-              </strong>
-            </span>
-            <span className="text-neutral-500 dark:text-neutral-400 text-[11px] md:text-sm tracking-wide uppercase">
-              {profile.followers.filter(f => f.status === "ACCEPTED").length === 1 ? "follower" : "followers"}
-            </span>
-          </button>
+      <div className="flex items-center justify-around w-full md:justify-start md:gap-x-10 text-sm border-y md:border-y-0 border-neutral-200 dark:border-neutral-800 py-3 md:py-0" suppressHydrationWarning>
+        <StatItem 
+          count={profile.posts.length} 
+          label="posts" 
+        />
+        
+        {(isCurrentUser || isFollowing || !profile.isPrivate) ? (
+          <StatItem 
+            count={followerCount} 
+            label={followerCount === 1 ? "follower" : "followers"}
+            onClick={() => setShowFollowersModal(true)}
+            isButton={true}
+          />
         ) : (
-          <div className="flex flex-col items-center md:items-start">
-            <span className="cursor-default" suppressHydrationWarning>
-              <strong className="font-semibold text-lg md:text-base">
-                {profile.followers.filter(f => f.status === "ACCEPTED").length}
-              </strong>
-            </span>
-            <span className="text-neutral-500 dark:text-neutral-400 text-[11px] md:text-sm tracking-wide uppercase">
-              {profile.followers.filter(f => f.status === "ACCEPTED").length === 1 ? "follower" : "followers"}
-            </span>
-          </div>
+          <StatItem 
+            count={followerCount} 
+            label={followerCount === 1 ? "follower" : "followers"}
+          />
         )}
-        {(!profile.isPrivate || isCurrentUser || isFollowing) ? (
-          <button 
-            onClick={() => setShowFollowingModal(true)} 
-            className="flex flex-col items-center md:items-start transition-transform active:scale-95"
-          >
-            <span className="hover:opacity-75 transition" suppressHydrationWarning>
-              <strong className="font-semibold text-lg md:text-base">
-                {profile.following.filter(f => f.status === "ACCEPTED").length}
-              </strong>
-            </span>
-            <span className="text-neutral-500 dark:text-neutral-400 text-[11px] md:text-sm tracking-wide uppercase">following</span>
-          </button>
+        
+        {(isCurrentUser || isFollowing || !profile.isPrivate) ? (
+          <StatItem 
+            count={followingCount} 
+            label="following"
+            onClick={() => setShowFollowingModal(true)}
+            isButton={true}
+          />
         ) : (
-          <div className="flex flex-col items-center md:items-start">
-            <span className="cursor-default" suppressHydrationWarning>
-              <strong className="font-semibold text-lg md:text-base">
-                {profile.following.filter(f => f.status === "ACCEPTED").length}
-              </strong>
-            </span>
-            <span className="text-neutral-500 dark:text-neutral-400 text-[11px] md:text-sm tracking-wide uppercase">following</span>
-          </div>
+          <StatItem 
+            count={followingCount} 
+            label="following"
+          />
         )}
       </div>
 
