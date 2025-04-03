@@ -764,16 +764,21 @@ export default function StoryModal() {
               <div className="absolute top-8 left-4 right-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <UserAvatar user={currentStory.user} className="h-8 w-8" />
-                  <Link 
-                    href={`/dashboard/${currentStory.user.username}`}
-                    className="text-white font-semibold hover:underline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      storyModal.onClose();
-                    }}
-                  >
-                    {currentStory.user.username}
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link 
+                      href={`/dashboard/${currentStory.user.username}`}
+                      className="text-white font-semibold hover:underline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        storyModal.onClose();
+                      }}
+                    >
+                      {currentStory.user.username}
+                    </Link>
+                    <span className="text-white/70 text-sm">
+                      • {formatDistanceToNow(new Date(currentStory.createdAt), { addSuffix: true })}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">
