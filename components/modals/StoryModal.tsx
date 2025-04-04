@@ -125,9 +125,28 @@ export default function StoryModal() {
       setCurrentStoryIndex(0);
       setProgress(0);
     } else {
+      // If we've reached the last story of the last user, close the modal
       storyModal.onClose();
     }
   }, [currentStoryIndex, currentUserStories?.stories?.length, storyModal]);
+
+  // Add a new effect to track when all stories have been viewed
+  useEffect(() => {
+    if (!storyModal.isOpen || !currentUserStories?.stories) return;
+
+    // Check if we're on the last story of the last user
+    const isLastStory = currentStoryIndex === currentUserStories.stories.length - 1;
+    const isLastUser = storyModal.currentUserIndex === storyModal.userStories.length - 1;
+
+    if (isLastStory && isLastUser) {
+      // Set a timeout to close the modal after the last story is viewed
+      const timeout = setTimeout(() => {
+        storyModal.onClose();
+      }, 5000); // Close after 5 seconds of viewing the last story
+
+      return () => clearTimeout(timeout);
+    }
+  }, [currentStoryIndex, storyModal.currentUserIndex, currentUserStories?.stories?.length, storyModal.isOpen, storyModal.onClose]);
 
   // Handle story click for navigation
   const handleStoryClick = (e: React.MouseEvent) => {
