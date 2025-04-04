@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { buttonVariants } from "./ui/button";
 import UserAvatar from "./UserAvatar";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { UserWithExtras } from "@/lib/definitions";
 import { useNavbar } from "@/lib/hooks/use-navbar";
 import { useSocket } from "@/hooks/use-socket";
@@ -26,42 +26,15 @@ export default function ProfileLink({ user, className }: ProfileLinkProps) {
   const pathname = usePathname();
   const href = `/dashboard/${user.username}`;
   const isActive = pathname === href;
-  const [profile, setProfile] = useState<UserWithExtras | null>(null);
   const { isCollapsed } = useNavbar();
   const socket = useSocket();
-
-  useEffect(() => {
-    async function loadProfile() {
-      if (user?.username) {
-        try {
-          const response = await fetch('/api/profile');
-          if (!response.ok) {
-            throw new Error('Failed to fetch profile');
-          }
-          const data = await response.json();
-          setProfile(data);
-        } catch (error) {
-          console.error("[PROFILE_LINK] Error loading profile:", {
-            error,
-            errorMessage: error instanceof Error ? error.message : String(error),
-            stack: error instanceof Error ? error.stack : undefined,
-            timestamp: new Date().toISOString()
-          });
-        }
-      }
-    }
-    loadProfile();
-  }, [user?.username]);
 
   useEffect(() => {
     if (!socket || !user?.id) return;
 
     const handleProfileUpdate = (data: { userId: string; image: string | null }) => {
       if (data.userId === user.id) {
-        setProfile(prev => {
-          if (!prev) return null;
-          return { ...prev, image: data.image };
-        });
+        user.image = data.image;
       }
     };
 
@@ -70,9 +43,6 @@ export default function ProfileLink({ user, className }: ProfileLinkProps) {
       socket.off('profileUpdate', handleProfileUpdate);
     };
   }, [socket, user?.id]);
-
-  // Use profile data if available, otherwise fallback to user data
-  const avatarUser = profile || user;
 
   return (
     <Link
@@ -84,10 +54,10 @@ export default function ProfileLink({ user, className }: ProfileLinkProps) {
         className
       )}
     >
-      <UserAvatar user={avatarUser} className="h-8 w-8" />
+      <UserAvatar user={user} className="h-8 w-8" />
       {!isCollapsed && (
         <span className="font-medium text-sm truncate">
-          {avatarUser.username}
+          {user.username}
         </span>
       )}
     </Link>

@@ -7,20 +7,16 @@ import { Button } from "./ui/button";
 import UserAvatar from "./UserAvatar";
 import VerifiedBadge from "./VerifiedBadge";
 import { useEffect, useState } from "react";
-import { Icons } from "./icons";
 
 export default function ProfileCard({ profile }: { profile?: UserWithExtras }) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
-  }, []);
+  }, [profile]);
 
-  if (!isMounted) {
-    return null;
-  }
-
-  if (!profile) {
+  // Show loading skeleton while not mounted or no profile
+  if (!isMounted || !profile) {
     return (
       <div className="flex items-center justify-between mb-8 bg-white/20 dark:bg-black/20 rounded-xl backdrop-blur-sm border border-neutral-200 dark:border-neutral-800 p-4">
         <div className="flex items-center gap-x-3">
@@ -36,12 +32,12 @@ export default function ProfileCard({ profile }: { profile?: UserWithExtras }) {
   }
 
   return (
-    <div className="flex items-center justify-between mb-8 bg-white/20 dark:bg-black/20 rounded-xl backdrop-blur-sm border border-neutral-200 dark:border-neutral-800 p-4" suppressHydrationWarning>
+    <div className="flex items-center justify-between mb-8 bg-white/20 dark:bg-black/20 rounded-xl backdrop-blur-sm border border-neutral-200 dark:border-neutral-800 p-4">
       <Link href={`/dashboard/${profile.username}`} className="flex items-center gap-x-3">
         <UserAvatar user={profile} />
-        <div className="flex flex-col" suppressHydrationWarning>
-          <div className="flex items-center gap-x-1" suppressHydrationWarning>
-            <span>{profile.username}</span>
+        <div className="flex flex-col">
+          <div className="flex items-center gap-x-1">
+            <span className="font-medium">{profile.username}</span>
             {profile.verified && <VerifiedBadge className="h-4 w-4" />}
           </div>
           <span className="text-neutral-600 dark:text-neutral-400 text-sm">

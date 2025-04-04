@@ -35,7 +35,7 @@ export default function PageLayout({
   className,
   noPadding = false,
 }: PageLayoutProps) {
-  const { navbarWidth } = useNavbar();
+  const { navbarWidth, isCollapsed } = useNavbar();
   const isMobile = useMediaQuery("(max-width: 768px)");
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -62,8 +62,8 @@ export default function PageLayout({
   }, [session, status, router]);
 
   const contentStyle = {
-    marginLeft: isMobile ? 0 : navbarWidth,
-    width: isMobile ? "100%" : `calc(100% - ${navbarWidth})`,
+    marginLeft: isMobile ? 0 : isCollapsed ? "88px" : "245px",
+    width: isMobile ? "100%" : `calc(100% - ${isCollapsed ? "88px" : "245px"})`,
   };
 
   const contentClassName = cn(

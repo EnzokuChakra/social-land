@@ -770,24 +770,6 @@ export default function Navbar() {
           metadata: n.metadata || null
         })) as NotificationWithExtras[]}
       />
-
-      <motion.main
-        initial={false}
-        animate={{ 
-          marginLeft: isMobile ? 0 : isCollapsed ? "88px" : "245px",
-        }}
-        transition={{ 
-          type: "spring", 
-          stiffness: 300, 
-          damping: 30 
-        }}
-        className={cn(
-          "bg-white dark:bg-black",
-          "transition-all duration-300 ease-in-out"
-        )}
-      >
-        {/* Your main content */}
-      </motion.main>
     </>
   );
 } 

@@ -118,7 +118,6 @@ function PostActions({ post, userId, className, inputRef }: Props) {
           }
 
           const followStatus = await response.json();
-          console.log(`[DEBUG] Follow status for ${like.user.username}:`, followStatus);
 
           return {
             ...like,

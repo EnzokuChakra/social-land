@@ -178,8 +178,6 @@ export async function fetchPosts(userId?: string) {
 
     // If userId is provided, get follow status for each user in likes array
     if (userId) {
-      console.log(`[DEBUG] Fetching follow status for user ${userId}`);
-      
       const postsWithFollowStatus = await Promise.all(
         posts.map(async (post: PostWithExtras) => {
           const likesWithFollowStatus = await Promise.all(
@@ -195,12 +193,6 @@ export async function fetchPosts(userId?: string) {
                     in: ["ACCEPTED", "PENDING"]
                   }
                 }
-              });
-
-              console.log(`[DEBUG] Follow relationship for ${like.user.username}:`, {
-                userId,
-                targetUserId: like.user.id,
-                followStatus: follow?.status || 'none'
               });
 
               return {

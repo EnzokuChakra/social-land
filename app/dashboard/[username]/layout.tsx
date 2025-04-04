@@ -55,14 +55,12 @@ export default async function ProfileLayout({ children, params }: Props) {
     }
 
     return (
-      <PageLayout>
-        <div className="flex flex-col min-h-screen bg-white dark:bg-black">
-          <Suspense fallback={<div>Loading...</div>}>
-            <ProfileHeader />
-          </Suspense>
-          {children}
-        </div>
-      </PageLayout>
+      <div className="flex flex-col min-h-screen bg-white dark:bg-black">
+        <Suspense fallback={<div>Loading...</div>}>
+          <ProfileHeader />
+        </Suspense>
+        {children}
+      </div>
     );
   } catch (error) {
     console.error("[PROFILE_LAYOUT] Error:", {
