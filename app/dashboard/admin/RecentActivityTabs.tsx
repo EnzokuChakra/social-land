@@ -230,7 +230,7 @@ export function RecentActivityTabs({ newUsers, recentReports, userReports }: Rec
                             </p>
                           </div>
                         </div>
-                        <Link href={`/dashboard/admin/reports/users/${report.id}`}>
+                        <Link href={`/dashboard/${report.reported.username}`}>
                           <Button variant="ghost" size="sm">
                             Review
                           </Button>

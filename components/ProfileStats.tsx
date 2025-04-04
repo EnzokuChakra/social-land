@@ -62,28 +62,28 @@ export default function ProfileStats({ profile, isCurrentUser, isFollowing }: Pr
         
         {(isCurrentUser || isFollowing || !profile.isPrivate) ? (
           <StatItem 
-            count={stats?.followers || 0} 
-            label={(stats?.followers || 0) === 1 ? "follower" : "followers"}
+            count={stats?.following || 0} 
+            label={(stats?.following || 0) === 1 ? "follower" : "followers"}
             onClick={() => setShowFollowersModal(true)}
             isButton={true}
           />
         ) : (
           <StatItem 
-            count={stats?.followers || 0} 
-            label={(stats?.followers || 0) === 1 ? "follower" : "followers"}
+            count={stats?.following || 0} 
+            label={(stats?.following || 0) === 1 ? "follower" : "followers"}
           />
         )}
         
         {(isCurrentUser || isFollowing || !profile.isPrivate) ? (
           <StatItem 
-            count={stats?.following || 0} 
+            count={stats?.followers || 0} 
             label="following"
             onClick={() => setShowFollowingModal(true)}
             isButton={true}
           />
         ) : (
           <StatItem 
-            count={stats?.following || 0} 
+            count={stats?.followers || 0} 
             label="following"
           />
         )}

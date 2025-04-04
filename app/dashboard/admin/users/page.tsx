@@ -284,7 +284,7 @@ export default function UsersPage() {
                         {user.name?.[0] || user.username?.[0] || "?"}
                       </AvatarFallback>
                     </Avatar>
-                    <Link href={`/profile/${user.username}`} className="hover:underline">
+                    <Link href={`/dashboard/${user.username}`} className="hover:underline">
                       <div>
                         <div className="font-medium">{user.name}</div>
                         <div className="text-sm text-muted-foreground">
@@ -314,86 +314,75 @@ export default function UsersPage() {
                   {new Date(user.createdAt).toLocaleDateString()}
                 </TableCell>
                 <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {user.role !== "MASTER_ADMIN" && (
-                        <>
-                          {user.status !== "BANNED" ? (
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() => banUser(user.id)}
-                            >
-                              <UserX className="mr-2 h-4 w-4" />
-                              Ban User
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem
-                              className="text-green-600"
-                              onClick={() => unbanUser(user.id)}
-                            >
-                              <Shield className="mr-2 h-4 w-4" />
-                              Unban User
-                            </DropdownMenuItem>
-                          )}
-                          {isMasterAdmin && (
-                            <>
-                              {user.role === "USER" && (
-                                <>
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      handleUserAction(user.id, "promote", "MODERATOR")
-                                    }
-                                  >
-                                    <ShieldCheck className="mr-2 h-4 w-4 text-blue-500" />
-                                    Promote to Moderator
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      handleUserAction(user.id, "promote", "ADMIN")
-                                    }
-                                  >
-                                    <ShieldAlert className="mr-2 h-4 w-4 text-yellow-500" />
-                                    Promote to Admin
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                              {user.role === "MODERATOR" && (
+                  {user.role !== "MASTER_ADMIN" && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {user.status !== "BANNED" ? (
+                          <DropdownMenuItem
+                            className="text-red-600"
+                            onClick={() => banUser(user.id)}
+                          >
+                            <UserX className="mr-2 h-4 w-4" />
+                            Ban User
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            className="text-green-600"
+                            onClick={() => unbanUser(user.id)}
+                          >
+                            <Shield className="mr-2 h-4 w-4" />
+                            Unban User
+                          </DropdownMenuItem>
+                        )}
+                        {isMasterAdmin && (
+                          <>
+                            {user.role === "USER" && (
+                              <>
                                 <DropdownMenuItem
                                   onClick={() =>
-                                    handleUserAction(user.id, "promote", "ADMIN")
+                                    handleUserAction(user.id, "promote", "MODERATOR" as UserRole)
+                                  }
+                                >
+                                  <ShieldCheck className="mr-2 h-4 w-4 text-blue-500" />
+                                  Promote to Moderator
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleUserAction(user.id, "promote", "ADMIN" as UserRole)
                                   }
                                 >
                                   <ShieldAlert className="mr-2 h-4 w-4 text-yellow-500" />
                                   Promote to Admin
                                 </DropdownMenuItem>
-                              )}
-                            </>
-                          )}
-                          {user.role === "ADMIN" && (
-                            <>
+                              </>
+                            )}
+                            {user.role === "MODERATOR" && (
                               <DropdownMenuItem
-                                className="text-yellow-600"
-                                onClick={() => demoteUser(user.id, "MODERATOR")}
+                                onClick={() =>
+                                  handleUserAction(user.id, "promote", "ADMIN" as UserRole)
+                                }
                               >
-                                <ShieldCheck className="mr-2 h-4 w-4 text-blue-500" />
-                                Demote to Moderator
+                                <ShieldAlert className="mr-2 h-4 w-4 text-yellow-500" />
+                                Promote to Admin
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-yellow-600"
-                                onClick={() => demoteUser(user.id, "USER")}
-                              >
-                                <ShieldX className="mr-2 h-4 w-4" />
-                                Demote to User
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                          {user.role === "MODERATOR" && (
+                            )}
+                          </>
+                        )}
+                        {user.role === "ADMIN" && (
+                          <>
+                            <DropdownMenuItem
+                              className="text-yellow-600"
+                              onClick={() => demoteUser(user.id, "MODERATOR")}
+                            >
+                              <ShieldCheck className="mr-2 h-4 w-4 text-blue-500" />
+                              Demote to Moderator
+                            </DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-yellow-600"
                               onClick={() => demoteUser(user.id, "USER")}
@@ -401,11 +390,20 @@ export default function UsersPage() {
                               <ShieldX className="mr-2 h-4 w-4" />
                               Demote to User
                             </DropdownMenuItem>
-                          )}
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                          </>
+                        )}
+                        {user.role === "MODERATOR" && (
+                          <DropdownMenuItem
+                            className="text-yellow-600"
+                            onClick={() => demoteUser(user.id, "USER")}
+                          >
+                            <ShieldX className="mr-2 h-4 w-4" />
+                            Demote to User
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
