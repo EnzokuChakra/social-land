@@ -243,12 +243,25 @@ export async function DELETE(req: Request) {
     socket.emit("deleteEvent", eventId);
 
     console.log("[EVENTS_DELETE] Event deleted successfully:", eventId);
-    return new NextResponse("Event deleted successfully", { status: 200 });
+    return new NextResponse(JSON.stringify({ success: true }), { 
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
   } catch (error) {
     console.error("[EVENTS_DELETE]", error);
     return new NextResponse(
-      error instanceof Error ? error.message : "Internal Server Error",
-      { status: 500 }
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : "Internal Server Error",
+        success: false 
+      }), 
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
     );
   }
 } 
