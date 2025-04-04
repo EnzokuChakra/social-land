@@ -36,6 +36,7 @@ export default function EditProfileModal() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   // Get the current image from session
   const [currentImage, setCurrentImage] = useState<string | null>(null);
@@ -117,98 +118,49 @@ export default function EditProfileModal() {
     setPosition({ x: 0, y: 0 });
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile) return;
-
-    // Create a canvas to draw the cropped image
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Set canvas size to match the desired output size
-    canvas.width = 400;
-    canvas.height = 400;
-
-    // Create an image element to draw from
-    const img = document.createElement('img');
-    img.src = previewUrl!;
-    
-    await new Promise((resolve) => {
-      img.onload = () => {
-        // Calculate the scaled dimensions
-        const size = Math.min(img.width, img.height);
-        const sx = (img.width - size) / 2 - (position.x / scale);
-        const sy = (img.height - size) / 2 - (position.y / scale);
-        
-        // Draw the image with transformations
-        ctx.drawImage(
-          img,
-          sx,
-          sy,
-          size,
-          size,
-          0,
-          0,
-          canvas.width,
-          canvas.height
-        );
-        
-        resolve(true);
-      };
-    });
-
-    // Convert canvas to blob
-    const blob = await new Promise<Blob>((resolve) => 
-      canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.95)
-    );
-
-    const formData = new FormData();
-    formData.append('file', blob, selectedFile.name);
-
+  const handleImageUpload = async (file: File) => {
     try {
-      console.log('[EditProfileModal] Starting profile photo update');
-      // Step 1: Upload the image
-      const uploadResponse = await fetch('/api/upload', {
-        method: 'POST',
+      setIsUploading(true);
+      console.log("[EditProfileModal] Starting profile photo update");
+      
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      const response = await fetch("/api/upload", {
+        method: "POST",
         body: formData,
       });
-
-      if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json();
-        throw new Error(errorData.error || 'Upload failed');
-      }
-
-      const uploadData = await uploadResponse.json();
-      console.log('[EditProfileModal] Image uploaded successfully:', uploadData.fileUrl);
       
-      // Step 2: Update the profile with the new image URL
-      const { message } = await updateProfile({
-        id: session?.user?.id as string,
-        image: uploadData.fileUrl,
+      const uploadData = await response.json();
+      const imageUrl = uploadData.fileUrl || uploadData.url;
+      const publicImageUrl = imageUrl.startsWith('/public/') ? imageUrl : `/public${imageUrl}`;
+      
+      console.log("[EditProfileModal] Image uploaded successfully:", publicImageUrl);
+      
+      // Update profile with new image
+      await updateProfile({
+        image: publicImageUrl
       });
-
-      if (message) {
-        // Emit profile update event
-        if (socket && session?.user?.id) {
-          console.log('[EditProfileModal] Emitting profile update event:', {
-            userId: session.user.id,
-            image: uploadData.fileUrl
-          });
-          socket.emit('profileUpdate', {
-            userId: session.user.id,
-            image: uploadData.fileUrl
-          });
-        }
-        
-        toast.success(message);
-        router.refresh();
-        editProfileModal.onClose();
-        setPreviewUrl(null);
-        setSelectedFile(null);
-      }
+      
+      // Emit socket event for real-time update
+      socket?.emit("updateProfile", {
+        userId: session?.user?.id,
+        image: publicImageUrl
+      });
+      
+      console.log("[EditProfileModal] Emitting profile update event:", {
+        userId: session?.user?.id,
+        image: publicImageUrl
+      });
+      
+      setIsUploading(false);
+      editProfileModal.onClose();
+      toast.success("Profile photo updated successfully");
+      
     } catch (error) {
-      console.error('[EditProfileModal] Upload error:', error);
-      toast.error(error instanceof Error ? error.message : "Error uploading profile photo");
+      console.error("[EditProfileModal] Error updating profile photo:", error);
+      setIsUploading(false);
+      toast.error("Error updating profile photo");
     }
   };
 
@@ -312,7 +264,7 @@ export default function EditProfileModal() {
                               className="w-32"
                             />
                           </div>
-                          <Button type="button" onClick={handleUpload}>
+                          <Button type="button" onClick={() => handleImageUpload(selectedFile!)}>
                             Save Photo
                           </Button>
                         </div>

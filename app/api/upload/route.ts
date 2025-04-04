@@ -6,6 +6,7 @@ import path from 'path';
 import { ensureUploadDirectories } from '@/lib/server-utils';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { v4 as uuidv4 } from 'uuid';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,17 +86,19 @@ export async function POST(request: NextRequest) {
       const buffer = Buffer.from(bytes);
 
       // Generate a unique filename without timestamp
-      const ext = path.extname(file.name);
-      const filename = `${nanoid()}${ext}`;
+      const filename = file.name.replace(/\s/g, '-');
+      const ext = path.extname(filename);
+      const uniqueFilename = `${uuidv4().split('-')[0]}_${filename}`;
       
       // Create the upload directory path based on type
       const uploadDir = path.join(process.cwd(), 'public', 'uploads', type);
-      const filepath = path.join(uploadDir, filename);
+      const relativePath = `/uploads/${type}/${uniqueFilename}`;
+      const fullPath = path.join(uploadDir, uniqueFilename);
 
       console.log('Writing file:', {
         filename,
         uploadDir,
-        filepath,
+        filepath: fullPath,
         size: buffer.length
       });
 
@@ -103,19 +106,20 @@ export async function POST(request: NextRequest) {
       await mkdir(uploadDir, { recursive: true });
 
       // Write the file
-      await writeFile(filepath, buffer);
-      console.log('File written successfully to:', filepath);
+      await writeFile(fullPath, buffer);
+      console.log('File written successfully to:', fullPath);
       
       // Return the public URL with forward slashes for web use
-      const fileUrl = `/uploads/${type}/${filename}`.replace(/\\/g, '/');
-      console.log('Upload successful, returning URL:', fileUrl);
+      const publicUrl = `/public${relativePath}`;
+      console.log('Upload successful, returning URL:', publicUrl);
       
-      console.log("[UPLOAD] File uploaded successfully:", { fileUrl });
+      console.log("[UPLOAD] File uploaded successfully:", { fileUrl: publicUrl });
 
       // Create response with caching headers
       const response = NextResponse.json({ 
-        fileUrl,
-        message: 'File uploaded successfully!' 
+        message: 'File uploaded successfully',
+        fileUrl: publicUrl,
+        url: publicUrl
       });
 
       // Add caching headers
