@@ -110,8 +110,8 @@ export const authOptions: NextAuthOptions = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: true,
-        maxAge: 30 * 24 * 60 * 60, // 30 days
+        secure: process.env.NODE_ENV === 'production',
+        domain: typeof process.env.NODE_ENV === 'string' && process.env.NODE_ENV === 'production' ? 'social-land.ro' : undefined
       },
     },
     callbackUrl: {

@@ -14,7 +14,8 @@ const PUBLIC_PATHS = [
   '/_next',
   '/favicon.ico',
   '/banned',
-  '/uploads'
+  '/uploads',
+  '/images'
 ];
 
 // Check if the path is public
@@ -53,8 +54,13 @@ export default withAuth(
     // Clean up the pathname by removing query parameters
     const cleanPathname = pathname.split('?')[0];
 
+    // Skip middleware for API routes except specific ones that need auth
+    if (cleanPathname.startsWith('/api/') && !cleanPathname.startsWith('/api/admin/')) {
+      return response;
+    }
+
     // Add caching headers for static files
-    if (cleanPathname.startsWith('/uploads/')) {
+    if (cleanPathname.startsWith('/uploads/') || cleanPathname.startsWith('/images/')) {
       // Set cache control for static files
       response.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
       
@@ -78,20 +84,18 @@ export default withAuth(
       return response;
     }
 
-    // Skip maintenance check for public paths, MASTER_ADMIN users, or API routes
-    if (
-      isPublicPath(cleanPathname) ||
-      token?.role === 'MASTER_ADMIN' ||
-      cleanPathname.startsWith('/api')
-    ) {
+    // Skip maintenance check for public paths, MASTER_ADMIN users
+    if (isPublicPath(cleanPathname) || token?.role === 'MASTER_ADMIN') {
       return response;
     }
 
-    // Check maintenance mode
-    const isMaintenance = await checkMaintenanceMode(request, token);
-    if (isMaintenance) {
-      const maintenanceUrl = new URL('/maintenance', request.url);
-      return NextResponse.redirect(maintenanceUrl);
+    // Check maintenance mode only for non-API routes
+    if (!cleanPathname.startsWith('/api/')) {
+      const isMaintenance = await checkMaintenanceMode(request, token);
+      if (isMaintenance) {
+        const maintenanceUrl = new URL('/maintenance', request.url);
+        return NextResponse.redirect(maintenanceUrl);
+      }
     }
 
     return response;
@@ -102,8 +106,8 @@ export default withAuth(
         const { pathname } = req.nextUrl;
         const cleanPathname = pathname.split('?')[0];
 
-        // Allow access to public paths
-        if (isPublicPath(cleanPathname)) {
+        // Allow access to public paths and API routes
+        if (isPublicPath(cleanPathname) || cleanPathname.startsWith('/api/')) {
           return true;
         }
 
