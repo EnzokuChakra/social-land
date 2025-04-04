@@ -113,7 +113,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const isMobile = useMediaQuery("(max-width: 768px)");
   
   // Initialize currentPost with expanded likes data
-  const [currentPost, setCurrentPost] = useState<PostWithExtras>({
+  const [currentPost, setCurrentPost] = useState<PostWithExtras>(() => ({
     ...post,
     likes: post.likes.map(like => ({
       ...like,
@@ -127,12 +127,13 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     savedBy: post.savedBy || [],
     comments: post.comments || [],
     tags: post.tags || []
-  });
+  }));
 
   useEffect(() => {
     setIsOpen(true);
   }, [id]);
 
+  // Socket event handlers for comments
   useEffect(() => {
     if (!socket) return;
 
@@ -140,28 +141,22 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
       if (data.postId !== id) return;
 
       setComments(prevComments => {
-        // Deep clone the previous comments to avoid mutation
         const newComments = prevComments.map(c => ({
           ...c,
           replies: c.replies ? [...c.replies] : []
         }));
 
         if (data.parentId) {
-          // This is a reply - find the parent comment and add the reply
           const parentIndex = newComments.findIndex(c => c.id === data.parentId);
           if (parentIndex !== -1) {
-            // Initialize replies array if it doesn't exist
             if (!newComments[parentIndex].replies) {
               newComments[parentIndex].replies = [];
             }
-            // Add the new reply
             newComments[parentIndex].replies.push(data.comment);
           }
           return newComments;
-        } else {
-          // This is a top-level comment - add it to the beginning
-          return [data.comment, ...newComments];
         }
+        return [data.comment, ...newComments];
       });
     };
 
@@ -178,9 +173,8 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
               }
               return comment;
             });
-          } else {
-            return prevComments.filter(comment => comment.id !== data.commentId);
           }
+          return prevComments.filter(comment => comment.id !== data.commentId);
         });
       }
     };
@@ -196,35 +190,32 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
 
   // Update currentPost when post prop changes
   useEffect(() => {
-    setCurrentPost(prevPost => {
-      const updatedPost = {
-        ...prevPost,
-        ...post,
-        likes: post.likes.map(like => ({
-          ...like,
-          user: {
-            ...like.user,
-            isFollowing: like.user.isFollowing || false,
-            hasPendingRequest: like.user.hasPendingRequest || false,
-            isPrivate: like.user.isPrivate || false
-          }
-        })),
-        savedBy: post.savedBy || prevPost.savedBy,
-        comments: post.comments || prevPost.comments,
-        tags: post.tags || prevPost.tags
-      };
-      
-      return updatedPost;
-    });
+    const newLikes = post.likes.map(like => ({
+      ...like,
+      user: {
+        ...like.user,
+        isFollowing: like.user.isFollowing || false,
+        hasPendingRequest: like.user.hasPendingRequest || false,
+        isPrivate: like.user.isPrivate || false
+      }
+    }));
+
+    setCurrentPost(prevPost => ({
+      ...prevPost,
+      ...post,
+      likes: newLikes,
+      savedBy: post.savedBy || prevPost.savedBy,
+      comments: post.comments || prevPost.comments,
+      tags: post.tags || prevPost.tags
+    }));
   }, [post]);
 
-  // Add socket handler for likes updates
+  // Socket handler for likes updates
   useEffect(() => {
     if (!socket) return;
 
     const handleLikeUpdate = (data: any) => {
       setCurrentPost(prevPost => {
-        // Preserve existing likes data
         const existingLikes = new Map(prevPost.likes.map(like => [like.user.id, like]));
         
         let updatedLikes = [...prevPost.likes];
@@ -239,7 +230,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
             storyId: null,
             user: {
               ...data.likedBy,
-              // Preserve follow status if we have it
               isFollowing: existingLikes.get(data.likedBy.id)?.user.isFollowing || false,
               hasPendingRequest: existingLikes.get(data.likedBy.id)?.user.hasPendingRequest || false,
               isPrivate: existingLikes.get(data.likedBy.id)?.user.isPrivate || false
@@ -262,6 +252,44 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
       socket.off("likeUpdate", handleLikeUpdate);
     };
   }, [socket]);
+
+  // Real-time updates polling
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | undefined;
+    
+    if (isPostModal && mount) {
+      const refreshPostData = async () => {
+        try {
+          const response = await fetch(`/api/posts/${id}/comments`);
+          if (!response.ok) return;
+          
+          const data = await response.json();
+          
+          if (data?.comments) {
+            window.dispatchEvent(
+              new CustomEvent('update-comments', {
+                detail: {
+                  postId: id,
+                  comments: data.comments
+                }
+              })
+            );
+          }
+        } catch (error) {
+          // Silently handle error
+        }
+      };
+      
+      refreshPostData();
+      intervalId = setInterval(refreshPostData, 15000);
+    }
+    
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [isPostModal, mount, id]);
 
   // Transform comments to include all required fields
   const transformedComments = post.comments.map(comment => ({
@@ -337,54 +365,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   useEffect(() => {
     // No need to log mount status
   }, [mount, inputRef]);
-
-  // Enhance the Post component with real-time updates
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout | undefined;
-    
-    // If we're on the post modal view, we want to refresh data periodically
-    // This ensures comments stay in sync with the server
-    if (isPostModal && mount) {
-      // Function to refresh post data with rate limiting
-      const refreshPostData = async () => {
-        try {
-          const response = await fetch(`/api/posts/${id}/comments`);
-          if (!response.ok) return;
-          
-          const data = await response.json();
-          
-          // Make sure we have comments data before dispatching
-          if (data?.comments) {
-            // Dispatch event with new comments for Comments component to listen for
-            window.dispatchEvent(
-              new CustomEvent('update-comments', {
-                detail: {
-                  postId: id,
-                  comments: data.comments
-                }
-              })
-            );
-          }
-        } catch (error) {
-          // Silently handle error
-        }
-      };
-      
-      // Initial fetch
-      refreshPostData();
-      
-      // Set up a polling interval (every 15 seconds instead of 5)
-      intervalId = setInterval(refreshPostData, 15000);
-    }
-    
-    // Cleanup function to clear interval when component unmounts or modal closes
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = undefined;
-      }
-    };
-  }, [isPostModal, mount, id]);
 
   const handleAvatarClick = async (e: React.MouseEvent) => {
     e.preventDefault();
