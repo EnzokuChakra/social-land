@@ -133,29 +133,36 @@ export default function EditProfileModal() {
       
       const uploadData = await response.json();
       const imageUrl = uploadData.fileUrl || uploadData.url;
-      const publicImageUrl = imageUrl.startsWith('/public/') ? imageUrl : `/public${imageUrl}`;
       
-      console.log("[EditProfileModal] Image uploaded successfully:", publicImageUrl);
+      console.log("[EditProfileModal] Image uploaded successfully:", imageUrl);
       
       // Update profile with new image
-      await updateProfile({
-        image: publicImageUrl
+      const result = await updateProfile({
+        image: imageUrl
       });
-      
-      // Emit socket event for real-time update
-      socket?.emit("updateProfile", {
-        userId: session?.user?.id,
-        image: publicImageUrl
-      });
-      
-      console.log("[EditProfileModal] Emitting profile update event:", {
-        userId: session?.user?.id,
-        image: publicImageUrl
-      });
-      
-      setIsUploading(false);
-      editProfileModal.onClose();
-      toast.success("Profile photo updated successfully");
+
+      if (result.message === "Profile updated successfully") {
+        console.log("[EditProfileModal] Profile updated successfully");
+        
+        // Emit socket event for real-time update
+        socket?.emit("updateProfile", {
+          userId: session?.user?.id,
+          image: imageUrl
+        });
+        
+        console.log("[EditProfileModal] Emitting profile update event:", {
+          userId: session?.user?.id,
+          image: imageUrl
+        });
+        
+        setIsUploading(false);
+        editProfileModal.onClose();
+        toast.success("Profile photo updated successfully");
+      } else {
+        console.error("[EditProfileModal] Profile update failed:", result);
+        setIsUploading(false);
+        toast.error(result.message || "Error updating profile photo");
+      }
       
     } catch (error) {
       console.error("[EditProfileModal] Error updating profile photo:", error);

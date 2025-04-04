@@ -47,14 +47,14 @@ export const UserSchema = z.object({
 });
 
 export const UpdateUser = z.object({
-  id: z.string(),
+  id: z.string().optional(),
   name: z.string().min(1, "Name is required").max(50, "Name is too long").optional(),
   bio: z.string().max(160, "Bio is too long").optional(),
-  image: z.string().nullable().optional(),
+  image: z.string().optional(),
   isPrivate: z.boolean().optional(),
 }).partial().refine(data => {
   // Ensure at least one field is being updated
-  return Object.keys(data).length > 1; // > 1 because id is always included
+  return Object.keys(data).length > 0;
 }, {
   message: "At least one field must be updated"
 });
