@@ -1,9 +1,13 @@
 import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { nanoid } from "nanoid";
+import { ensureUploadDirectories } from './server-utils';
 
 export async function uploadFile(file: File | Blob) {
   try {
+    // Ensure upload directories exist first
+    await ensureUploadDirectories();
+    
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 

@@ -34,6 +34,7 @@ export async function POST(req: Request) {
 
     // Create event in database
     try {
+      const prizes = formData.get("prizes") ? JSON.parse(formData.get("prizes") as string) : [];
       const event = await db.event.create({
         data: {
           id: nanoid(),
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
           type: formData.get("type") as string,
           description: formData.get("description") as string,
           rules: formData.get("rules") as string,
-          prizes: formData.get("prizes") ? JSON.parse(formData.get("prizes") as string) : null,
+          prize: prizes.length > 0 ? prizes[0] : null,
           location: formData.get("location") as string,
           startDate: new Date(formData.get("startDate") as string),
           photoUrl,
