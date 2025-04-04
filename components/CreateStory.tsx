@@ -18,6 +18,7 @@ import { createStory } from "@/lib/actions";
 import { Loader2, ZoomIn, ZoomOut, X, Clock, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useSession } from "next-auth/react";
 
 interface Props {
   open: boolean;
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export default function CreateStory({ open, onClose }: Props) {
+  const { data: session } = useSession();
   const [file, setFile] = useState<File | null>(null);
   const [dataUrl, setDataUrl] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
@@ -139,6 +141,25 @@ export default function CreateStory({ open, onClose }: Props) {
       if (result.error) {
         throw new Error(result.error);
       }
+      
+      // Clear the lastViewedKey to make the ring colorful again
+      const lastViewedKey = `last_viewed_own_stories_${session?.user?.id}`;
+      localStorage.removeItem(lastViewedKey);
+      
+      // Also clear any viewed stories for the current user
+      const viewedStoriesKey = `viewed_stories_${session?.user?.id}_${session?.user?.id}`;
+      localStorage.removeItem(viewedStoriesKey);
+      
+      // Dispatch event to update the story ring state
+      const event = new CustomEvent('storyViewed', {
+        detail: {
+          userId: session?.user?.id,
+          storyId: result.story.id,
+          viewedStories: {},
+          isOwnStory: true
+        }
+      });
+      window.dispatchEvent(event);
       
       toast.success("Your story has been shared!");
       router.refresh();

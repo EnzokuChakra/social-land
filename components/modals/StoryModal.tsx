@@ -59,6 +59,23 @@ interface Story {
   views: StoryView[];
 }
 
+interface UserStoriesState {
+  userId: string;
+  stories: Story[];
+}
+
+interface StoryModalContextType {
+  isOpen: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  userId: string | null;
+  setUserId: (userId: string) => void;
+  userStories: UserStoriesState[];
+  setUserStories: (stories: UserStoriesState[] | ((prev: UserStoriesState[]) => UserStoriesState[])) => void;
+  currentUserIndex: number;
+  setCurrentUserIndex: (index: number) => void;
+}
+
 interface ViewerListItemProps {
   user: StoryUser;
   hasLiked?: boolean;
@@ -195,37 +212,175 @@ export default function StoryModal() {
 
   // Track view when story is opened
   useEffect(() => {
-    if (!currentStory || !session?.user?.id || currentStory.user.id === session.user.id) return;
+    if (!currentStory || !session?.user?.id) {
+      console.log('[StoryModal] Skipping view tracking - no story or session');
+      return;
+    }
 
+    const isOwnStory = currentStory.user.id === session.user.id;
+    console.log('[StoryModal] Story details:', {
+      storyId: currentStory.id,
+      userId: session.user.id,
+      isOwnStory,
+      currentViews: currentStory.views || []
+    });
+
+    // For own stories, just update localStorage and UI without creating a view record
+    if (isOwnStory) {
+      if (session?.user?.id && currentStory.user.id) {
+        const storageKey = `viewed_stories_${currentStory.user.id}_${session.user.id}`;
+        const storedViewedStories = localStorage.getItem(storageKey);
+        const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
+        viewedStories[currentStory.id] = true;
+        localStorage.setItem(storageKey, JSON.stringify(viewedStories));
+        console.log('[StoryModal] Updated localStorage for own story:', { storageKey, viewedStories });
+
+        // Dispatch event to update UI
+        const event = new CustomEvent('storyViewed', {
+          detail: {
+            userId: currentStory.user.id,
+            storyId: currentStory.id,
+            viewerId: session.user.id,
+            viewedStories,
+            isOwnStory: true
+          }
+        });
+        window.dispatchEvent(event);
+      }
+      return;
+    }
+
+    // For others' stories, track view normally
     const trackView = async () => {
       try {
+        console.log('[StoryModal] Starting view tracking for story:', {
+          storyId: currentStory.id,
+          userId: session.user.id,
+          currentViews: currentStory.views || []
+        });
+        
         const response = await axios.post('/api/stories/view', {
-          storyId: currentStory.id
+          storyIds: [currentStory.id]
         });
 
         if (response.data.success) {
+          console.log('[StoryModal] View tracked successfully:', response.data);
+          
           // Emit socket event for real-time updates
           socket?.emit('storyViewUpdate', {
             storyId: currentStory.id,
             userId: session.user.id,
             timestamp: new Date().toISOString()
           });
+          console.log('[StoryModal] Emitted storyViewUpdate event');
+
+          // Update localStorage
+          if (session?.user?.id && currentStory.user.id) {
+            const storageKey = `viewed_stories_${currentStory.user.id}_${session.user.id}`;
+            const storedViewedStories = localStorage.getItem(storageKey);
+            const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
+            viewedStories[currentStory.id] = true;
+            localStorage.setItem(storageKey, JSON.stringify(viewedStories));
+            console.log('[StoryModal] Updated localStorage:', { storageKey, viewedStories });
+
+            // Dispatch a custom event to notify ProfileAvatar
+            const event = new CustomEvent('storyViewed', {
+              detail: {
+                userId: currentStory.user.id,
+                storyId: currentStory.id,
+                viewerId: session.user.id,
+                viewedStories
+              }
+            });
+            window.dispatchEvent(event);
+            console.log('[StoryModal] Dispatched storyViewed event with details:', event.detail);
+          }
 
           // Update local state with the new view
           setStories(prevStories => {
-            return prevStories.map(story => {
+            const updatedStories = prevStories.map(story => {
               if (story.id === currentStory.id) {
-                return {
-                  ...story,
-                  views: [...story.views, response.data.data]
-                };
+                const hasExistingView = story.views?.some(view => view.user.id === session.user.id);
+                if (!hasExistingView) {
+                  console.log('[StoryModal] Adding view to story:', story.id);
+                  return {
+                    ...story,
+                    views: [...(story.views || []), {
+                      id: `temp-${Date.now()}`,
+                      createdAt: new Date(),
+                      user: {
+                        id: session.user.id,
+                        username: session.user.username || '',
+                        name: session.user.name || null,
+                        image: session.user.image || null
+                      }
+                    }]
+                  };
+                }
               }
               return story;
             });
+            console.log('[StoryModal] Updated stories:', updatedStories);
+            return updatedStories;
           });
+
+          // Update the userStories in the modal context
+          storyModal.setUserStories((prev: UserStoriesState[]) => {
+            console.log('[StoryModal] Updating userStories in modal context');
+            return prev.map((userStory: UserStoriesState) => {
+              if (userStory.userId === currentStory.user.id) {
+                return {
+                  ...userStory,
+                  stories: userStory.stories.map((story: Story) => {
+                    if (story.id === currentStory.id) {
+                      const hasExistingView = story.views?.some((view: StoryView) => view.user.id === session.user.id);
+                      if (!hasExistingView) {
+                        console.log('[StoryModal] Adding view to userStory:', story.id);
+                        const newView: StoryView = {
+                          id: Date.now().toString(),
+                          user: {
+                            id: session.user.id,
+                            username: session.user.username || '',
+                            name: session.user.name || null,
+                            image: session.user.image || null
+                          },
+                          createdAt: new Date()
+                        };
+                        return {
+                          ...story,
+                          views: [...story.views, newView]
+                        };
+                      }
+                    }
+                    return story;
+                  })
+                };
+              }
+              return userStory;
+            });
+          });
+
+          // Get the current viewed stories from localStorage
+          const storageKey = `viewed_stories_${currentStory.user.id}_${session.user.id}`;
+          const storedViewedStories = localStorage.getItem(storageKey);
+          const currentViewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
+
+          // Dispatch event to update the story ring state
+          const event = new CustomEvent('storyViewed', {
+            detail: {
+              userId: currentStory.user.id,
+              storyId: currentStory.id,
+              viewedStories: {
+                ...currentViewedStories,
+                [currentStory.id]: true
+              },
+              isOwnStory: currentStory.user.id === session.user.id
+            }
+          });
+          window.dispatchEvent(event);
         }
       } catch (error) {
-        console.error('Error tracking view:', error);
+        console.error('[StoryModal] Error tracking view:', error);
       }
     };
 
@@ -413,6 +568,10 @@ export default function StoryModal() {
       if (storyTimeout.current) {
         clearTimeout(storyTimeout.current);
       }
+
+      // Emit story modal close event
+      const event = new CustomEvent('storyModalClose');
+      window.dispatchEvent(event);
     }
   }, [storyModal.isOpen]);
 
@@ -631,6 +790,12 @@ export default function StoryModal() {
 
       // If this was the last story for the current user
       if (updatedStories.length === 0) {
+        // Clear the lastViewedKey for own stories
+        if (currentStory?.user.id === session?.user?.id) {
+          const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
+          localStorage.removeItem(lastViewedKey);
+        }
+
         // Remove the current user from userStories
         const updatedUserStories = storyModal.userStories.filter(
           (_, index) => index !== storyModal.currentUserIndex
@@ -660,14 +825,12 @@ export default function StoryModal() {
           stories: updatedStories
         };
         storyModal.setUserStories(updatedUserStories);
-        
-        // If we were viewing the last story, move to the previous one
-        if (currentStoryIndex >= updatedStories.length) {
-          setCurrentStoryIndex(Math.max(0, updatedStories.length - 1));
-        }
       }
-      
-      toast.success('Story deleted successfully');
+
+      // If this was the last story in the current user's stories, move to the previous story
+      if (currentStoryIndex >= updatedStories.length) {
+        setCurrentStoryIndex(Math.max(0, updatedStories.length - 1));
+      }
     } catch (error) {
       console.error('Error deleting story:', error);
       toast.error('Failed to delete story');
@@ -882,12 +1045,8 @@ export default function StoryModal() {
                           </div>
                           <ScrollArea className="h-[300px]">
                             <div className="p-4 space-y-4">
-                              {sortedViewers.map((view: StoryView) => (
-                                <ViewerListItem
-                                  key={view.id}
-                                  user={view.user}
-                                  hasLiked={currentStory.likes.some((like: StoryLike) => like.user.id === view.user.id)}
-                                />
+                              {currentStory?.likes?.map((like) => (
+                                <ViewerListItem key={like.id} user={like.user} hasLiked={true} />
                               ))}
                             </div>
                           </ScrollArea>
