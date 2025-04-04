@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
       
       // Determine the upload directory based on whether it's a profile photo
       const uploadType = isProfilePhoto ? 'profiles' : type;
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads', uploadType);
+      const uploadDir = path.join('/var/www/OG-GRAM/public/uploads', uploadType);
       const relativePath = `/uploads/${uploadType}/${uniqueFilename}`;
       const fullPath = path.join(uploadDir, uniqueFilename);
 

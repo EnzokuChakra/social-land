@@ -3,7 +3,8 @@ import path from 'path';
 
 export async function ensureUploadDirectories() {
   const uploadTypes = ['posts', 'profiles', 'stories', 'reels', 'events'];
-  const baseDir = path.join(process.cwd(), 'public', 'uploads');
+  // Use absolute path for the uploads directory
+  const baseDir = '/var/www/OG-GRAM/public/uploads';
   
   // First ensure base uploads directory exists
   try {
@@ -71,7 +72,7 @@ export async function deleteUploadedFile(fileUrl: string | null) {
 
     // Try to delete from the typed directory first
     if (type) {
-      const typedFilePath = path.join(process.cwd(), 'public', 'uploads', type, filename);
+      const typedFilePath = path.join('/var/www/OG-GRAM/public/uploads', type, filename);
       try {
         await unlink(typedFilePath);
         console.log(`Successfully deleted file: ${typedFilePath}`);
@@ -90,7 +91,7 @@ export async function deleteUploadedFile(fileUrl: string | null) {
 
     // If file wasn't found in typed directory or no type was specified,
     // try the root uploads directory
-    const rootFilePath = path.join(process.cwd(), 'public', 'uploads', filename);
+    const rootFilePath = path.join('/var/www/OG-GRAM/public/uploads', filename);
     try {
       await unlink(rootFilePath);
       console.log(`Successfully deleted file from root: ${rootFilePath}`);
@@ -108,8 +109,7 @@ export async function deleteUploadedFile(fileUrl: string | null) {
     console.error('Error in deleteUploadedFile:', {
       error,
       code: error.code,
-      message: error.message,
-      fileUrl
+      message: error.message
     });
   }
 } 
