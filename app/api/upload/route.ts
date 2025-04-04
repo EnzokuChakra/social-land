@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       
       // Create the upload directory path based on type
       const uploadDir = path.join(process.cwd(), 'public', 'uploads', type);
-      const relativePath = `/uploads/${type}/${uniqueFilename}`;
+      const relativePath = `/public/uploads/${type}/${uniqueFilename}`;
       const fullPath = path.join(uploadDir, uniqueFilename);
 
       console.log('Writing file:', {
@@ -110,19 +110,16 @@ export async function POST(request: NextRequest) {
       console.log('File written successfully to:', fullPath);
       
       // Return the public URL with forward slashes for web use
-      const fileUrl = `/uploads/posts/${uniqueFilename}`;
-      const publicPath = path.join(process.cwd(), 'public', fileUrl);
+      const publicUrl = `/public${relativePath}`;
+      console.log('Upload successful, returning URL:', publicUrl);
       
-      // Save the file
-      await writeFile(publicPath, buffer);
-      
-      console.log("[UPLOAD] File uploaded successfully:", { fileUrl: fileUrl });
+      console.log("[UPLOAD] File uploaded successfully:", { fileUrl: publicUrl });
 
       // Create response with caching headers
       const response = NextResponse.json({ 
         message: 'File uploaded successfully',
-        fileUrl,
-        url: fileUrl // Add url field for backward compatibility
+        fileUrl: publicUrl,
+        url: publicUrl
       });
 
       // Add caching headers

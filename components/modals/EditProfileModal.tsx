@@ -132,39 +132,38 @@ export default function EditProfileModal() {
       });
       
       const uploadData = await response.json();
-      if (uploadData.fileUrl || uploadData.url) {
-        const imageUrl = uploadData.fileUrl || uploadData.url;
-        console.log('[EditProfileModal] Image uploaded successfully:', imageUrl);
+      const imageUrl = uploadData.fileUrl || uploadData.url;
+      
+      console.log("[EditProfileModal] Image uploaded successfully:", imageUrl);
+      
+      // Update profile with new image
+      const result = await updateProfile({
+        image: imageUrl
+      });
+
+      if (result.message === "Profile updated successfully") {
+        console.log("[EditProfileModal] Profile updated successfully");
         
-        // Update the profile with the new image URL
-        const result = await updateProfile({
+        // Emit socket event for real-time update
+        socket?.emit("updateProfile", {
+          userId: session?.user?.id,
           image: imageUrl
         });
         
-        if (result.message === "Profile updated successfully") {
-          console.log('[EditProfileModal] Profile updated successfully');
-          
-          // Emit profile update event
-          if (socket) {
-            socket.emit('profileUpdate', {
-              userId: session?.user?.id,
-              image: imageUrl
-            });
-            console.log('[EditProfileModal] Emitting profile update event:', {
-              userId: session?.user?.id,
-              image: imageUrl
-            });
-          }
-          
-          setPreviewUrl(imageUrl);
-          setSelectedFile(null);
-          form.setValue('image', imageUrl);
-          toast.success("Profile photo updated successfully");
-        } else {
-          console.error('[EditProfileModal] Profile update failed:', result);
-          toast.error(result.message || "Error updating profile photo");
-        }
+        console.log("[EditProfileModal] Emitting profile update event:", {
+          userId: session?.user?.id,
+          image: imageUrl
+        });
+        
+        setIsUploading(false);
+        editProfileModal.onClose();
+        toast.success("Profile photo updated successfully");
+      } else {
+        console.error("[EditProfileModal] Profile update failed:", result);
+        setIsUploading(false);
+        toast.error(result.message || "Error updating profile photo");
       }
+      
     } catch (error) {
       console.error("[EditProfileModal] Error updating profile photo:", error);
       setIsUploading(false);
