@@ -110,16 +110,19 @@ export async function POST(request: NextRequest) {
       console.log('File written successfully to:', fullPath);
       
       // Return the public URL with forward slashes for web use
-      const publicUrl = `/public${relativePath}`;
-      console.log('Upload successful, returning URL:', publicUrl);
+      const fileUrl = `/uploads/posts/${uniqueFilename}`;
+      const publicPath = path.join(process.cwd(), 'public', fileUrl);
       
-      console.log("[UPLOAD] File uploaded successfully:", { fileUrl: publicUrl });
+      // Save the file
+      await writeFile(publicPath, buffer);
+      
+      console.log("[UPLOAD] File uploaded successfully:", { fileUrl: fileUrl });
 
       // Create response with caching headers
       const response = NextResponse.json({ 
         message: 'File uploaded successfully',
-        fileUrl: publicUrl,
-        url: publicUrl
+        fileUrl,
+        url: fileUrl // Add url field for backward compatibility
       });
 
       // Add caching headers
