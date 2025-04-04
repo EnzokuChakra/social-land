@@ -29,6 +29,7 @@ import { useState } from "react";
 import { useStoryModal } from "@/hooks/use-story-modal";
 import ProfilePictureOptionsModal from "./modals/ProfilePictureOptionsModal";
 import { cn } from "@/lib/utils";
+import { EmojiPicker } from "./EmojiPicker";
 
 type ProfileFormErrors = {
   [K in keyof z.infer<typeof UserSchema>]?: string[];
@@ -201,14 +202,23 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
                         </FormDescription>
                       </div>
                       <div className="space-y-2">
-                        <FormControl>
-                          <Textarea 
-                            className="resize-none bg-white dark:bg-black border-neutral-200 dark:border-neutral-800 rounded-md 
-                            focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400 min-h-[120px] text-sm" 
-                            placeholder="Write a short bio..."
-                            {...field} 
-                          />
-                        </FormControl>
+                        <div className="relative">
+                          <FormControl>
+                            <Textarea 
+                              className="resize-none bg-white dark:bg-black border-neutral-200 dark:border-neutral-800 rounded-md 
+                              focus-visible:ring-blue-500 dark:focus-visible:ring-blue-400 min-h-[120px] text-sm pr-10" 
+                              placeholder="Write a short bio..."
+                              {...field} 
+                            />
+                          </FormControl>
+                          <div className="absolute right-3 bottom-3">
+                            <EmojiPicker
+                              onChange={(emoji) => {
+                                field.onChange(field.value + emoji);
+                              }}
+                            />
+                          </div>
+                        </div>
                         <FormDescription className="text-neutral-500 dark:text-neutral-400 text-xs flex justify-between">
                           <span>Add a bio to tell more about yourself</span>
                           <span className="text-neutral-400 sm:ml-1">

@@ -20,6 +20,7 @@ import CommentComponent from "./Comment";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRouter, usePathname } from "next/navigation";
+import { EmojiPicker } from "@/components/EmojiPicker";
 
 // Define interfaces for event types
 interface CommentEventDetail {
@@ -51,6 +52,12 @@ interface CommentUser {
   updatedAt?: Date;
 }
 
+// Define the type for optimistic updates
+type OptimisticAction = 
+  | { type: 'add'; comment: CommentWithExtras }
+  | { type: 'delete'; commentId: string; parentId: string | null }
+  | { type: 'like'; commentId: string; userId: string; parentId: string | null };
+
 function Comments({
   postId,
   comments: initialComments,
@@ -66,10 +73,63 @@ function Comments({
   inputRef?: React.RefObject<HTMLInputElement>;
   showPreview?: boolean;
 }) {
-  const [optimisticComments, setOptimisticComments] = useOptimistic<
+  const [optimisticComments, addOptimisticComment] = useOptimistic<
     CommentWithExtras[],
-    CommentWithExtras
-  >(initialComments, (state, newComment) => [newComment, ...state]);
+    OptimisticAction
+  >(initialComments, (state, action) => {
+    switch (action.type) {
+      case 'add':
+        return [action.comment, ...state];
+      case 'delete':
+        if (action.parentId) {
+          return state.map(comment => {
+            if (comment.id === action.parentId) {
+              return {
+                ...comment,
+                replies: (comment.replies || []).filter(reply => reply.id !== action.commentId)
+              };
+            }
+            return comment;
+          });
+        }
+        return state.filter(comment => comment.id !== action.commentId);
+      case 'like':
+        if (action.parentId) {
+          return state.map(comment => {
+            if (comment.id === action.parentId) {
+              return {
+                ...comment,
+                replies: (comment.replies || []).map(reply => {
+                  if (reply.id === action.commentId) {
+                    const hasLiked = reply.likes.some(like => like.user_id === action.userId);
+                    return {
+                      ...reply,
+                      likes: hasLiked
+                        ? reply.likes.filter(like => like.user_id !== action.userId)
+                        : [...reply.likes, { user_id: action.userId, comment_id: action.commentId }]
+                    };
+                  }
+                  return reply;
+                })
+              };
+            }
+            return comment;
+          });
+        }
+        return state.map(comment => {
+          if (comment.id === action.commentId) {
+            const hasLiked = comment.likes.some(like => like.user_id === action.userId);
+            return {
+              ...comment,
+              likes: hasLiked
+                ? comment.likes.filter(like => like.user_id !== action.userId)
+                : [...comment.likes, { user_id: action.userId, comment_id: action.commentId }]
+            };
+          }
+          return comment;
+        });
+    }
+  });
 
   const [isPending, startTransition] = useTransition();
   const [isLoading, setIsLoading] = useState(false);
@@ -203,7 +263,10 @@ function Comments({
         
         // Update state with new comments
         startTransition(() => {
-          setOptimisticComments(prev => [...prev, ...newComments]);
+          addOptimisticComment({
+            type: 'add',
+            comment: data.comments[0]
+          });
           setPage(nextPage);
           setHasMore(data.hasMore);
           setTotalComments(data.totalComments);
@@ -308,7 +371,10 @@ function Comments({
         body: optimisticComment.body
       });
 
-      setOptimisticComments(prev => [...prev, optimisticComment]);
+      addOptimisticComment({
+        type: 'add',
+        comment: optimisticComment
+      });
     };
 
     // Add event listener for real-time updates
@@ -323,7 +389,7 @@ function Comments({
           handleOptimisticComment as EventListener);
       }
     };
-  }, [postId, user, setOptimisticComments]);
+  }, [postId, user, addOptimisticComment]);
 
   // Add a refresh mechanism that periodically fetches new comments
   useEffect(() => {
@@ -355,7 +421,10 @@ function Comments({
         console.log(`Found ${newComments.length} new comments from other users`);
         
         // Add all new comments
-        setOptimisticComments(prev => [...prev, ...newComments]);
+        addOptimisticComment({
+          type: 'add',
+          comment: newComments[0]
+        });
       }
     };
 
@@ -371,7 +440,7 @@ function Comments({
           handleCommentsUpdate as EventListener);
       }
     };
-  }, [setOptimisticComments, postId, optimisticComments]);
+  }, [addOptimisticComment, postId, optimisticComments]);
 
   const isDisabled = isSubmitting || (!user?.verified && cooldownTime > 0);
   
@@ -475,75 +544,43 @@ function Comments({
     }
   };
 
-  // Handle comment submission
+  // Submission handler with real-time updates
   const onSubmit = async (values: z.infer<typeof CreateComment>) => {
-    if (!user) return;
-    if (isSubmitting || cooldownTime > 0) return;
-    
-    setIsSubmitting(true);
-    
+    if (!user) {
+      toast.error("You must be logged in to comment");
+      return;
+    }
+
     try {
-      // Create optimistic comment
-      const optimisticComment: CommentWithExtras = {
-        id: `temp-${crypto.randomUUID()}`,
-        body: values.body,
-        createdAt: new Date(),
-        user: {
-          id: user.id,
-          image: user.image || null,
-          username: user.username || null,
-          name: user.name || null,
-          bio: null,
-          verified: user.verified || false,
-          email: user.email || '',
-          password: '',
-          isPrivate: false,
-          role: "NORMAL" as UserRole,
-          status: "NORMAL" as UserStatus,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-        user_id: user.id,
-        postId: postId,
-        reelId: null,
-        updatedAt: new Date(),
-        parentId: values.parentId || null,
-        replies: [],
-        likes: [],
-      };
-
-      // Wrap optimistic update in startTransition
-      startTransition(() => {
-        setOptimisticComments(prev => [...prev, optimisticComment]);
-      });
-
-      // Create actual comment
       const response = await createComment({
         ...values,
-        parentId: values.parentId
+        postId: postId,
+        parentId: form.getValues("parentId")
       });
 
-      if (!response || response.errors) {
+      if (!response || !response.comment) {
         throw new Error(response?.message || "Failed to create comment");
       }
 
-      // Reset form and input
+      // Add optimistic comment
+      addOptimisticComment({
+        type: 'add',
+        comment: response.comment
+      });
+
+      // Reset form state after success
       form.reset();
-      if (commentRef.current) {
-        commentRef.current.value = '';
+      setReplyingTo(null);
+
+      // Set cooldown timer for non-verified users
+      if (!user.verified) {
+        const cooldownEndTime = Date.now() + 15000; // 15 seconds
+        localStorage.setItem('comment_cooldown', cooldownEndTime.toString());
+        setCooldownTime(15);
       }
-      // Reset parentId after successful submission
-      form.setValue("parentId", null);
-
-      // Set cooldown timer to 15 seconds and store in localStorage
-      const cooldownEndTime = Date.now() + 15000; // 15 seconds
-      localStorage.setItem('comment_cooldown', cooldownEndTime.toString());
-      setCooldownTime(15);
-
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Something went wrong");
-    } finally {
-      setIsSubmitting(false);
+      console.error("Error creating comment:", error);
+      toast.error("Failed to create comment");
     }
   };
 
@@ -642,30 +679,39 @@ function Comments({
           onSubmit={form.handleSubmit(onSubmit)}
           className="relative flex items-center space-x-2 w-full px-3 sm:px-0"
         >
-          <FormField
-            control={form.control}
-            name="body"
-            render={({ field }) => (
-              <FormItem className="flex-grow">
-                <FormControl>
-                  <input
-                    type="text"
-                    placeholder={form.watch("parentId") ? "Add a reply..." : "Add a comment..."}
-                    className="w-full text-sm py-1 px-3 bg-transparent border-none focus:outline-none dark:text-white disabled:opacity-50"
-                    disabled={isSubmitting || cooldownTime > 0}
-                    {...field}
-                    ref={(e) => {
-                      field.ref(e);
-                      if (commentRef && 'current' in commentRef && e) {
-                        (commentRef as React.MutableRefObject<HTMLInputElement>).current = e;
-                      }
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="flex items-center space-x-2 w-full">
+            <EmojiPicker
+              onChange={(emoji) => {
+                const currentValue = form.getValues("body");
+                form.setValue("body", currentValue + emoji);
+              }}
+            />
+            
+            <FormField
+              control={form.control}
+              name="body"
+              render={({ field }) => (
+                <FormItem className="flex-grow">
+                  <FormControl>
+                    <input
+                      type="text"
+                      placeholder={form.watch("parentId") ? "Add a reply..." : "Add a comment..."}
+                      className="w-full text-sm py-1 px-3 bg-transparent border-none focus:outline-none dark:text-white disabled:opacity-50"
+                      disabled={isSubmitting || cooldownTime > 0}
+                      {...field}
+                      ref={(e) => {
+                        field.ref(e);
+                        if (commentRef && 'current' in commentRef && e) {
+                          (commentRef as React.MutableRefObject<HTMLInputElement>).current = e;
+                        }
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
           {cooldownTime > 0 ? (
             <div className="text-sm font-semibold text-neutral-500">
               {cooldownTime}s

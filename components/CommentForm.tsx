@@ -11,13 +11,14 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Smile, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useForm, UseFormReturn } from "react-hook-form";
 import { z } from "zod";
 import { useEffect, useState, forwardRef, useImperativeHandle, Ref } from "react";
 import { toast } from "react-hot-toast";
 import { useSession } from "next-auth/react";
 import { getSocket } from "@/lib/socket";
+import { EmojiPicker } from "./EmojiPicker";
 
 const MAX_COMMENT_LENGTH = 1000;
 
@@ -181,7 +182,7 @@ const CommentForm = forwardRef<
         parentId: parentId
       });
 
-      if (!response || response.errors) {
+      if (!response || !response.comment) {
         throw new Error(response?.message || "Failed to create comment");
       }
 
@@ -227,55 +228,53 @@ const CommentForm = forwardRef<
           </div>
         )}
         <div className="flex items-center space-x-2 w-full">
-          <button 
-            type="button"
-            className="text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
-            disabled={isDisabled}
-          >
-            <Smile className="h-5 w-5" />
-          </button>
-          <div className="w-full flex-1 relative">
-            <FormField
-              control={form.control}
-              name="body"
-              render={({ field: { ref: fieldRef, ...fieldProps } }) => {
-                return (
-                  <FormItem className="w-full flex-1">
-                    <FormControl>
-                      <input
-                        disabled={isDisabled}
-                        type="text"
-                        placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : "Add a comment..."}
-                        className="bg-transparent text-sm border-none focus:outline-none w-full dark:text-neutral-200 placeholder-neutral-500 disabled:opacity-30"
-                        maxLength={MAX_COMMENT_LENGTH}
-                        ref={mergeRefs(
-                          fieldRef, 
-                          (el) => setInternalInputRef(el),
-                          inputRef
-                        )}
-                        {...fieldProps}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                );
-              }}
-            />
-          </div>
-          {cooldownTime > 0 ? (
-            <div className="text-sm font-semibold text-neutral-500">
-              {cooldownTime}s
-            </div>
-          ) : (
-            <button
-              disabled={isDisabled || isAtLimit || !body.trim()}
-              type="submit"
-              className="text-sky-500 text-sm font-semibold hover:text-sky-700 dark:hover:text-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Post
-            </button>
-          )}
+          <EmojiPicker
+            onChange={(emoji) => {
+              const currentValue = form.getValues("body");
+              form.setValue("body", currentValue + emoji);
+            }}
+          />
+          
+          <FormField
+            control={form.control}
+            name="body"
+            render={({ field: { ref: fieldRef, ...fieldProps } }) => {
+              return (
+                <FormItem className="w-full flex-1">
+                  <FormControl>
+                    <input
+                      disabled={isDisabled}
+                      type="text"
+                      placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : "Add a comment..."}
+                      className="bg-transparent text-sm border-none focus:outline-none w-full dark:text-neutral-200 placeholder-neutral-500 disabled:opacity-30"
+                      maxLength={MAX_COMMENT_LENGTH}
+                      ref={mergeRefs(
+                        fieldRef, 
+                        (el) => setInternalInputRef(el),
+                        inputRef
+                      )}
+                      {...fieldProps}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
+          />
         </div>
+        {cooldownTime > 0 ? (
+          <div className="text-sm font-semibold text-neutral-500">
+            {cooldownTime}s
+          </div>
+        ) : (
+          <button
+            disabled={isDisabled || isAtLimit || !body.trim()}
+            type="submit"
+            className="text-sky-500 text-sm font-semibold hover:text-sky-700 dark:hover:text-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Post
+          </button>
+        )}
         
         {body.length > 0 && isNearLimit && (
           <div className={cn(
