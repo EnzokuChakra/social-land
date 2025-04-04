@@ -40,6 +40,7 @@ export default function UserAvatar({ user, priority = false, className, ...avata
 
     const handleProfileUpdate = (data: { userId: string; image: string | null }) => {
       if (data.userId === user.id) {
+        console.log("[UserAvatar] Received profile update:", data);
         setCurrentImage(data.image);
         setNeedsUpdate(true);
         // Reset the update flag after a short delay
@@ -47,23 +48,23 @@ export default function UserAvatar({ user, priority = false, className, ...avata
       }
     };
 
-    socket.on('profileUpdate', handleProfileUpdate);
+    socket.on('updateProfile', handleProfileUpdate);
     return () => {
-      socket.off('profileUpdate', handleProfileUpdate);
+      socket.off('updateProfile', handleProfileUpdate);
     };
   }, [socket, user?.id]);
 
   const imageUrl = useMemo(() => {
-    if (!currentImage) return "/images/profile_placeholder.webp";
+    if (!currentImage) return "/public/images/profile_placeholder.webp";
     
-    const baseUrl = currentImage.startsWith('http')
-      ? currentImage
-      : currentImage.startsWith('/')
-        ? currentImage
-        : `/uploads/${currentImage}`;
+    // Handle absolute URLs
+    if (currentImage.startsWith('http')) return currentImage;
     
-    // Only add timestamp when there's an actual update
-    return needsUpdate ? `${baseUrl}?t=${Date.now()}` : baseUrl;
+    // Handle paths that already have /public/
+    if (currentImage.startsWith('/public/')) return currentImage;
+    
+    // Add /public/ prefix for relative paths
+    return `/public${currentImage.startsWith('/') ? currentImage : `/${currentImage}`}${needsUpdate ? `?t=${Date.now()}` : ''}`;
   }, [currentImage, needsUpdate]);
 
   const altText = user ? `${user.name || user.username || 'User'}'s profile picture` : 'User profile picture';
