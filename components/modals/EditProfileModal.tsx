@@ -146,7 +146,7 @@ export default function EditProfileModal() {
         console.log("[EditProfileModal] Profile updated successfully");
         
         // Emit socket event for real-time update
-        socket?.emit("updateProfile", {
+        socket?.emit("profileUpdate", {
           userId: session?.user?.id,
           image: imageUrl
         });
