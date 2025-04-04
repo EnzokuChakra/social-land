@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/form";
 import useMount from "@/hooks/useMount";
 import { updateProfile } from "@/lib/actions";
-import { UserWithExtras } from "@/lib/definitions";
+import { UserWithExtras, UserRole, UserStatus } from "@/lib/definitions";
 import { UpdateUser } from "@/lib/schemas";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSession } from "next-auth/react";
@@ -60,14 +60,19 @@ interface Story {
   fileUrl: string;
   createdAt: Date;
   scale?: number;
-  views?: any[];
-  likes?: any[];
+  user_id: string;
   user: {
     id: string;
-    username: string;
-    name: string;
-    image: string;
+    username: string | null;
+    name: string | null;
+    image: string | null;
+    verified: boolean;
+    isPrivate: boolean;
+    role: UserRole;
+    status: UserStatus;
   };
+  views?: any[];
+  likes?: any[];
 }
 
 interface Props {
@@ -136,18 +141,30 @@ function ProfileAvatar({
     if (session?.user?.id && user.id) {
       const storageKey = `viewed_stories_${user.id}_${session.user.id}`;
       const storedViewedStories = localStorage.getItem(storageKey);
-      console.log('[ProfileAvatar] Initial localStorage state:', { storageKey, storedViewedStories });
-      if (storedViewedStories) {
+      
+      // Check if there are any stories newer than the last viewed timestamp
+      const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
+      const lastViewed = localStorage.getItem(lastViewedKey);
+      const lastViewedDate = lastViewed ? new Date(lastViewed) : null;
+      
+      const hasNewerStories = stories.some(story => {
+        const storyDate = new Date(story.createdAt);
+        return !lastViewedDate || storyDate > lastViewedDate;
+      });
+      
+      // If there are newer stories, clear the viewed state
+      if (hasNewerStories) {
+        localStorage.removeItem(storageKey);
+        setViewedStories({});
+      } else if (storedViewedStories) {
         setViewedStories(JSON.parse(storedViewedStories));
       }
     }
-  }, [session?.user?.id, user.id]);
+  }, [session?.user?.id, user.id, stories]);
 
   // Listen for story viewed events
   useEffect(() => {
     const handleStoryViewed = (event: CustomEvent) => {
-      console.log('[ProfileAvatar] Received storyViewed event:', event.detail);
-      
       if (event.detail.userId === user.id && session?.user?.id) {
         const storageKey = `viewed_stories_${user.id}_${session.user.id}`;
         const viewedStories = event.detail.viewedStories || {};
@@ -157,13 +174,6 @@ function ProfileAvatar({
           const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
           localStorage.setItem(lastViewedKey, new Date().toISOString());
         }
-        
-        console.log('[ProfileAvatar] Updating view state:', {
-          storageKey,
-          viewedStories,
-          currentStories: stories,
-          isOwnStory: event.detail.isOwnStory
-        });
         
         setViewedStories(viewedStories);
         localStorage.setItem(storageKey, JSON.stringify(viewedStories));
@@ -180,9 +190,7 @@ function ProfileAvatar({
   // Listen for story modal close and update view state
   useEffect(() => {
     const handleStoryModalClose = () => {
-      console.log('[ProfileAvatar] Story modal closed');
       if (!session?.user?.id || !user?.id) {
-        console.log('[ProfileAvatar] Missing user or session data');
         return;
       }
 
@@ -190,13 +198,10 @@ function ProfileAvatar({
       const storedViewedStories = localStorage.getItem(storageKey);
       const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
       
-      console.log('[ProfileAvatar] Current stories on modal close:', stories);
-      
       // Update viewed stories based on current stories
       let hasChanges = false;
       stories.forEach(story => {
         if (!story || !story.views) {
-          console.log('[ProfileAvatar] Story or views is undefined:', story?.id);
           return;
         }
 
@@ -204,11 +209,6 @@ function ProfileAvatar({
         const hasValidView = story.views.some(view => view?.user?.id === session.user.id);
 
         if (isOwnStory || hasValidView) {
-          console.log('[ProfileAvatar] Story marked as viewed on close:', {
-            storyId: story.id,
-            isOwnStory,
-            hasViews: story.views?.length
-          });
           if (!viewedStories[story.id]) {
             viewedStories[story.id] = true;
             hasChanges = true;
@@ -217,11 +217,8 @@ function ProfileAvatar({
       });
       
       if (hasChanges) {
-        console.log('[ProfileAvatar] Updated viewedStories on close:', viewedStories);
         setViewedStories(viewedStories);
         localStorage.setItem(storageKey, JSON.stringify(viewedStories));
-      } else {
-        console.log('[ProfileAvatar] No changes to viewedStories on close');
       }
     };
 
@@ -241,7 +238,9 @@ function ProfileAvatar({
   });
 
   const hasUnviewedStories = hasStories && stories.some(story => {
-    if (!story || !story.user) return false;
+    if (!story || !story.user) {
+      return false;
+    }
 
     const storyDate = new Date(story.createdAt);
     const now = new Date();
@@ -249,7 +248,9 @@ function ProfileAvatar({
     const hours = diff / (1000 * 60 * 60);
     
     // Only consider stories within the last 24 hours
-    if (hours >= 24) return false;
+    if (hours >= 24) {
+      return false;
+    }
     
     // For own stories, check if there are any new stories since last view
     const isOwnStory = story.user.id === session?.user?.id;
@@ -260,14 +261,26 @@ function ProfileAvatar({
       const lastViewedDate = lastViewed ? new Date(lastViewed) : null;
       
       // If the story is newer than the last viewed timestamp, it's unviewed
-      return !lastViewedDate || storyDate > lastViewedDate;
+      const isUnviewed = !lastViewedDate || storyDate > lastViewedDate;
+      
+      // If the story is unviewed, clear any existing viewed state
+      if (isUnviewed) {
+        const storageKey = `viewed_stories_${story.user.id}_${session?.user?.id}`;
+        localStorage.removeItem(storageKey);
+      }
+      
+      return isUnviewed;
     }
     
-    // For others' stories, check if this story has been viewed
-    const isViewed = story.views?.some(view => view.user.id === session?.user?.id) ?? false;
-    const isViewedInState = viewedStories[story.id] === true;
+    // For others' stories, check if this story has been viewed in localStorage
+    const storageKey = `viewed_stories_${story.user.id}_${session?.user?.id}`;
+    const storedViewedStories = localStorage.getItem(storageKey);
+    const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
     
-    return !(isViewed || isViewedInState);
+    // If the story is not in viewedStories, it's unviewed
+    const isUnviewed = !viewedStories[story.id];
+    
+    return isUnviewed;
   });
 
   // Update local stories when prop changes
@@ -319,7 +332,11 @@ function ProfileAvatar({
               id: user.id,
               username: user.username,
               name: user.name,
-              image: user.image
+              image: user.image,
+              verified: user.verified,
+              isPrivate: user.isPrivate,
+              role: user.role,
+              status: user.status
             }
           }));
 
@@ -344,13 +361,8 @@ function ProfileAvatar({
             });
             setViewedStories(newViewedStories);
             localStorage.setItem(storageKey, JSON.stringify(newViewedStories));
-            
-            if (typeof window !== 'undefined') {
-              console.log('[ProfileAvatar] Updated viewedStories on story open:', newViewedStories);
-            }
           }
         } catch (error) {
-          console.error('Error fetching story data:', error);
           toast.error('Failed to load story');
         }
       };
@@ -423,7 +435,6 @@ function ProfileAvatar({
               storyModal.setUserId(user.id);
               storyModal.onOpen();
             } catch (error) {
-              console.error('Error fetching story data:', error);
               toast.error('Failed to load story');
             }
           };

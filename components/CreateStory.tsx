@@ -150,16 +150,9 @@ export default function CreateStory({ open, onClose }: Props) {
       const viewedStoriesKey = `viewed_stories_${session?.user?.id}_${session?.user?.id}`;
       localStorage.removeItem(viewedStoriesKey);
       
-      // Dispatch event to update the story ring state
-      const event = new CustomEvent('storyViewed', {
-        detail: {
-          userId: session?.user?.id,
-          storyId: result.story.id,
-          viewedStories: {},
-          isOwnStory: true
-        }
-      });
-      window.dispatchEvent(event);
+      // Initialize the story as unviewed
+      const viewedStories = {};
+      localStorage.setItem(viewedStoriesKey, JSON.stringify(viewedStories));
       
       toast.success("Your story has been shared!");
       router.refresh();

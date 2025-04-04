@@ -155,6 +155,28 @@ export default function StoryModal() {
     const isLastStory = currentStoryIndex === currentUserStories.stories.length - 1;
     const isLastUser = storyModal.currentUserIndex === storyModal.userStories.length - 1;
 
+    // Emit storyViewed event when a story is viewed
+    if (currentStory && session?.user?.id) {
+      const isOwnStory = currentStory.user.id === session.user.id;
+      const storageKey = `viewed_stories_${currentStory.user.id}_${session.user.id}`;
+      const storedViewedStories = localStorage.getItem(storageKey);
+      const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
+      
+      // Mark the current story as viewed
+      viewedStories[currentStory.id] = true;
+      localStorage.setItem(storageKey, JSON.stringify(viewedStories));
+
+      // Emit the storyViewed event
+      const event = new CustomEvent('storyViewed', {
+        detail: {
+          userId: currentStory.user.id,
+          viewedStories,
+          isOwnStory
+        }
+      });
+      window.dispatchEvent(event);
+    }
+
     if (isLastStory && isLastUser) {
       // Set a timeout to close the modal after the last story is viewed
       const timeout = setTimeout(() => {
@@ -213,17 +235,10 @@ export default function StoryModal() {
   // Track view when story is opened
   useEffect(() => {
     if (!currentStory || !session?.user?.id) {
-      console.log('[StoryModal] Skipping view tracking - no story or session');
       return;
     }
 
     const isOwnStory = currentStory.user.id === session.user.id;
-    console.log('[StoryModal] Story details:', {
-      storyId: currentStory.id,
-      userId: session.user.id,
-      isOwnStory,
-      currentViews: currentStory.views || []
-    });
 
     // For own stories, just update localStorage and UI without creating a view record
     if (isOwnStory) {
@@ -233,7 +248,6 @@ export default function StoryModal() {
         const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
         viewedStories[currentStory.id] = true;
         localStorage.setItem(storageKey, JSON.stringify(viewedStories));
-        console.log('[StoryModal] Updated localStorage for own story:', { storageKey, viewedStories });
 
         // Dispatch event to update UI
         const event = new CustomEvent('storyViewed', {
@@ -253,26 +267,17 @@ export default function StoryModal() {
     // For others' stories, track view normally
     const trackView = async () => {
       try {
-        console.log('[StoryModal] Starting view tracking for story:', {
-          storyId: currentStory.id,
-          userId: session.user.id,
-          currentViews: currentStory.views || []
-        });
-        
         const response = await axios.post('/api/stories/view', {
           storyIds: [currentStory.id]
         });
 
         if (response.data.success) {
-          console.log('[StoryModal] View tracked successfully:', response.data);
-          
           // Emit socket event for real-time updates
           socket?.emit('storyViewUpdate', {
             storyId: currentStory.id,
             userId: session.user.id,
             timestamp: new Date().toISOString()
           });
-          console.log('[StoryModal] Emitted storyViewUpdate event');
 
           // Update localStorage
           if (session?.user?.id && currentStory.user.id) {
@@ -281,7 +286,6 @@ export default function StoryModal() {
             const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
             viewedStories[currentStory.id] = true;
             localStorage.setItem(storageKey, JSON.stringify(viewedStories));
-            console.log('[StoryModal] Updated localStorage:', { storageKey, viewedStories });
 
             // Dispatch a custom event to notify ProfileAvatar
             const event = new CustomEvent('storyViewed', {
@@ -293,7 +297,6 @@ export default function StoryModal() {
               }
             });
             window.dispatchEvent(event);
-            console.log('[StoryModal] Dispatched storyViewed event with details:', event.detail);
           }
 
           // Update local state with the new view
@@ -302,7 +305,6 @@ export default function StoryModal() {
               if (story.id === currentStory.id) {
                 const hasExistingView = story.views?.some(view => view.user.id === session.user.id);
                 if (!hasExistingView) {
-                  console.log('[StoryModal] Adding view to story:', story.id);
                   return {
                     ...story,
                     views: [...(story.views || []), {
@@ -320,13 +322,11 @@ export default function StoryModal() {
               }
               return story;
             });
-            console.log('[StoryModal] Updated stories:', updatedStories);
             return updatedStories;
           });
 
           // Update the userStories in the modal context
           storyModal.setUserStories((prev: UserStoriesState[]) => {
-            console.log('[StoryModal] Updating userStories in modal context');
             return prev.map((userStory: UserStoriesState) => {
               if (userStory.userId === currentStory.user.id) {
                 return {
@@ -335,7 +335,6 @@ export default function StoryModal() {
                     if (story.id === currentStory.id) {
                       const hasExistingView = story.views?.some((view: StoryView) => view.user.id === session.user.id);
                       if (!hasExistingView) {
-                        console.log('[StoryModal] Adding view to userStory:', story.id);
                         const newView: StoryView = {
                           id: Date.now().toString(),
                           user: {
@@ -359,33 +358,17 @@ export default function StoryModal() {
               return userStory;
             });
           });
-
-          // Get the current viewed stories from localStorage
-          const storageKey = `viewed_stories_${currentStory.user.id}_${session.user.id}`;
-          const storedViewedStories = localStorage.getItem(storageKey);
-          const currentViewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
-
-          // Dispatch event to update the story ring state
-          const event = new CustomEvent('storyViewed', {
-            detail: {
-              userId: currentStory.user.id,
-              storyId: currentStory.id,
-              viewedStories: {
-                ...currentViewedStories,
-                [currentStory.id]: true
-              },
-              isOwnStory: currentStory.user.id === session.user.id
-            }
-          });
-          window.dispatchEvent(event);
         }
       } catch (error) {
-        console.error('[StoryModal] Error tracking view:', error);
+        setError("Failed to load stories");
       }
     };
 
-    trackView();
-  }, [currentStory, session?.user?.id, socket]);
+    // Only track view if the story is actually being viewed
+    if (progress > 0) {
+      trackView();
+    }
+  }, [currentStory, session?.user?.id, socket, progress]);
 
   // Handle socket events for view updates
   useEffect(() => {
@@ -439,6 +422,9 @@ export default function StoryModal() {
 
     let progressTimer: NodeJS.Timeout;
     let startDelay: NodeJS.Timeout;
+    const STORY_DURATION = 5000; // 5 seconds per story
+    const PROGRESS_INTERVAL = 50; // Update every 50ms for smooth animation
+    const PROGRESS_INCREMENT = (100 / (STORY_DURATION / PROGRESS_INTERVAL)); // Calculate increment based on duration
 
     const startProgress = () => {
       // Reset progress before starting new timer
@@ -448,7 +434,7 @@ export default function StoryModal() {
         startDelay = setTimeout(() => {
           progressTimer = setInterval(() => {
             setProgress((prev) => {
-              const newProgress = prev + 1.43;
+              const newProgress = prev + PROGRESS_INCREMENT;
               if (newProgress >= 100) {
                 clearInterval(progressTimer);
                 
@@ -466,8 +452,8 @@ export default function StoryModal() {
               }
               return newProgress;
             });
-          }, 100); // Keep 100ms interval
-        }, 500);
+          }, PROGRESS_INTERVAL);
+        }, 100); // Small delay before starting to ensure smooth transition
       });
     };
 
@@ -545,7 +531,7 @@ export default function StoryModal() {
         storyModal.setUserStories(updatedUserStories);
       }
     } catch (error) {
-      console.error("Error fetching stories:", error);
+      setError("Failed to load stories");
     }
   };
 
@@ -611,7 +597,6 @@ export default function StoryModal() {
           storyModal.setUserStories(updatedUserStories);
         }
       } catch (error) {
-        console.error("Error fetching stories:", error);
         setError("Failed to load stories");
       } finally {
         setIsLoading(false);
@@ -746,8 +731,6 @@ export default function StoryModal() {
         action: newIsLiked ? 'like' : 'unlike'
       });
     } catch (error: any) {
-      console.error('Error updating like:', error);
-      
       // Revert optimistic update
       setIsLiked(!newIsLiked);
       setStories(previousStories);
@@ -832,7 +815,6 @@ export default function StoryModal() {
         setCurrentStoryIndex(Math.max(0, updatedStories.length - 1));
       }
     } catch (error) {
-      console.error('Error deleting story:', error);
       toast.error('Failed to delete story');
     }
   };

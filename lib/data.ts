@@ -1425,13 +1425,27 @@ export async function fetchUserStories(userId: string) {
         },
       },
       include: {
-        user: true,
+        user: {
+          select: {
+            id: true,
+            username: true,
+            name: true,
+            image: true,
+            verified: true,
+            isPrivate: true,
+            role: true,
+            status: true
+          }
+        },
         likes: {
           include: {
             user: true
           }
         },
         views: {
+          where: {
+            user_id: userId
+          },
           include: {
             user: true
           }

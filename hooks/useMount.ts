@@ -7,7 +7,7 @@ function useMount() {
 
   useEffect(() => {
     setMount(true);
-  }, [mount]);
+  }, []);
 
   return mount;
 }

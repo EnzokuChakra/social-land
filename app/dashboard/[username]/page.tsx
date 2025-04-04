@@ -28,9 +28,9 @@ import {
   SavedPost,
   PostTag,
   Post,
-  User
+  User,
+  Story
 } from "@/lib/definitions";
-import { Story } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -49,19 +49,66 @@ interface Props {
 interface ProfileAvatarStory {
   id: string;
   fileUrl: string;
-  createdAt: string;
-  scale: number;
+  createdAt: Date;
+  scale?: number;
   user_id: string;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    username: string | null;
+    password: string | null;
+    image: string | null;
+    bio: string | null;
+    verified: boolean;
+    isPrivate: boolean;
+    role: UserRole;
+    status: UserStatus;
+    createdAt: Date;
+    updatedAt: Date;
+    stories?: { id: string }[];
+    hasActiveStory?: boolean;
+  };
 }
 
 // Update the transformation helper
-function transformStoryToStoryType(story: StoryWithExtras): Story {
+function transformStoryToStoryType(story: StoryWithExtras): {
+  id: string;
+  fileUrl: string;
+  createdAt: Date;
+  scale?: number;
+  user_id: string;
+  user: {
+    id: string;
+    username: string | null;
+    name: string | null;
+    image: string | null;
+    verified: boolean;
+    isPrivate: boolean;
+    role: UserRole;
+    status: UserStatus;
+  };
+  views?: any[];
+  likes?: any[];
+} {
   return {
     id: story.id,
     fileUrl: story.fileUrl,
+    createdAt: story.createdAt,
     scale: story.scale,
     user_id: story.user_id,
-    createdAt: new Date(story.createdAt)
+    user: {
+      id: story.user.id,
+      username: story.user.username,
+      name: story.user.name,
+      image: story.user.image,
+      verified: story.user.verified,
+      isPrivate: story.user.isPrivate || false,
+      role: story.user.role as UserRole,
+      status: story.user.status as UserStatus
+    },
+    views: story.views || [],
+    likes: story.likes || []
   };
 }
 
@@ -94,13 +141,9 @@ export default async function ProfilePage({ params }: Props) {
     // Get user's stories
     const stories = await fetchUserStories(profile.id);
     const hasValidStories = stories.length > 0;
-    
-    if (hasValidStories) {
-      console.log("[PROFILE_PAGE] Found valid stories:", {
-        count: stories.length,
-        username: profile.username,
-      });
-    }
+
+    // Transform stories
+    const transformedStories = stories.map(story => transformStoryToStoryType(story));
 
     // Get reels enabled status
     const reelsEnabled = await getReelsEnabled();
@@ -182,76 +225,9 @@ export default async function ProfilePage({ params }: Props) {
             following: [],
             followers: []
           } as User
-        })) as (Like & { user: User })[],
-        savedBy: (post.savedBy || []).map(save => ({
-          ...save,
-          user: {
-            id: save.user_id,
-            name: null,
-            email: "",
-            username: null,
-            password: null,
-            image: null,
-            bio: null,
-            verified: false,
-            isPrivate: false,
-            role: "USER" as UserRole,
-            status: "NORMAL" as UserStatus,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            following: [],
-            followers: []
-          } as User
-        })) as (SavedPost & { user: User })[],
-        comments: (post.comments || []).map(comment => ({
-          ...comment,
-          user: {
-            id: comment.user_id,
-            name: null,
-            email: "",
-            username: null,
-            password: null,
-            image: null,
-            bio: null,
-            verified: false,
-            isPrivate: false,
-            role: "USER" as UserRole,
-            status: "NORMAL" as UserStatus,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            following: [],
-            followers: []
-          } as User,
-          likes: [],
-          replies: [],
-          parent: null,
-          parentId: null
-        })) as CommentWithExtras[],
-        tags: post.tags || []
+        })) as (Like & { user: User })[]
       })) as PostWithExtras[] || [],
-      saved: [],
-      stories: stories.map((story: Story) => ({
-        ...story,
-        user: {
-          id: profile.id,
-          name: profile.name,
-          email: profile.email,
-          username: profile.username,
-          password: profile.password,
-          image: profile.image,
-          bio: profile.bio,
-          verified: profile.verified,
-          isPrivate: profile.isPrivate || false,
-          role: profile.role as UserRole,
-          status: profile.status as UserStatus,
-          createdAt: profile.createdAt,
-          updatedAt: profile.updatedAt,
-          following: [],
-          followers: []
-        } as User,
-        likes: [],
-        views: []
-      })) as StoryWithExtras[]
+      stories: transformedStories
     } as UserWithExtras;
 
     // Check follow status after profile transformation
@@ -267,24 +243,13 @@ export default async function ProfilePage({ params }: Props) {
       (follow) => follow.followingId === session.user.id && follow.status === "ACCEPTED"
     ) || false;
 
-    // Update the story transformation
-    const validStories = stories.map(story => ({
-      id: story.id,
-      fileUrl: story.fileUrl,
-      scale: story.scale,
-      user_id: story.user_id,
-      createdAt: story.createdAt instanceof Date 
-        ? story.createdAt.toISOString() 
-        : new Date(story.createdAt).toISOString()
-    })) as ProfileAvatarStory[];
-
     return (
       <div className="flex flex-col min-h-screen">
         <main className="flex-1 pb-[56px] md:pb-0 bg-white dark:bg-black mt-[72px]" suppressHydrationWarning>
           <div className="max-w-[935px] mx-auto" suppressHydrationWarning>
             <section className="flex flex-col md:flex-row gap-y-4 px-4 pb-6" suppressHydrationWarning>
               <div className="shrink-0 md:w-[290px] md:mr-7 flex justify-center md:justify-center" suppressHydrationWarning>
-                <ProfileAvatar user={profileWithExtras} stories={validStories} showModal={true}>
+                <ProfileAvatar user={profileWithExtras} stories={transformedStories} showModal={true}>
                   <UserAvatar
                     user={profileWithExtras}
                     className="w-[86px] h-[86px] md:w-[150px] md:h-[150px] cursor-pointer ring-2 ring-neutral-100 dark:ring-neutral-900"
