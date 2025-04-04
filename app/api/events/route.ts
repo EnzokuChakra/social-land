@@ -3,8 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { nanoid } from "nanoid";
-import { writeFile } from 'fs/promises';
-import { mkdir } from 'fs/promises';
+import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { unlink } from 'fs/promises';
 
@@ -24,18 +23,6 @@ export async function POST(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // Ensure upload directory exists
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'events');
-    console.log("[EVENTS_POST] Upload directory:", uploadDir);
-    
-    try {
-      await mkdir(uploadDir, { recursive: true });
-      console.log("[EVENTS_POST] Upload directory created/verified");
-    } catch (error) {
-      console.error("[EVENTS_POST] Error creating upload directory:", error);
-      throw error;
-    }
-
     // Get form data
     const formData = await req.formData();
     console.log("[EVENTS_POST] Form data received");
@@ -50,17 +37,47 @@ export async function POST(req: Request) {
     // Create a unique filename
     const ext = path.extname(photo.name);
     const filename = `${nanoid()}${ext}`;
+    
+    // Use the correct absolute path for OG-GRAM
+    const uploadDir = path.join('/var/www/OG-GRAM/public/uploads/events');
     const filepath = path.join(uploadDir, filename);
     
-    console.log("[EVENTS_POST] Saving photo:", { filename, filepath });
+    console.log("[EVENTS_POST] Saving photo:", { 
+      filename,
+      filepath,
+      uploadDir,
+      photoName: photo.name,
+      photoSize: photo.size,
+      photoType: photo.type
+    });
 
-    // Convert file to buffer and save
-    const bytes = await photo.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await writeFile(filepath, buffer);
+    try {
+      // Ensure directory exists
+      await mkdir(uploadDir, { recursive: true });
+      
+      // Convert file to buffer and save
+      const bytes = await photo.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      
+      console.log("[EVENTS_POST] Writing file...");
+      await writeFile(filepath, buffer);
+      console.log("[EVENTS_POST] File written successfully");
+      
+      // Verify file exists
+      const fs = require('fs').promises;
+      const stats = await fs.stat(filepath);
+      console.log("[EVENTS_POST] File stats:", {
+        size: stats.size,
+        path: filepath,
+        exists: true
+      });
+    } catch (error) {
+      console.error("[EVENTS_POST] Error saving file:", error);
+      throw error;
+    }
 
     const photoUrl = `/uploads/events/${filename}`;
-    console.log("[EVENTS_POST] Photo saved:", photoUrl);
+    console.log("[EVENTS_POST] Photo URL:", photoUrl);
 
     // Create event in database
     try {
@@ -88,7 +105,8 @@ export async function POST(req: Request) {
       console.error("[EVENTS_POST_DB]", error);
       // Try to clean up the uploaded file if database operation fails
       try {
-        await unlink(filepath);
+        const fs = require('fs').promises;
+        await fs.unlink(filepath);
       } catch (unlinkError) {
         console.error("[EVENTS_POST] Failed to clean up file:", unlinkError);
       }
