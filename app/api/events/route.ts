@@ -5,6 +5,15 @@ import { db } from "@/lib/db";
 import { uploadFile } from "@/lib/uploadFile";
 import { nanoid } from "nanoid";
 import { deleteUploadedFile } from "@/lib/server-utils";
+import { Fields, Files, File as FormidableFile, formidable } from 'formidable';
+import { mkdir } from 'fs/promises';
+import path from 'path';
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 export async function POST(req: Request) {
   try {
@@ -14,41 +23,43 @@ export async function POST(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const formData = await req.formData();
-    const photo = formData.get("photo") as File;
+    // Ensure upload directory exists
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'events');
+    await mkdir(uploadDir, { recursive: true });
 
-    if (!photo) {
+    const form = formidable({
+      uploadDir,
+      filename: (name: string, ext: string) => `${nanoid()}${ext}`,
+      maxFileSize: 4 * 1024 * 1024, // 4MB
+    });
+
+    const [fields, files] = await new Promise<[Fields, Files]>((resolve, reject) => {
+      form.parse(req, (err: Error | null, fields: Fields, files: Files) => {
+        if (err) reject(err);
+        resolve([fields, files]);
+      });
+    });
+
+    if (!files.photo) {
       return new NextResponse("Event photo is required", { status: 400 });
     }
 
-    // Upload photo to storage
-    let photoUrl;
-    try {
-      // Convert File to Buffer for server-side handling
-      const bytes = await photo.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      photoUrl = await uploadFile(buffer);
-    } catch (error) {
-      console.error("[EVENTS_POST_UPLOAD]", error);
-      return new NextResponse(
-        error instanceof Error ? error.message : "Failed to upload photo",
-        { status: 500 }
-      );
-    }
+    const photo = Array.isArray(files.photo) ? files.photo[0] : files.photo;
+    const photoUrl = `/uploads/events/${path.basename(photo.filepath)}`;
 
     // Create event in database
     try {
-      const prizes = formData.get("prizes") ? JSON.parse(formData.get("prizes") as string) : [];
+      const prizes = fields.prizes ? JSON.parse(fields.prizes.toString()) : [];
       const event = await db.event.create({
         data: {
           id: nanoid(),
-          name: formData.get("name") as string,
-          type: formData.get("type") as string,
-          description: formData.get("description") as string,
-          rules: formData.get("rules") as string,
+          name: fields.name?.toString() || '',
+          type: fields.type?.toString() || '',
+          description: fields.description?.toString() || '',
+          rules: fields.rules?.toString(),
           prize: prizes.length > 0 ? prizes[0] : null,
-          location: formData.get("location") as string,
-          startDate: new Date(formData.get("startDate") as string),
+          location: fields.location?.toString() || '',
+          startDate: new Date(fields.startDate?.toString() || ''),
           photoUrl,
           user_id: session.user.id,
           updatedAt: new Date(),
