@@ -169,6 +169,10 @@ export type UserWithExtras = User & {
 };
 
 export type PostWithExtras = Post & {
+  _count?: {
+    likes: number;
+    comments: number;
+  };
   user: User & {
     isFollowing?: boolean;
     isPrivate?: boolean;
@@ -235,7 +239,7 @@ export type LikeWithExtras = Like & {
 };
 
 export type SavedPostWithExtras = SavedPost & {
-  post: Post;
+  post: PostWithExtras;
   user: User;
 };
 

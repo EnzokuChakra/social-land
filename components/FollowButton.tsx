@@ -42,23 +42,8 @@ export default function FollowButton({
   const { data: session } = useSession();
   const isOwnProfile = session?.user?.id === followingId;
 
-  console.log("[FollowButton] Initial state:", {
-    userId: followingId,
-    username: followingId,
-    isFollowing,
-    hasPendingRequest,
-    isFollowedByUser,
-    isOwnProfile
-  });
-
   const handleFollow = async () => {
     if (isLoading) return;
-    
-    console.log("[FollowButton] Follow action initiated:", {
-      targetUserId: followingId,
-      targetUsername: followingId,
-      currentState: { isFollowing, hasPendingRequest }
-    });
 
     setIsLoading(true);
     try {
@@ -73,10 +58,7 @@ export default function FollowButton({
         })
       });
 
-      console.log("[FollowButton] Follow action response:", response);
-
       if (!response.ok) {
-        console.log("[FollowButton] Follow request failed, reverting optimistic update");
         setFollowState(prev => ({
           ...prev,
           isFollowing: false,
@@ -86,14 +68,6 @@ export default function FollowButton({
       }
 
       const data = await response.json();
-
-      console.log("[FollowButton] State updated:", {
-        newState: { 
-          isFollowing: data.status === "ACCEPTED",
-          hasPendingRequest: data.status === "PENDING",
-          isFollowedByUser: data.status === "ACCEPTED"
-        }
-      });
 
       toast.success(data.status === "ACCEPTED" ? "Following user" : "Follow request sent");
 
@@ -105,20 +79,12 @@ export default function FollowButton({
 
       // Remove user from suggestions immediately after successful follow request
       if (onSuccess) {
-        console.log("[FollowButton] Calling onSuccess callback");
         onSuccess(true);
       }
 
       // Force a router refresh to update the UI
-      console.log("[FollowButton] Refreshing router");
       router.refresh();
     } catch (error) {
-      console.error("[FOLLOW_BUTTON] Error:", {
-        error,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        timestamp: new Date().toISOString()
-      });
       toast.error("Something went wrong");
     } finally {
       setIsLoading(false);
@@ -129,20 +95,14 @@ export default function FollowButton({
     if (isLoading) return;
 
     try {
-      console.log("[FollowButton] Starting unfollow action for user:", followingId);
       setIsLoading(true);
 
       // Optimistically update the UI
-      setFollowState(prev => {
-        console.log("[FollowButton] Optimistic update for unfollow - Previous state:", prev);
-        const newState = {
-          ...prev,
-          isFollowing: false,
-          hasPendingRequest: false
-        };
-        console.log("[FollowButton] Optimistic update for unfollow - New state:", newState);
-        return newState;
-      });
+      setFollowState(prev => ({
+        ...prev,
+        isFollowing: false,
+        hasPendingRequest: false
+      }));
 
       const response = await fetch("/api/users/follow", {
         method: "POST",
@@ -155,12 +115,9 @@ export default function FollowButton({
         })
       });
 
-      console.log("[FollowButton] Unfollow API response status:", response.status);
       const data = await response.json();
-      console.log("[FollowButton] Unfollow API response data:", data);
 
       if (!response.ok) {
-        console.log("[FollowButton] Unfollow request failed, reverting optimistic update");
         setFollowState(prev => ({
           ...prev,
           isFollowing: true,
@@ -170,29 +127,18 @@ export default function FollowButton({
       }
 
       // Update state based on the response
-      setFollowState(prev => {
-        const newState = {
-          ...prev,
-          isFollowing: false,
-          hasPendingRequest: false
-        };
-        console.log("[FollowButton] Updated state after unfollow API response:", newState);
-        return newState;
-      });
+      setFollowState(prev => ({
+        ...prev,
+        isFollowing: false,
+        hasPendingRequest: false
+      }));
 
       if (onSuccess) {
-        console.log("[FollowButton] Calling onSuccess callback for unfollow");
         onSuccess(false);
       }
 
       router.refresh();
     } catch (error) {
-      console.error("[FOLLOW_BUTTON] Error unfollowing user:", {
-        error,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        timestamp: new Date().toISOString()
-      });
       toast.error("Failed to unfollow user");
     } finally {
       setIsLoading(false);
@@ -234,12 +180,6 @@ export default function FollowButton({
       toast.success("Follow request cancelled");
       router.refresh();
     } catch (error) {
-      console.error("[FOLLOW_BUTTON] Error cancelling follow request:", {
-        error,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        timestamp: new Date().toISOString()
-      });
       toast.error(error instanceof Error ? error.message : "Failed to cancel follow request");
       onSuccess?.(false);
     } finally {

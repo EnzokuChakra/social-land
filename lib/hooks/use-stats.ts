@@ -4,6 +4,7 @@ interface ProfileStats {
   posts: number;
   followers: number;
   following: number;
+  reels: number;
 }
 
 async function fetchProfileStats(username: string): Promise<ProfileStats> {
@@ -11,7 +12,8 @@ async function fetchProfileStats(username: string): Promise<ProfileStats> {
   if (!response.ok) {
     throw new Error('Failed to fetch profile stats');
   }
-  return response.json();
+  const data = await response.json();
+  return data.stats; // Extract the stats object from the response
 }
 
 export function useStats(username: string | null) {

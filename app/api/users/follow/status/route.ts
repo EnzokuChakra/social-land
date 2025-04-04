@@ -20,7 +20,7 @@ export async function GET(req: Request) {
     }
 
     // Check if the current user is following the target user
-    const follow = await prisma.follows.findUnique({
+    const followingStatus = await prisma.follows.findUnique({
       where: {
         followerId_followingId: {
           followerId: session.user.id,
@@ -32,8 +32,24 @@ export async function GET(req: Request) {
       },
     });
 
+    // Check if the target user is following the current user
+    const followerStatus = await prisma.follows.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId: userId,
+          followingId: session.user.id,
+        },
+      },
+      select: {
+        status: true,
+      },
+    });
+
     return NextResponse.json({
-      status: follow?.status || null,
+      status: followingStatus?.status || null,
+      isFollowing: followingStatus?.status === "ACCEPTED",
+      hasPendingRequest: followingStatus?.status === "PENDING",
+      isFollowedByUser: followerStatus?.status === "ACCEPTED"
     });
   } catch (error) {
     console.error("[FOLLOW_STATUS_API] Error:", {

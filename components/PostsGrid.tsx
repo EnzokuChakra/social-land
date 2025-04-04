@@ -9,6 +9,7 @@ import { useEffect, useState, useCallback } from "react";
 export function PostsGrid({ posts: initialPosts }: { posts: PostWithExtras[] | undefined }) {
   const [posts, setPosts] = useState<PostWithExtras[] | undefined>(initialPosts);
   const [isMounted, setIsMounted] = useState(false);
+  const [hoveredPostId, setHoveredPostId] = useState<string | null>(null);
 
   // Update posts when initialPosts changes
   useEffect(() => {
@@ -22,12 +23,9 @@ export function PostsGrid({ posts: initialPosts }: { posts: PostWithExtras[] | u
   // Listen for post deletion events
   useEffect(() => {
     const handlePostDelete = (event: CustomEvent<{ postId: string }>) => {
-      console.log('Post deleted event received:', event.detail.postId);
       setPosts((prevPosts) => {
         if (!prevPosts) return prevPosts;
-        const newPosts = prevPosts.filter(post => post.id !== event.detail.postId);
-        console.log('Posts after filter:', newPosts.length);
-        return newPosts;
+        return prevPosts.filter(post => post.id !== event.detail.postId);
       });
     };
 
@@ -59,6 +57,8 @@ export function PostsGrid({ posts: initialPosts }: { posts: PostWithExtras[] | u
           href={`/dashboard/p/${post.id}`}
           key={post.id}
           className="relative aspect-square group"
+          onMouseEnter={() => setHoveredPostId(post.id)}
+          onMouseLeave={() => setHoveredPostId(null)}
         >
           <Image
             src={post.fileUrl}
@@ -69,15 +69,15 @@ export function PostsGrid({ posts: initialPosts }: { posts: PostWithExtras[] | u
             className="object-cover"
           />
 
-          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <div className="absolute inset-0 flex items-center justify-center gap-4">
-              <div className="flex items-center gap-1 font-bold text-white">
-                <HeartIcon className="w-5 h-5 fill-white text-white" />
-                <p className="text-sm md:text-base">{post.likes.length}</p>
+          <div className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${hoveredPostId === post.id ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="absolute inset-0 flex items-center justify-center gap-6">
+              <div className="flex items-center gap-2 font-bold text-white">
+                <HeartIcon className="w-6 h-6 fill-white text-white" />
+                <p className="text-base">{post.likes?.length || 0}</p>
               </div>
-              <div className="flex items-center gap-1 font-bold text-white">
-                <MessageCircle className="w-5 h-5 fill-transparent text-white" />
-                <p className="text-sm md:text-base">{post.comments.length}</p>
+              <div className="flex items-center gap-2 font-bold text-white">
+                <MessageCircle className="w-6 h-6 fill-transparent text-white" />
+                <p className="text-base">{post.comments?.length || 0}</p>
               </div>
             </div>
           </div>

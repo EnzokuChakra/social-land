@@ -61,17 +61,6 @@ function PostActions({ post, userId, className, inputRef }: Props) {
 
   // Initialize currentPost with follow status
   useEffect(() => {
-    console.log("[PostActions] Initializing post data:", {
-      postId: post.id,
-      likes: post.likes.map(like => ({
-        userId: like.user?.id,
-        username: like.user?.username,
-        isFollowing: like.user?.isFollowing,
-        hasPendingRequest: like.user?.hasPendingRequest,
-        isPrivate: like.user?.isPrivate
-      }))
-    });
-
     setCurrentPost(prevPost => ({
       ...prevPost,
       likes: post.likes.map(like => ({
@@ -113,49 +102,8 @@ function PostActions({ post, userId, className, inputRef }: Props) {
   }, [post.id]);
 
   const handleLikesModalOpen = () => {
-    console.log("[PostActions] Opening likes modal for post:", {
-      postId: post.id,
-      likesCount: currentPost.likes.length,
-      currentUserId: session?.user?.id
-    });
-
-    // Log each like's data
-    currentPost.likes.forEach((like) => {
-      console.log("[PostActions] Like data:", {
-        likeId: like.id,
-        userId: like.user?.id,
-        username: like.user?.username,
-        isFollowing: like.user?.isFollowing,
-        hasPendingRequest: like.user?.hasPendingRequest,
-        isPrivate: like.user?.isPrivate
-      });
-    });
-
     setShowLikesModal(true);
   };
-
-  // Add effect to log modal state changes
-  useEffect(() => {
-    if (showLikesModal) {
-      console.log("[PostActions] Likes modal opened, current post data:", {
-        postId: post.id,
-        likes: currentPost.likes.map(like => ({
-          userId: like.user?.id,
-          username: like.user?.username,
-          isFollowing: like.user?.isFollowing
-        }))
-      });
-    }
-  }, [showLikesModal, post.id, currentPost.likes]);
-
-  // Add effect to log post data changes
-  useEffect(() => {
-    console.log("[PostActions] Post data updated:", {
-      postId: post.id,
-      likesCount: post.likes.length,
-      currentPostLikesCount: currentPost.likes.length
-    });
-  }, [post, currentPost.likes.length]);
 
   // This effect will run when the component is mounted
   useEffect(() => {
@@ -222,18 +170,7 @@ function PostActions({ post, userId, className, inputRef }: Props) {
             <div className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
               {currentPost.likes && currentPost.likes.length > 0 ? (
                 currentPost.likes.map((like) => {
-                  if (!like.user) {
-                    console.log("[PostActions] Like missing user data:", like);
-                    return null;
-                  }
-                  
-                  console.log("[PostActions] Rendering like for user:", {
-                    userId: like.user.id,
-                    username: like.user.username,
-                    isFollowing: like.user.isFollowing,
-                    hasPendingRequest: like.user.hasPendingRequest,
-                    isPrivate: like.user.isPrivate
-                  });
+                  if (!like.user) return null;
                   
                   return (
                     <div

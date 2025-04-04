@@ -37,8 +37,8 @@ export async function GET(
 
     const stats = {
       posts: user.posts.length,
-      followers: user.following.length,
-      following: user.followers.length,
+      followers: user.followers.length,
+      following: user.following.length,
       reels: 0 // We'll implement reels count later
     };
 

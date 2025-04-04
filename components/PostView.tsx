@@ -115,25 +115,15 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   // Initialize currentPost with expanded likes data
   const [currentPost, setCurrentPost] = useState<PostWithExtras>({
     ...post,
-    likes: post.likes.map(like => {
-      console.log("[PostView] Initializing like data:", {
-        likeId: like.id,
-        userId: like.user?.id,
-        username: like.user?.username,
-        isFollowing: like.user?.isFollowing,
-        hasPendingRequest: like.user?.hasPendingRequest,
-        isPrivate: like.user?.isPrivate
-      });
-      return {
-        ...like,
-        user: {
-          ...like.user,
-          isFollowing: like.user.isFollowing || false,
-          hasPendingRequest: like.user.hasPendingRequest || false,
-          isPrivate: like.user.isPrivate || false
-        }
-      };
-    }),
+    likes: post.likes.map(like => ({
+      ...like,
+      user: {
+        ...like.user,
+        isFollowing: like.user.isFollowing || false,
+        hasPendingRequest: like.user.hasPendingRequest || false,
+        isPrivate: like.user.isPrivate || false
+      }
+    })),
     savedBy: post.savedBy || [],
     comments: post.comments || [],
     tags: post.tags || []
@@ -148,12 +138,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
 
     const handleCommentUpdate = (data: { postId: string; parentId: string | null; comment: any }) => {
       if (data.postId !== id) return;
-
-      console.log('[PostView] Received comment update:', {
-        postId: data.postId,
-        parentId: data.parentId,
-        comment: data.comment
-      });
 
       setComments(prevComments => {
         // Deep clone the previous comments to avoid mutation
@@ -172,11 +156,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
             }
             // Add the new reply
             newComments[parentIndex].replies.push(data.comment);
-            console.log('[PostView] Added reply to parent comment:', {
-              parentId: data.parentId,
-              replyId: data.comment.id,
-              repliesCount: newComments[parentIndex].replies.length
-            });
           }
           return newComments;
         } else {
@@ -217,65 +196,33 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
 
   // Update currentPost when post prop changes
   useEffect(() => {
-    console.log("[PostView] Post data received:", {
-      postId: post.id,
-      likesCount: post.likes.length,
-      likes: post.likes.map(like => ({
-        userId: like.user?.id,
-        username: like.user?.username,
-        isFollowing: like.user?.isFollowing
-      }))
-    });
-
     setCurrentPost(prevPost => {
       const updatedPost = {
         ...prevPost,
         ...post,
-        likes: post.likes.map(like => {
-          console.log("[PostView] Updating like data:", {
-            likeId: like.id,
-            userId: like.user?.id,
-            username: like.user?.username,
-            isFollowing: like.user?.isFollowing,
-            hasPendingRequest: like.user?.hasPendingRequest,
-            isPrivate: like.user?.isPrivate
-          });
-          return {
-            ...like,
-            user: {
-              ...like.user,
-              isFollowing: like.user.isFollowing || false,
-              hasPendingRequest: like.user.hasPendingRequest || false,
-              isPrivate: like.user.isPrivate || false
-            }
-          };
-        }),
+        likes: post.likes.map(like => ({
+          ...like,
+          user: {
+            ...like.user,
+            isFollowing: like.user.isFollowing || false,
+            hasPendingRequest: like.user.hasPendingRequest || false,
+            isPrivate: like.user.isPrivate || false
+          }
+        })),
         savedBy: post.savedBy || prevPost.savedBy,
         comments: post.comments || prevPost.comments,
         tags: post.tags || prevPost.tags
       };
       
-      console.log("[PostView] Updated post state:", {
-        postId: updatedPost.id,
-        likesCount: updatedPost.likes.length,
-        likes: updatedPost.likes.map(like => ({
-          userId: like.user?.id,
-          username: like.user?.username,
-          isFollowing: like.user?.isFollowing
-        }))
-      });
-      
       return updatedPost;
     });
   }, [post]);
 
-  // Add logging for likes updates
+  // Add socket handler for likes updates
   useEffect(() => {
     if (!socket) return;
 
     const handleLikeUpdate = (data: any) => {
-      console.log("[PostView] Received like update:", data);
-      
       setCurrentPost(prevPost => {
         // Preserve existing likes data
         const existingLikes = new Map(prevPost.likes.map(like => [like.user.id, like]));
@@ -302,8 +249,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
           };
           updatedLikes.push(newLike);
         }
-
-        console.log("[PostView] Updated likes:", updatedLikes);
 
         return {
           ...prevPost,
@@ -383,16 +328,14 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
         const event = new Event('input', { bubbles: true });
         inputRef.current.dispatchEvent(event);
       } catch (error) {
-        console.error('Error dispatching input event:', error);
+        // Silently handle error
       }
     }
   };
 
   // Check if input ref is properly set up
   useEffect(() => {
-    if (mount) {
-      console.log('PostView mounted, inputRef:', inputRef.current);
-    }
+    // No need to log mount status
   }, [mount, inputRef]);
 
   // Enhance the Post component with real-time updates
@@ -423,7 +366,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
             );
           }
         } catch (error) {
-          console.error('Error refreshing comments:', error);
+          // Silently handle error
         }
       };
       
@@ -457,7 +400,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
           storyModal.onOpen();
         }
       } catch (error) {
-        console.error("Error fetching stories:", error);
+        // Silently handle error
       }
     } else {
       router.push(href);
@@ -489,7 +432,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
         setHasMore(false);
       }
     } catch (error) {
-      console.error("Error fetching more comments:", error);
+      // Silently handle error
     } finally {
       setIsLoadingComments(false);
     }
@@ -657,7 +600,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                               storyModal.onOpen();
                             }
                           } catch (error) {
-                            console.error("Error fetching stories:", error);
+                            // Silently handle error
                           }
                         } else {
                           router.push(`/dashboard/${comment.user.username}`);
@@ -834,7 +777,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                                 storyModal.onOpen();
                               }
                             } catch (error) {
-                              console.error("Error fetching stories:", error);
+                              // Silently handle error
                             }
                           } else {
                             router.push(`/dashboard/${comment.user.username}`);

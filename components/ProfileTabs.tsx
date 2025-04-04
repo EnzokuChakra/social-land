@@ -48,18 +48,41 @@ function ProfileTabs({
   
   // Transform saved posts and remove duplicates
   const uniqueSavedPosts = profile.savedPosts?.map(savedPost => {
-    const post = savedPost.post;
-    if (!post) return null;
+    if (!savedPost.post) return null;
     
-    return {
-      ...post,
-      user: post.user || profile,
-      likes: post.likes || [],
-      comments: post.comments || [],
-      savedBy: post.savedBy || [],
-      tags: post.tags || [],
-      savedAt: savedPost.createdAt
-    } as PostWithExtras;
+    // Transform the post data to include all required fields
+    const transformedPost: PostWithExtras = {
+      ...savedPost.post,
+      likes: savedPost.post.likes || [],
+      comments: (savedPost.post.comments || []).map(comment => ({
+        ...comment,
+        user: {
+          ...comment.user,
+          hasActiveStory: comment.user.stories && comment.user.stories.length > 0,
+          stories: undefined
+        },
+        replies: (comment.replies || []).map(reply => ({
+          ...reply,
+          user: {
+            ...reply.user,
+            hasActiveStory: reply.user.stories && reply.user.stories.length > 0,
+            stories: undefined
+          }
+        }))
+      })),
+      savedBy: savedPost.post.savedBy || [],
+      tags: savedPost.post.tags || [],
+      user: {
+        ...(savedPost.post.user || profile),
+        isFollowing: false,
+        isPrivate: false,
+        hasPendingRequest: false,
+        isFollowedByUser: false,
+        hasActiveStory: savedPost.post.user?.stories && savedPost.post.user.stories.length > 0
+      }
+    };
+
+    return transformedPost;
   }).filter((post): post is PostWithExtras => post !== null) || [];
 
   // Get tagged posts (posts where the user is tagged)

@@ -333,16 +333,11 @@ export async function fetchPostById(postId: string) {
       throw new Error("Not authenticated");
     }
 
-    console.log("[fetchPostById] Fetching follow status for likes, current user:", session.user.id);
-
     const likesWithFollowStatus = await Promise.all(
       post.likes.map(async (like: Like & { user: UserWithFollowStatus | null }) => {
         if (!like.user) {
-          console.log("[fetchPostById] Like missing user:", like.id);
           return like;
         }
-
-        console.log("[fetchPostById] Checking follow status for user:", like.user.id);
         
         const follow = await prisma.follows.findUnique({
           where: {
@@ -351,14 +346,6 @@ export async function fetchPostById(postId: string) {
               followingId: like.user.id
             }
           }
-        });
-
-        console.log("[fetchPostById] Follow status result:", {
-          userId: like.user.id,
-          username: like.user.username,
-          followStatus: follow?.status,
-          isFollowing: follow?.status === "ACCEPTED",
-          hasPendingRequest: follow?.status === "PENDING"
         });
 
         return {
@@ -385,15 +372,8 @@ export async function fetchPostById(postId: string) {
       totalComments
     };
 
-    console.log("[fetchPostById] Transformed post likes:", transformedPost.likes.map((like: Like & { user: UserWithFollowStatus | null }) => ({
-      userId: like.user?.id,
-      username: like.user?.username,
-      isFollowing: like.user?.isFollowing
-    })));
-
     return transformedPost;
   } catch (error) {
-    console.error("Database Error:", error);
     throw new Error("Failed to fetch post");
   }
 }
@@ -753,6 +733,113 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
           include: {
             post: {
               include: {
+                likes: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        username: true,
+                        name: true,
+                        image: true,
+                        verified: true
+                      }
+                    }
+                  }
+                },
+                comments: {
+                  where: {
+                    parentId: null // Only fetch top-level comments
+                  },
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        username: true,
+                        name: true,
+                        image: true,
+                        verified: true,
+                        stories: {
+                          where: {
+                            createdAt: {
+                              gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+                            }
+                          },
+                          select: {
+                            id: true
+                          }
+                        }
+                      }
+                    },
+                    likes: {
+                      include: {
+                        user: {
+                          select: {
+                            id: true,
+                            username: true,
+                            name: true,
+                            image: true,
+                            verified: true
+                          }
+                        }
+                      }
+                    },
+                    replies: {
+                      include: {
+                        user: {
+                          select: {
+                            id: true,
+                            username: true,
+                            name: true,
+                            image: true,
+                            verified: true,
+                            stories: {
+                              where: {
+                                createdAt: {
+                                  gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+                                }
+                              },
+                              select: {
+                                id: true
+                              }
+                            }
+                          }
+                        },
+                        likes: {
+                          include: {
+                            user: {
+                              select: {
+                                id: true,
+                                username: true,
+                                name: true,
+                                image: true,
+                                verified: true
+                              }
+                            }
+                          }
+                        }
+                      },
+                      orderBy: {
+                        createdAt: "asc"
+                      }
+                    }
+                  },
+                  orderBy: {
+                    createdAt: "desc"
+                  }
+                },
+                savedBy: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        username: true,
+                        name: true,
+                        image: true,
+                        verified: true
+                      }
+                    }
+                  }
+                },
                 user: {
                   select: {
                     id: true,
@@ -768,6 +855,19 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
                       },
                       select: {
                         id: true
+                      }
+                    }
+                  }
+                },
+                tags: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        username: true,
+                        name: true,
+                        image: true,
+                        verified: true
                       }
                     }
                   }
@@ -984,6 +1084,9 @@ export async function fetchSavedPostsByUsername(username: string) {
         post: {
           include: {
             comments: {
+              where: {
+                parentId: null // Only fetch top-level comments
+              },
               include: {
                 user: {
                   select: {
@@ -992,12 +1095,74 @@ export async function fetchSavedPostsByUsername(username: string) {
                     image: true,
                     name: true,
                     verified: true,
-                  },
+                    stories: {
+                      where: {
+                        createdAt: {
+                          gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+                        }
+                      },
+                      select: {
+                        id: true
+                      }
+                    }
+                  }
                 },
+                likes: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        username: true,
+                        image: true,
+                        name: true,
+                        verified: true
+                      }
+                    }
+                  }
+                },
+                replies: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        username: true,
+                        image: true,
+                        name: true,
+                        verified: true,
+                        stories: {
+                          where: {
+                            createdAt: {
+                              gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+                            }
+                          },
+                          select: {
+                            id: true
+                          }
+                        }
+                      }
+                    },
+                    likes: {
+                      include: {
+                        user: {
+                          select: {
+                            id: true,
+                            username: true,
+                            image: true,
+                            name: true,
+                            verified: true
+                          }
+                        }
+                      }
+                    }
+                  },
+                  orderBy: {
+                    createdAt: "asc"
+                  }
+                }
               },
               orderBy: {
-                createdAt: "desc",
-              },
+                createdAt: "desc"
+              }
             },
             likes: {
               include: {
@@ -1007,10 +1172,10 @@ export async function fetchSavedPostsByUsername(username: string) {
                     username: true,
                     image: true,
                     name: true,
-                    verified: true,
-                  },
-                },
-              },
+                    verified: true
+                  }
+                }
+              }
             },
             savedBy: {
               include: {
@@ -1020,10 +1185,10 @@ export async function fetchSavedPostsByUsername(username: string) {
                     username: true,
                     image: true,
                     name: true,
-                    verified: true,
-                  },
-                },
-              },
+                    verified: true
+                  }
+                }
+              }
             },
             user: {
               select: {
@@ -1032,15 +1197,38 @@ export async function fetchSavedPostsByUsername(username: string) {
                 image: true,
                 name: true,
                 verified: true,
-              },
+                stories: {
+                  where: {
+                    createdAt: {
+                      gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+                    }
+                  },
+                  select: {
+                    id: true
+                  }
+                }
+              }
             },
-          },
+            tags: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    username: true,
+                    name: true,
+                    image: true,
+                    verified: true
+                  }
+                }
+              }
+            }
+          }
         },
-        user: true,
+        user: true
       },
       orderBy: {
-        createdAt: "desc",
-      },
+        createdAt: "desc"
+      }
     });
 
     return data;
