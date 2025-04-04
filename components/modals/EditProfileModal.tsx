@@ -275,31 +275,23 @@ export default function EditProfileModal() {
                       />
                       
                       {previewUrl && (
-                        <div className="relative w-[300px] h-[300px]">
-                          {/* Circular mask overlay */}
-                          <div className="absolute inset-0 rounded-full border-2 border-neutral-200 dark:border-neutral-800 overflow-hidden">
-                            {/* Full image container */}
-                            <div
-                              className="absolute inset-0 cursor-move flex items-center justify-center"
-                              style={{
-                                transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`
-                              }}
-                              onMouseDown={handleDragStart}
-                              onMouseMove={handleDragMove}
-                              onMouseUp={handleDragEnd}
-                              onMouseLeave={handleDragEnd}
-                            >
-                              <img
-                                src={previewUrl}
-                                alt="Preview"
-                                className="max-w-full max-h-full w-auto h-auto object-contain"
-                                style={{
-                                  minWidth: '100%',
-                                  minHeight: '100%'
-                                }}
-                                draggable={false}
-                              />
-                            </div>
+                        <div className="relative w-[300px] h-[300px] overflow-hidden rounded-full border-2 border-neutral-200 dark:border-neutral-800">
+                          <div
+                            className="absolute inset-0 cursor-move"
+                            style={{
+                              transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                            }}
+                            onMouseDown={handleDragStart}
+                            onMouseMove={handleDragMove}
+                            onMouseUp={handleDragEnd}
+                            onMouseLeave={handleDragEnd}
+                          >
+                            <img
+                              src={previewUrl}
+                              alt="Preview"
+                              className="w-full h-full object-cover"
+                              draggable={false}
+                            />
                           </div>
                         </div>
                       )}
