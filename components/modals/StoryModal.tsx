@@ -1163,8 +1163,12 @@ export default function StoryModal() {
                           </div>
                           <ScrollArea className="h-[300px]">
                             <div className="p-4 space-y-4">
-                              {currentStory?.likes?.map((like) => (
-                                <ViewerListItem key={like.id} user={like.user} hasLiked={true} />
+                              {sortedViewers.map((viewer) => (
+                                <ViewerListItem 
+                                  key={viewer.id} 
+                                  user={viewer.user} 
+                                  hasLiked={currentStory?.likes?.some(like => like.user.id === viewer.user.id)}
+                                />
                               ))}
                             </div>
                           </ScrollArea>
