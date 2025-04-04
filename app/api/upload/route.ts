@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       
       // Create the upload directory path based on type
       const uploadDir = path.join(process.cwd(), 'public', 'uploads', type);
-      const relativePath = `/public/uploads/${type}/${uniqueFilename}`;
+      const relativePath = `/uploads/${type}/${uniqueFilename}`;
       const fullPath = path.join(uploadDir, uniqueFilename);
 
       console.log('Writing file:', {
