@@ -31,7 +31,17 @@ export default function TagPeople({ onTagsChange, maxTags = 10 }: TagPeopleProps
 
   useEffect(() => {
     const searchUsers = async () => {
-      if (!debouncedSearch.trim()) {
+      // Only search if @ is present
+      if (!debouncedSearch.startsWith('@')) {
+        setSearchResults([]);
+        setIsSearching(false);
+        return;
+      }
+
+      // Remove @ from search query
+      const searchWithoutAt = debouncedSearch.slice(1).trim();
+      
+      if (!searchWithoutAt) {
         setSearchResults([]);
         setIsSearching(false);
         return;
@@ -41,7 +51,7 @@ export default function TagPeople({ onTagsChange, maxTags = 10 }: TagPeopleProps
       setError(null);
       
       try {
-        const url = `/api/users/search/followers?q=${encodeURIComponent(debouncedSearch)}`;
+        const url = `/api/users/search/followers?q=${encodeURIComponent(searchWithoutAt)}`;
         const response = await fetch(url);
         
         if (!response.ok) {
@@ -150,7 +160,7 @@ export default function TagPeople({ onTagsChange, maxTags = 10 }: TagPeopleProps
       </div>
         
       {/* Search Results Dropdown */}
-      {(searchQuery.trim() !== "") && (
+      {searchQuery && (
         <>
           <div 
             className="fixed inset-0 z-[9998]"
@@ -170,6 +180,10 @@ export default function TagPeople({ onTagsChange, maxTags = 10 }: TagPeopleProps
             ) : error ? (
               <div className="flex items-center justify-center p-4 text-sm text-red-500">
                 {error}
+              </div>
+            ) : !searchQuery.startsWith('@') ? (
+              <div className="flex items-center justify-center p-4 text-sm text-neutral-500">
+                Use @ to tag someone
               </div>
             ) : searchResults.length > 0 ? (
               searchResults.map((user) => (
