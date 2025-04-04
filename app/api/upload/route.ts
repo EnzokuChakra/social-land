@@ -25,12 +25,14 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const type = formData.get('type') as string || 'posts'; // Default to posts if no type specified
+    const isProfilePhoto = formData.get('isProfilePhoto') === 'true';
 
     console.log("[UPLOAD] Received request:", {
       hasFile: !!file,
       fileType: file?.type,
       fileSize: file?.size,
-      type
+      type,
+      isProfilePhoto
     });
 
     if (!file) {
@@ -63,7 +65,8 @@ export async function POST(request: NextRequest) {
       name: file.name,
       type: file.type,
       size: file.size,
-      uploadType: type
+      uploadType: type,
+      isProfilePhoto
     });
 
     // Ensure upload directories exist
@@ -90,9 +93,10 @@ export async function POST(request: NextRequest) {
       const ext = path.extname(filename);
       const uniqueFilename = `${uuidv4().split('-')[0]}_${filename}`;
       
-      // Create the upload directory path based on type
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads', type);
-      const relativePath = `/uploads/${type}/${uniqueFilename}`;
+      // Determine the upload directory based on whether it's a profile photo
+      const uploadType = isProfilePhoto ? 'profiles' : type;
+      const uploadDir = path.join(process.cwd(), 'public', 'uploads', uploadType);
+      const relativePath = `/uploads/${uploadType}/${uniqueFilename}`;
       const fullPath = path.join(uploadDir, uniqueFilename);
 
       console.log('Writing file:', {
