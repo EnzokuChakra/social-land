@@ -24,7 +24,6 @@ import {
   EventWithUserData
 } from "./definitions";
 import { auth } from "@/lib/auth";
-import { Post as PrismaPost } from "@prisma/client";
 
 interface FollowerData {
   follower: {
@@ -975,6 +974,155 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
       return null;
     }
 
+    // Fetch tagged posts separately
+    const taggedPosts = await prisma.post.findMany({
+      where: {
+        tags: {
+          some: {
+            userId: profile.id
+          }
+        }
+      },
+      orderBy: {
+        createdAt: "desc"
+      },
+      include: {
+        comments: {
+          where: {
+            parentId: null
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                name: true,
+                image: true,
+                verified: true,
+                stories: {
+                  where: {
+                    createdAt: {
+                      gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+                    }
+                  },
+                  select: {
+                    id: true
+                  }
+                }
+              }
+            },
+            likes: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    username: true,
+                    name: true,
+                    image: true,
+                    verified: true
+                  }
+                }
+              }
+            },
+            replies: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    username: true,
+                    name: true,
+                    image: true,
+                    verified: true,
+                    stories: {
+                      where: {
+                        createdAt: {
+                          gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+                        }
+                      },
+                      select: {
+                        id: true
+                      }
+                    }
+                  }
+                },
+                likes: {
+                  include: {
+                    user: {
+                      select: {
+                        id: true,
+                        username: true,
+                        name: true,
+                        image: true,
+                        verified: true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        likes: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                name: true,
+                image: true,
+                verified: true
+              }
+            }
+          }
+        },
+        savedBy: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                name: true,
+                image: true,
+                verified: true
+              }
+            }
+          }
+        },
+        user: {
+          select: {
+            id: true,
+            username: true,
+            name: true,
+            image: true,
+            verified: true,
+            stories: {
+              where: {
+                createdAt: {
+                  gte: new Date(Date.now() - 24 * 60 * 60 * 1000)
+                }
+              },
+              select: {
+                id: true
+              }
+            }
+          }
+        },
+        tags: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                name: true,
+                image: true,
+                verified: true
+              }
+            }
+          }
+        }
+      }
+    });
+
     // Get followers and following counts with error handling
     const [followersCount, followingCount] = await Promise.allSettled([
       prisma.follows.count({
@@ -1098,6 +1246,38 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
             }
           }))
         }))
+      })),
+      taggedPosts: taggedPosts.map((post: PostWithExtras) => ({
+        id: post.id,
+        fileUrl: post.fileUrl,
+        caption: post.caption,
+        aspectRatio: post.aspectRatio,
+        createdAt: post.createdAt,
+        updatedAt: post.updatedAt,
+        user: {
+          ...post.user,
+          hasActiveStory: post.user.stories && post.user.stories.length > 0,
+          stories: undefined
+        },
+        likes: post.likes || [],
+        comments: (post.comments || []).map((comment: CommentWithExtras) => ({
+          ...comment,
+          user: {
+            ...comment.user,
+            hasActiveStory: comment.user.stories && comment.user.stories.length > 0,
+            stories: undefined
+          },
+          replies: comment.replies?.map((reply: CommentWithExtras) => ({
+            ...reply,
+            user: {
+              ...reply.user,
+              hasActiveStory: reply.user.stories && reply.user.stories.length > 0,
+              stories: undefined
+            }
+          }))
+        })),
+        savedBy: post.savedBy || [],
+        tags: post.tags || []
       })),
       savedPosts: profile.savedPosts.map((savedPost: SavedPostWithExtras) => ({
         ...savedPost,

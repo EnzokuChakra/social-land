@@ -85,10 +85,8 @@ function ProfileTabs({
     return transformedPost;
   }).filter((post): post is PostWithExtras => post !== null) || [];
 
-  // Get tagged posts (posts where the user is tagged)
-  const taggedPosts = profile.posts.filter(post => 
-    (post.tags ?? []).some(tag => tag.userId === profile.id) && post.user_id !== profile.id
-  );
+  // Get tagged posts from profile.taggedPosts
+  const taggedPosts = profile.taggedPosts || [];
 
   return (
     <div>

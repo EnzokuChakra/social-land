@@ -2,9 +2,9 @@ import { auth } from "@/lib/auth";
 import { fetchProfile } from "@/lib/data";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
-import { ProfileTabsSkeleton } from "@/components/Skeletons";
+import { ProfileTabsSkeleton, PostsSkeleton } from "@/components/Skeletons";
 import ProfileTabs from "@/components/ProfileTabs";
-import { UserWithExtras } from "@/lib/definitions";
+import { UserWithExtras, PostWithExtras } from "@/lib/definitions";
 import { Lock } from "lucide-react";
 import PostsGrid from "@/components/PostsGrid";
 import ProfileAvatar from "@/components/ProfileAvatar";
@@ -19,10 +19,12 @@ export default async function TaggedPage({
   params: { username: string };
 }) {
   const { username } = params;
+  
   const session = await auth();
   if (!session?.user) redirect("/login");
 
   const profile = await fetchProfile(username);
+
   if (!profile) notFound();
 
   const isCurrentUser = session.user.username === profile.username;
@@ -36,7 +38,8 @@ export default async function TaggedPage({
   );
   const canViewProfile = isCurrentUser || !profile.isPrivate || isFollowing;
 
-  if (!canViewProfile) {
+  // Only redirect if trying to view a private profile without access
+  if (!canViewProfile && profile.isPrivate) {
     redirect(`/dashboard/${username}`);
   }
 
@@ -129,7 +132,7 @@ export default async function TaggedPage({
           </div>
         }>
           <div className="mt-4 px-4">
-            {!profile.taggedPosts || profile.taggedPosts.length === 0 ? (
+            {!profile.taggedPosts?.length ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <Lock className="w-12 h-12 text-neutral-500 mb-4" />
                 <h1 className="text-2xl font-semibold mb-2">No Tagged Posts</h1>
