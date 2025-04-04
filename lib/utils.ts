@@ -3,23 +3,57 @@ import { authOptions } from "@/lib/auth";
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { formatDistanceToNowStrict } from "date-fns";
-import { auth as customAuth } from "./auth";
+import { auth } from "./auth";
 import { Post, PostWithExtras } from "./definitions";
 import { prisma } from "./prisma";
+
+// Cache interface
+interface BanStatusCache {
+  [key: string]: boolean;
+}
+
+// Create a global cache object
+declare global {
+  var banStatusCache: BanStatusCache;
+}
+
+if (!global.banStatusCache) {
+  global.banStatusCache = {};
+}
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export const getUserId = async () => {
-  const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
+export const getUserId = async (maxRetries = 3, retryDelay = 1000) => {
+  let retries = 0;
+  
+  while (retries < maxRetries) {
+    try {
+      const session = await auth();
+      const userId = session?.user?.id;
 
-  if (!userId) {
-    throw new Error("You must be signed in to use this feature");
+      if (userId) {
+        return userId;
+      }
+
+      // If no userId but still have retries left
+      retries++;
+      if (retries < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, retries - 1)));
+        continue;
+      }
+    } catch (error) {
+      console.error('[getUserId] Error getting session:', error);
+      retries++;
+      if (retries < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, retries - 1)));
+        continue;
+      }
+    }
   }
 
-  return userId;
+  throw new Error("You must be signed in to use this feature");
 };
 
 export function formatTimeToNow(date: Date | string) {
@@ -124,7 +158,7 @@ export async function checkUserBanStatus(userId: string) {
   try {
     // Use a cached result if available
     const cacheKey = `ban_status_${userId}`;
-    const cachedResult = globalThis[cacheKey];
+    const cachedResult = global.banStatusCache[cacheKey];
     if (cachedResult !== undefined) {
       return cachedResult;
     }
@@ -137,9 +171,9 @@ export async function checkUserBanStatus(userId: string) {
     const isBanned = user?.status === "BANNED";
     
     // Cache the result for 5 minutes
-    globalThis[cacheKey] = isBanned;
+    global.banStatusCache[cacheKey] = isBanned;
     setTimeout(() => {
-      delete globalThis[cacheKey];
+      delete global.banStatusCache[cacheKey];
     }, 5 * 60 * 1000);
 
     return isBanned;

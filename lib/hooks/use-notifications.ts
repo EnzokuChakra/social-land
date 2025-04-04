@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { NotificationWithExtras, NotificationType } from "@/lib/definitions";
 import { getNotifications } from '@/lib/actions';
 import { JsonValue } from '@prisma/client/runtime/library';
+import { useSessionAuth } from './use-session-auth';
 
 interface NotificationWithUser {
   id: string;
@@ -43,8 +44,10 @@ interface NotificationComment {
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<NotificationWithUser[]>([]);
+  const [followRequests, setFollowRequests] = useState<NotificationWithUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const { isAuthenticated, isLoading: isSessionLoading } = useSessionAuth();
 
   const transformNotification = (notification: NotificationWithUser): NotificationWithExtras => ({
     ...notification,
@@ -66,63 +69,75 @@ export function useNotifications() {
 
   useEffect(() => {
     let mounted = true;
+    let pollInterval: NodeJS.Timeout;
 
     async function fetchNotifications() {
+      if (!isAuthenticated) {
+        return;
+      }
+
       try {
-        const { notifications: newNotifications } = await getNotifications();
+        const { notifications: newNotifications, followRequests: newFollowRequests } = await getNotifications();
+        
         if (mounted) {
-          const transformedNotifications = newNotifications.map((notification) => ({
-            ...notification,
-            comment: notification.comment ? {
-              id: notification.comment.id,
-              text: notification.comment.text
-            } : undefined
-          })) as NotificationWithUser[];
-          setNotifications(transformedNotifications);
-          setIsLoading(false);
+          setFollowRequests(newFollowRequests);
+          setNotifications(newNotifications);
+          setError(null);
         }
       } catch (err) {
         if (mounted) {
+          console.error('[useNotifications] Error fetching:', err);
           setError(err as Error);
+        }
+      } finally {
+        if (mounted) {
           setIsLoading(false);
         }
       }
     }
 
-    fetchNotifications();
-
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
+    // Only start fetching if authenticated and session loading is complete
+    if (isAuthenticated && !isSessionLoading) {
+      fetchNotifications();
+      // Poll for new notifications every 30 seconds
+      pollInterval = setInterval(fetchNotifications, 30000);
+    }
 
     return () => {
       mounted = false;
-      clearInterval(interval);
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
     };
-  }, []);
+  }, [isAuthenticated, isSessionLoading]);
+
+  const refetch = async () => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { notifications: newNotifications, followRequests: newFollowRequests } = await getNotifications();
+
+      setFollowRequests(newFollowRequests);
+      setNotifications(newNotifications);
+      setError(null);
+    } catch (err) {
+      console.error('[useNotifications] Error refetching:', err);
+      setError(err as Error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return {
     notifications,
+    followRequests,
     setNotifications,
-    isLoading,
+    setFollowRequests,
+    isLoading: isSessionLoading || isLoading,
     error,
-    refetch: async () => {
-      setIsLoading(true);
-      try {
-        const { notifications: newNotifications } = await getNotifications();
-        const transformedNotifications = newNotifications.map((notification) => ({
-          ...notification,
-          comment: notification.comment ? {
-            id: notification.comment.id,
-            text: notification.comment.text
-          } : undefined
-        })) as NotificationWithUser[];
-        setNotifications(transformedNotifications);
-        setError(null);
-      } catch (err) {
-        setError(err as Error);
-      } finally {
-        setIsLoading(false);
-      }
-    }
+    refetch
   };
 } 

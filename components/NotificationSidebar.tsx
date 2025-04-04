@@ -29,13 +29,27 @@ export default function NotificationSidebar({
     setNotifications(initialNotifications);
   }, [initialNotifications]);
 
-  const followRequests = notifications.filter(n => n.type === "FOLLOW" && !n.isRead);
-  const otherNotifications = notifications.filter(n => n.type !== "FOLLOW" || n.isRead);
+  const followRequests = notifications.filter(n => n.type === "FOLLOW_REQUEST");
+  
+  // Group follow requests by sender to eliminate duplicates
+  const uniqueFollowRequests = followRequests.reduce((acc, request) => {
+    if (!request.sender) return acc;
+    
+    // Check if we already have a request from this sender
+    const existingIndex = acc.findIndex(req => req.sender?.id === request.sender?.id);
+    
+    // If not found, add it to the accumulator
+    if (existingIndex === -1) {
+      acc.push(request);
+    } 
+    
+    return acc;
+  }, [] as typeof followRequests);
+  
+  const otherNotifications = notifications.filter(n => n.type !== "FOLLOW_REQUEST");
 
   const handleFollowRequestAction = (notificationId: string) => {
-    setNotifications(prev => prev.map(n => 
-      n.id === notificationId ? { ...n, isRead: true } : n
-    ));
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
   };
 
   return (
@@ -86,7 +100,7 @@ export default function NotificationSidebar({
               <ChevronLeftIcon className="w-5 h-5" />
             </Button>
           </div>
-          {followRequests.length > 0 && (
+          {uniqueFollowRequests.length > 0 && (
             <Button
               variant="outline"
               onClick={() => setShowFollowRequests(true)}
@@ -94,7 +108,7 @@ export default function NotificationSidebar({
             >
               Follow Requests
               <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1">
-                {followRequests.length}
+                {uniqueFollowRequests.length}
               </span>
             </Button>
           )}
@@ -103,13 +117,13 @@ export default function NotificationSidebar({
         <div className="p-4">
           {showFollowRequests ? (
             <FollowRequests
-              requests={followRequests.map(n => ({
+              requests={uniqueFollowRequests.map(n => ({
                 id: n.id,
                 sender: {
-                  id: n.sender!.id,
-                  username: n.sender!.username,
-                  name: n.sender!.username,
-                  image: n.sender!.image
+                  id: n.sender?.id || n.sender_id || "",
+                  username: n.sender?.username || null,
+                  name: n.sender?.username || null,
+                  image: n.sender?.image || null
                 },
                 createdAt: n.createdAt
               }))}

@@ -38,6 +38,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import TagPeople from "./TagPeople";
 import { Label } from "@/components/ui/label";
 
+type TabType = "post" | "story" | "reel";
+
 type UploadState = {
   file: File | null;
   preview: string | null;
@@ -53,7 +55,9 @@ const MAX_LOCATION_LENGTH = 20;
 
 export default function CreateModal({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"post" | "story" | "reel">("post");
+  const [isLoading, setIsLoading] = useState(true);
+  const [reelsEnabled, setReelsEnabled] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabType>("post");
   const [postState, setPostState] = useState<UploadState>({
     file: null,
     preview: null,
@@ -86,8 +90,6 @@ export default function CreateModal({ children }: { children: React.ReactNode })
   const storyInputRef = useRef<HTMLInputElement>(null);
   const reelInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-  const [reelsEnabled, setReelsEnabled] = useState(true);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const uploadInProgressRef = useRef(false);
 
@@ -95,18 +97,28 @@ export default function CreateModal({ children }: { children: React.ReactNode })
     // Fetch reels visibility setting when component mounts
     const fetchReelsVisibility = async () => {
       try {
-        const response = await fetch("/api/admin/settings/reels");
+        const response = await fetch("/api/settings/reels");
         if (response.ok) {
           const data = await response.json();
-          setReelsEnabled(data.reelsEnabled);
+          setReelsEnabled(data.enabled === true);
           
           // If reels are disabled and current active tab is reel, switch to post
-          if (!data.reelsEnabled && activeTab === "reel") {
+          if (data.enabled !== true && activeTab === "reel") {
+            setActiveTab("post");
+          }
+        } else {
+          console.log('Failed to fetch reels settings:', response.status);
+          setReelsEnabled(false);
+          if (activeTab === "reel") {
             setActiveTab("post");
           }
         }
       } catch (error) {
         console.error("Error fetching reels visibility setting:", error);
+        setReelsEnabled(false);
+        if (activeTab === "reel") {
+          setActiveTab("post");
+        }
       } finally {
         setIsLoading(false);
       }
@@ -507,7 +519,7 @@ export default function CreateModal({ children }: { children: React.ReactNode })
           </TabsList>
 
           <div className="h-[calc(90vh-120px)] overflow-hidden">
-            {["post", "story", "reel"].map((tab) => (
+            {["post", "story", ...(reelsEnabled ? ["reel"] : [])].map((tab) => (
               <TabsContent key={tab} value={tab} className="m-0 h-full">
                 <div className="flex w-full h-full">
                   {/* Left side - Upload/Preview */}

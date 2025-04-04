@@ -144,7 +144,10 @@ export default function Navbar() {
 
   const fetchReelsVisibility = async () => {
     try {
-      const response = await fetch('/api/admin/settings/reels/', {
+      // Use the non-admin endpoint for regular users
+      const endpoint = isAdmin ? '/api/admin/settings/reels/' : '/api/settings/reels/';
+      
+      const response = await fetch(endpoint, {
         credentials: 'include',
         headers: {
           'Cache-Control': 'no-cache',
@@ -763,9 +766,14 @@ export default function Navbar() {
           ...n,
           type: n.type as NotificationType,
           sender: n.sender ? {
+            ...n.sender,
             id: n.sender.id,
             username: n.sender.username || null,
-            image: n.sender.image
+            image: n.sender.image,
+            isFollowing: n.sender.isFollowing,
+            hasPendingRequest: n.sender.hasPendingRequest,
+            isFollowedByUser: n.sender.isFollowedByUser,
+            isPrivate: n.sender.isPrivate
           } : undefined,
           metadata: n.metadata || null
         })) as NotificationWithExtras[]}

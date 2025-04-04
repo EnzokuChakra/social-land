@@ -5,7 +5,7 @@ import { GetServerSidePropsContext } from "next";
 import { compare } from "bcryptjs";
 import CredentialsProvider from "next-auth/providers/credentials";
 import type { DefaultJWT } from "next-auth/jwt";
-import { UserRole, UserRoleType } from "./definitions";
+import { UserRole } from "./definitions";
 import { db } from "@/lib/db";
 
 // Function to get base URL
@@ -17,6 +17,30 @@ const getBaseUrl = () => {
   // In development, use localhost
   return 'http://localhost:3000';
 };
+
+// Extend the built-in session types
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      name: string | null;
+      image: string | null;
+      username: string;
+      role: UserRole;
+      verified: boolean;
+    }
+  }
+}
+
+// Extend the built-in JWT types
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    username: string;
+    role: UserRole;
+    verified: boolean;
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -30,7 +54,7 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
     error: "/login",
   },
-  debug: false,
+  debug: process.env.NODE_ENV === 'development',
   providers: [
     CredentialsProvider({
       name: "credentials",
@@ -96,12 +120,12 @@ export const authOptions: NextAuthOptions = {
       if (token) {
         // Only include necessary user data in the session
         session.user = {
-          id: token.id as string,
+          id: token.id,
           name: token.name,
           image: token.image,
-          username: token.username as string,
-          role: token.role as UserRoleType,
-          verified: token.verified as boolean
+          username: token.username,
+          role: token.role,
+          verified: token.verified
         };
       }
       return session;
@@ -115,41 +139,38 @@ export const authOptions: NextAuthOptions = {
       name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.session-token' : 'next-auth.session-token',
       options: {
         httpOnly: true,
-        sameSite: 'strict',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         path: '/',
-        secure: true,
+        secure: process.env.NODE_ENV === 'production',
         domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined
       }
     },
     callbackUrl: {
       name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.callback-url' : 'next-auth.callback-url',
       options: {
-        sameSite: 'strict',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         path: '/',
-        secure: true
+        secure: process.env.NODE_ENV === 'production'
       }
     },
     csrfToken: {
       name: process.env.NODE_ENV === 'production' ? '__Host-next-auth.csrf-token' : 'next-auth.csrf-token',
       options: {
         httpOnly: true,
-        sameSite: 'strict',
+        sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
         path: '/',
-        secure: true
+        secure: process.env.NODE_ENV === 'production'
       }
     }
   },
   events: {
-    async signIn(message) {
-      console.log('[Auth] User signed in:', message.user?.email);
+    async signIn({ user }) {
+      console.log('[Auth] User signed in:', user.id);
     },
-    async signOut(message) {
-      console.log('[Auth] User signed out:', message.session?.user?.email);
-    },
-    async session(message) {
-      // Remove session update logging
-    },
-  },
+    async signOut({ session }) {
+      console.log('[Auth] User signed out:', session?.user?.id);
+    }
+  }
 };
 
 export const auth = () => getServerSession(authOptions);

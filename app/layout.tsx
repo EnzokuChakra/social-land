@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { cn } from "@/lib/utils";
+import { auth } from "@/lib/auth";
+import SessionProvider from "@/components/SessionProvider";
 import BodyContent from "@/components/BodyContent";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -11,11 +12,13 @@ export const metadata: Metadata = {
   description: "A beautiful social media platform",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -25,10 +28,12 @@ export default function RootLayout({
           precedence="high"
         />
       </head>
-      <body className={cn(inter.className, "antialiased")} suppressHydrationWarning>
-        <BodyContent>
-          {children}
-        </BodyContent>
+      <body className={inter.className} suppressHydrationWarning>
+        <SessionProvider>
+          <BodyContent>
+            {children}
+          </BodyContent>
+        </SessionProvider>
       </body>
     </html>
   );

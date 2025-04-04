@@ -24,6 +24,7 @@ function LikeButton({
 }) {
   const [isPending, startTransition] = useTransition();
   const [lastClickTime, setLastClickTime] = useState<number>(0);
+  const [isProcessing, setIsProcessing] = useState(false);
   const session = useSession();
   const socket = getSocket();
 
@@ -55,53 +56,50 @@ function LikeButton({
   );
 
   const handleLikeClick = async () => {
-    const now = Date.now();
-    const timeSinceLastClick = now - lastClickTime;
-    const COOLDOWN_PERIOD = 5000; // 5 seconds in milliseconds
-
-    if (timeSinceLastClick < COOLDOWN_PERIOD) {
-      const remainingTime = Math.ceil((COOLDOWN_PERIOD - timeSinceLastClick) / 1000);
-      toast.error(`Please wait ${remainingTime} seconds before liking/unliking again`);
+    if (!session.data?.user) {
+      toast.error("You must be logged in to like a post");
       return;
     }
 
+    // Prevent rapid clicking
+    const now = Date.now();
+    if (now - lastClickTime < 500 || isProcessing) {
+      return;
+    }
     setLastClickTime(now);
-    startTransition(async () => {
-      addOptimisticLike(optimisticLike);
-      const result = await likePost({ postId: post.id });
+    setIsProcessing(true);
 
-      console.log("result", result);
+    try {
+      startTransition(async () => {
+        addOptimisticLike(optimisticLike);
+        const res = await likePost({
+          postId: post.id,
+        });
 
-      if (result) {
-        const eventData = {
-          post: result.post,
-          likedBy: result.likedBy,
-          unlike: result.unlike,
-          action: result.unlike ? "unlike" : "like",
-          user_id: session.data?.user?.id as string,
-        };
-        // Emit the event to notify other clients
-        if (socket) {
-          try {
-            socket.emit("like", eventData);
-            console.log("[LikeButton] Emitted likeUpdate event:", eventData);
-          } catch (error) {
-            console.error("[LikeButton] Socket emit error:", error);
-            toast.error("Failed to send like update. Please try again.");
-          }
-        } else {
-          console.error("[LikeButton] Socket is undefined.");
-          toast.error("Real-time updates are unavailable.");
+        if (res?.message?.includes("Database Error")) {
+          toast.error("Something went wrong");
+          // Revert optimistic update if there was an error
+          addOptimisticLike(optimisticLike);
         }
-      }
-    });
+      });
+    } catch (error) {
+      console.error("Error liking post:", error);
+      toast.error("Something went wrong");
+      // Revert optimistic update if there was an error
+      addOptimisticLike(optimisticLike);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
-    <ActionIcon disabled={isPending} onClick={handleLikeClick}>
+    <ActionIcon
+      onClick={handleLikeClick}
+      disabled={isProcessing}
+    >
       <Heart
-        className={cn("h-6 w-6 transition-colors", {
-          "text-red-500 fill-red-500": optimisticLikes.some(predicate),
+        className={cn("h-6 w-6", {
+          "text-red-500 fill-red-500": isLiked,
         })}
       />
     </ActionIcon>

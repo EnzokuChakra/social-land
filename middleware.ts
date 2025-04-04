@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import type { NextRequest as NextRequestType } from 'next/server';
+import type { JWT } from 'next-auth/jwt';
 
 // Paths that require authentication
 const protectedPaths = [
@@ -32,12 +33,12 @@ const isPublicPath = (pathname: string) => {
 };
 
 // Check maintenance mode
-async function checkMaintenanceMode(request: NextRequest, token: any) {
+async function checkMaintenanceMode(request: NextRequest, token: JWT | null) {
   try {
     const response = await fetch(`${request.nextUrl.origin}/api/admin/settings/maintenance`, {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token?.accessToken}`
+        'Authorization': `Bearer ${token?.accessToken || ''}`
       },
       cache: 'no-store'
     });
@@ -72,6 +73,7 @@ export async function middleware(request: NextRequestType) {
   // Check if the path needs protection
   const isProtectedPath = protectedPaths.some(path => pathname.startsWith(path));
   const isApiRoute = pathname.startsWith('/api/');
+  const isAdminRoute = pathname.startsWith('/api/admin') || pathname.startsWith('/dashboard/admin');
 
   if (isProtectedPath) {
     try {
@@ -101,17 +103,46 @@ export async function middleware(request: NextRequestType) {
       }
 
       // Special handling for admin routes
-      if (pathname.startsWith('/api/admin') && token?.role !== 'ADMIN') {
-        return new NextResponse(
-          JSON.stringify({ error: 'Admin access required' }),
-          {
-            status: 403,
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        );
+      if (isAdminRoute) {
+        if (!token?.role || !['ADMIN', 'MASTER_ADMIN'].includes(token.role)) {
+          return new NextResponse(
+            JSON.stringify({ error: 'Admin access required' }),
+            {
+              status: 403,
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+        }
       }
+
+      // Clone the request to add the session token
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set('x-auth-token', token?.accessToken || '');
+      requestHeaders.set('x-user-role', token?.role || '');
+
+      // Create a new request with the updated headers
+      const newRequest = new Request(request.url, {
+        method: request.method,
+        headers: requestHeaders,
+        body: request.body,
+        cache: request.cache,
+        credentials: request.credentials,
+        integrity: request.integrity,
+        keepalive: request.keepalive,
+        mode: request.mode,
+        redirect: request.redirect,
+        referrer: request.referrer,
+        referrerPolicy: request.referrerPolicy,
+        signal: request.signal,
+      });
+
+      const response = NextResponse.next({
+        request: newRequest,
+      });
+
+      return response;
     } catch (error) {
       console.error('Middleware auth error:', error);
       if (isApiRoute) {

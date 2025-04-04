@@ -31,30 +31,25 @@ export default function FollowRequests({ requests: initialRequests, onBack, onAc
       // Add request ID to processing set
       setProcessingIds(prev => new Set(prev).add(request.id));
 
-      // Optimistically remove the request from the list
-      setRequests(prev => prev.filter(r => r.id !== request.id));
-      onAction(request.id);
-
+      // Call the API first before optimistically updating the UI
       const res = await followUser({
         followingId: request.sender.id,
         action: action
       });
 
       if (res.error) {
-        // If there's an error, add the request back
-        setRequests(prev => [...prev, request]);
-        onAction(request.id);
-        toast.error(res.error);
+        toast.error(`Error: ${res.error}`);
         return;
       }
 
+      // If successful, remove the request
+      setRequests(prev => prev.filter(r => r.id !== request.id));
+      onAction(request.id);
+      
       toast.success(res.message);
       router.refresh();
     } catch (error) {
-      // If there's an error, add the request back
-      setRequests(prev => [...prev, request]);
-      onAction(request.id);
-      toast.error("Something went wrong. Please try again.");
+      toast.error(`Something went wrong: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       // Remove request ID from processing set
       setProcessingIds(prev => {

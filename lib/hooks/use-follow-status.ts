@@ -4,11 +4,14 @@ import { useSession } from 'next-auth/react';
 
 export type FollowStatus = {
   isFollowing: boolean;
-  isPending: boolean;
+  hasPendingRequest: boolean;
+  isFollowedByUser: boolean;
+  hasPendingRequestFromUser: boolean;
+  status: 'ACCEPTED' | 'PENDING' | null;
 };
 
 async function fetchFollowStatus(userId: string): Promise<FollowStatus> {
-  const response = await fetch(`/api/users/follow/status?userId=${userId}`, {
+  const response = await fetch(`/api/users/follow/check?followingId=${userId}`, {
     credentials: 'include',
     headers: {
       'Cache-Control': 'no-cache',

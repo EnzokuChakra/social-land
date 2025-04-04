@@ -1177,7 +1177,16 @@ export async function followUser({
     }
 
     if (action === "accept") {
-      if (!existingFollow || existingFollow.status !== "PENDING") {
+      // Find any pending follow request, regardless of ID
+      const pendingRequest = await prisma.follows.findFirst({
+        where: {
+          followerId: followingId,
+          followingId: followerId,
+          status: "PENDING",
+        },
+      });
+
+      if (!pendingRequest) {
         return {
           error: "No pending follow request found",
           status: "UNFOLLOWED",
@@ -1232,7 +1241,16 @@ export async function followUser({
     }
 
     if (action === "delete") {
-      if (!existingFollow || existingFollow.status !== "PENDING") {
+      // Find any pending follow request, regardless of ID
+      const pendingRequest = await prisma.follows.findFirst({
+        where: {
+          followerId: followingId,
+          followingId: followerId,
+          status: "PENDING",
+        },
+      });
+
+      if (!pendingRequest) {
         return {
           error: "No pending follow request found",
           status: "UNFOLLOWED",
@@ -1278,6 +1296,35 @@ export async function followUser({
       return { error: "User not found", status: "UNFOLLOWED" };
     }
 
+    // Check if there are any existing follow requests
+    const existingRequests = await prisma.follows.findMany({
+      where: {
+        followerId: followerId,
+        followingId: followingId,
+        status: "PENDING"
+      }
+    });
+
+    // If there are existing pending requests, delete them to avoid duplicates
+    if (existingRequests.length > 0) {
+      await prisma.follows.deleteMany({
+        where: {
+          followerId: followerId,
+          followingId: followingId,
+          status: "PENDING"
+        }
+      });
+
+      // Also delete any existing follow request notifications
+      await prisma.notification.deleteMany({
+        where: {
+          type: "FOLLOW_REQUEST",
+          userId: followingId,
+          sender_id: followerId
+        }
+      });
+    }
+
     // Delete any existing follow notifications between these users
     await prisma.notification.deleteMany({
       where: {
@@ -1287,14 +1334,14 @@ export async function followUser({
         AND: [
           {
             OR: [
-              { sender_id: followerId },
-              { sender_id: followingId }
-            ]
-          },
-          {
-            OR: [
-              { userId: followerId },
-              { userId: followingId }
+              { 
+                sender_id: followerId,
+                userId: followingId 
+              },
+              { 
+                sender_id: followingId,
+                userId: followerId 
+              }
             ]
           }
         ]
@@ -1414,13 +1461,14 @@ export async function createStory(data: { fileUrl: string; scale: number }) {
 }
 
 export async function getNotifications() {
-  const userId = await getUserId();
-
-  if (!userId) {
-    return { notifications: [] };
-  }
-
   try {
+    const userId = await getUserId(3, 1000);
+
+    if (!userId) {
+      return { notifications: [], followRequests: [] };
+    }
+
+    // First, get all notifications
     const notifications = await db.notification.findMany({
       where: {
         userId,
@@ -1432,7 +1480,6 @@ export async function getNotifications() {
             username: true,
             image: true,
             isPrivate: true,
-            // Get followers (people who follow the sender)
             followers: {
               where: {
                 followerId: userId,
@@ -1441,7 +1488,6 @@ export async function getNotifications() {
                 status: true,
               },
             },
-            // Get following (people the sender follows)
             following: {
               where: {
                 followingId: userId,
@@ -1464,99 +1510,82 @@ export async function getNotifications() {
       },
     });
 
-    // Fetch comments for notifications that have commentId in metadata
-    const commentIds = notifications
-      .filter((n: { metadata: string | null }) => {
-        if (!n.metadata) return false;
-        try {
-          const metadata = JSON.parse(n.metadata);
-          return typeof metadata === 'object' && 'commentId' in metadata;
-        } catch {
-          return false;
-        }
-      })
-      .map((n: { metadata: string | null }) => {
-        try {
-          const metadata = JSON.parse(n.metadata!);
-          return metadata.commentId;
-        } catch {
-          return null;
-        }
-      })
-      .filter((id: string | null): id is string => id !== null);
-
-    const comments =
-      commentIds.length > 0
-        ? await db.comment.findMany({
-            where: {
-              id: {
-                in: commentIds,
+    // Get pending follow requests
+    const pendingFollowRequests = await prisma.follows.findMany({
+      where: {
+        followingId: userId,
+        status: "PENDING",
+      },
+      include: {
+        follower: {
+          select: {
+            id: true,
+            username: true,
+            image: true,
+            isPrivate: true,
+            followers: {
+              where: {
+                followingId: userId,
+              },
+              select: {
+                status: true,
               },
             },
-            select: {
-              id: true,
-              body: true,
+            following: {
+              where: {
+                followerId: userId,
+              },
+              select: {
+                status: true,
+              },
             },
-          })
-        : [];
-
-    const enrichedNotifications = notifications.map((notification: { 
-      metadata: string | null;
-      type: string;
-      userId: string;
-      sender_id: string;
-      sender?: any;
-    }) => {
-      const commentId = notification.metadata
-        ? (() => {
-            try {
-              const metadata = JSON.parse(notification.metadata);
-              return typeof metadata === 'object' && 'commentId' in metadata
-                ? String(metadata.commentId)
-                : undefined;
-            } catch {
-              return undefined;
-            }
-          })()
-        : undefined;
-
-      // Get follow state from both followers and following arrays
-      const followStatus = notification.sender?.followers[0]?.status;
-      const followedByStatus = notification.sender?.following[0]?.status;
-
-      // Update the logic to correctly determine follow states
-      const isFollowing = followStatus === "ACCEPTED";
-      const hasPendingRequest = followStatus === "PENDING";
-      const isFollowedByUser = followedByStatus === "ACCEPTED";
-
-      return {
-        ...notification,
-        type: notification.type as NotificationType,
-        user_id: notification.userId,
-        senderId: notification.sender_id,
-        sender: notification.sender
-          ? {
-              ...notification.sender,
-              isFollowing,
-              hasPendingRequest,
-              isFollowedByUser,
-              followers: undefined, // Remove the followers array from the response
-              following: undefined, // Remove the following array from the response
-            }
-          : undefined,
-        comment: commentId
-          ? {
-              id: commentId,
-              text: comments.find((c: { id: string; body: string }) => c.id === commentId)?.body || "",
-            }
-          : null,
-      };
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
 
-    return { notifications: enrichedNotifications };
+    // Convert follow requests to notifications format
+    const followRequestNotifications = pendingFollowRequests.map((request: {
+      followerId: string;
+      createdAt: Date;
+      follower: {
+        id: string;
+        username: string | null;
+        image: string | null;
+        isPrivate: boolean;
+        followers: { status: string }[];
+        following: { status: string }[];
+      };
+    }) => ({
+      id: crypto.randomUUID(),
+      type: "FOLLOW_REQUEST" as const,
+      userId,
+      sender_id: request.followerId,
+      createdAt: request.createdAt,
+      sender: {
+        ...request.follower,
+        isFollowing: request.follower.following.length > 0 && request.follower.following[0].status === "ACCEPTED",
+        isFollowedByUser: request.follower.followers.length > 0 && request.follower.followers[0].status === "ACCEPTED",
+        hasPendingRequest: true,
+      },
+      post: null,
+      isRead: false,
+      reelId: null,
+      storyId: null,
+      metadata: null,
+    }));
+
+    // Return both regular notifications and follow requests
+    return {
+      notifications: [...notifications, ...followRequestNotifications],
+      followRequests: followRequestNotifications,
+    };
   } catch (error) {
-    console.error("Error fetching notifications:", error);
-    return { notifications: [] };
+    console.error("[getNotifications] Error:", error);
+    return { notifications: [], followRequests: [] };
   }
 }
 

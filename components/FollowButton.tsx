@@ -3,9 +3,10 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
+import { useFollowStatus } from "@/lib/hooks/use-follow-status";
 
 interface FollowButtonProps {
   followingId: string;
@@ -21,10 +22,10 @@ interface FollowButtonProps {
 
 export default function FollowButton({
   followingId,
-  isFollowing,
-  hasPendingRequest,
+  isFollowing: initialIsFollowing,
+  hasPendingRequest: initialHasPendingRequest,
   isPrivate = false,
-  isFollowedByUser = false,
+  isFollowedByUser: initialIsFollowedByUser = false,
   className,
   buttonClassName,
   variant = "default",
@@ -33,14 +34,30 @@ export default function FollowButton({
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [followState, setFollowState] = useState({
-    isFollowing,
-    hasPendingRequest,
-    isFollowedByUser,
-    hasPendingRequestFromUser: false
-  });
   const { data: session } = useSession();
   const isOwnProfile = session?.user?.id === followingId;
+  
+  // Use the follow status hook to get real-time status
+  const { data: followStatus, isLoading: isLoadingStatus } = useFollowStatus(followingId);
+  
+  const [followState, setFollowState] = useState({
+    isFollowing: initialIsFollowing,
+    hasPendingRequest: initialHasPendingRequest,
+    isFollowedByUser: initialIsFollowedByUser,
+    hasPendingRequestFromUser: false
+  });
+
+  // Update follow state when follow status changes
+  useEffect(() => {
+    if (followStatus) {
+      setFollowState({
+        isFollowing: followStatus.isFollowing,
+        hasPendingRequest: followStatus.hasPendingRequest,
+        isFollowedByUser: followStatus.isFollowedByUser,
+        hasPendingRequestFromUser: followStatus.hasPendingRequestFromUser
+      });
+    }
+  }, [followStatus]);
 
   const handleFollow = async () => {
     if (isLoading) return;
@@ -54,20 +71,25 @@ export default function FollowButton({
         },
         body: JSON.stringify({
           followingId,
-          action: isFollowing ? "unfollow" : "follow"
+          action: followState.isFollowing ? "unfollow" : "follow"
         })
       });
 
-      if (!response.ok) {
-        setFollowState(prev => ({
-          ...prev,
-          isFollowing: false,
-          hasPendingRequest: false
-        }));
-        throw new Error("Failed to follow user");
-      }
-
       const data = await response.json();
+
+      if (!response.ok) {
+        // If it's already pending, don't show an error, just update the UI
+        if (data.status === "PENDING") {
+          setFollowState(prev => ({
+            ...prev,
+            isFollowing: false,
+            hasPendingRequest: true
+          }));
+          toast.success("Follow request sent");
+          return;
+        }
+        throw new Error(data.error || "Failed to follow user");
+      }
 
       toast.success(data.status === "ACCEPTED" ? "Following user" : "Follow request sent");
 
@@ -77,12 +99,10 @@ export default function FollowButton({
         hasPendingRequest: data.status === "PENDING"
       }));
 
-      // Remove user from suggestions immediately after successful follow request
       if (onSuccess) {
         onSuccess(true);
       }
 
-      // Force a router refresh to update the UI
       router.refresh();
     } catch (error) {
       toast.error("Something went wrong");
@@ -126,13 +146,6 @@ export default function FollowButton({
         throw new Error(data.error || "Failed to unfollow user");
       }
 
-      // Update state based on the response
-      setFollowState(prev => ({
-        ...prev,
-        isFollowing: false,
-        hasPendingRequest: false
-      }));
-
       if (onSuccess) {
         onSuccess(false);
       }
@@ -150,6 +163,14 @@ export default function FollowButton({
 
     try {
       setIsLoading(true);
+      
+      // Optimistically update UI
+      setFollowState(prev => ({
+        ...prev,
+        isFollowing: false,
+        hasPendingRequest: false
+      }));
+
       const response = await fetch("/api/users/follow", {
         method: "POST",
         headers: {
@@ -157,26 +178,23 @@ export default function FollowButton({
         },
         body: JSON.stringify({
           followingId,
-          followerId: followingId,
-          action: "delete"
+          action: "unfollow"  // Use unfollow since we're canceling our own request
         })
       });
 
       const data = await response.json();
 
       if (!response.ok) {
+        // Revert optimistic update on error
+        setFollowState(prev => ({
+          ...prev,
+          isFollowing: false,
+          hasPendingRequest: true
+        }));
         throw new Error(data.error || "Failed to cancel follow request");
       }
 
-      const newState = {
-        isFollowing: false,
-        hasPendingRequest: false,
-        isFollowedByUser: followState.isFollowedByUser,
-        hasPendingRequestFromUser: followState.hasPendingRequestFromUser
-      };
-      setFollowState(newState);
       onSuccess?.(true);
-
       toast.success("Follow request cancelled");
       router.refresh();
     } catch (error) {
@@ -210,6 +228,22 @@ export default function FollowButton({
     }
   };
 
+  if (isLoadingStatus) {
+    return (
+      <Button
+        disabled
+        className={cn(
+          "relative font-semibold transition-all duration-200 px-6",
+          "hover:scale-[0.98] active:scale-[0.97]",
+          "disabled:opacity-50 disabled:cursor-not-allowed",
+          className
+        )}
+      >
+        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+      </Button>
+    );
+  }
+
   return (
     <Button
       onClick={handleClick}
@@ -233,7 +267,7 @@ export default function FollowButton({
               "bg-blue-500 hover:bg-blue-600 text-white",
               "shadow-sm hover:shadow-md",
               "border border-blue-600 hover:border-blue-700",
-              isFollowedByUser && "transition-all duration-300"
+              followState.isFollowedByUser && "transition-all duration-300"
             ),
         className
       )}

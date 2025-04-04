@@ -2,7 +2,6 @@
 
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "sonner";
-import { SessionProvider } from "next-auth/react";
 import Providers from "@/app/providers";
 import StoryModal from "@/components/modals/StoryModal";
 import EditProfileModal from "@/components/modals/EditProfileModal";
@@ -34,25 +33,23 @@ MemoizedModals.displayName = "MemoizedModals";
 export default function BodyContent({ children }: { children: React.ReactNode }) {
   return (
     <Suspense fallback={null}>
-      <SessionProvider refetchInterval={0} refetchOnWindowFocus={true}>
-        <Providers>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="dark"
-            enableSystem={false}
-            storageKey="theme-preference"
-            disableTransitionOnChange={false}
-          >
-            <div className="pb-14 md:pb-0">
-              {children}
-            </div>
-            <MemoizedToaster />
-            <Suspense fallback={null}>
-              <MemoizedModals />
-            </Suspense>
-          </ThemeProvider>
-        </Providers>
-      </SessionProvider>
+      <Providers>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          storageKey="theme-preference"
+          disableTransitionOnChange={false}
+        >
+          <div className="pb-14 md:pb-0">
+            {children}
+          </div>
+          <MemoizedToaster />
+          <Suspense fallback={null}>
+            <MemoizedModals />
+          </Suspense>
+        </ThemeProvider>
+      </Providers>
     </Suspense>
   );
 } 

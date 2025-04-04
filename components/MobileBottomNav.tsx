@@ -54,7 +54,7 @@ export default function MobileBottomNav() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const isMobile = useMediaQuery("(max-width: 768px)");
-  const { notifications } = useNotifications();
+  const { notifications, followRequests } = useNotifications();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
@@ -132,16 +132,28 @@ export default function MobileBottomNav() {
       <NotificationSidebar
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
-        notifications={(notifications || []).map(n => ({
-          ...n,
-          type: n.type as NotificationType,
-          sender: n.sender ? {
-            id: n.sender.id,
-            username: n.sender.username || null,
-            image: n.sender.image
-          } : undefined,
-          metadata: n.metadata || null
-        })) as NotificationWithExtras[]}
+        notifications={[
+          ...(followRequests || []).map(n => ({
+            ...n,
+            type: "FOLLOW_REQUEST" as NotificationType,
+            sender: n.sender ? {
+              id: n.sender.id,
+              username: n.sender.username || null,
+              image: n.sender.image
+            } : undefined,
+            metadata: n.metadata || null
+          })),
+          ...(notifications || []).map(n => ({
+            ...n,
+            type: n.type as NotificationType,
+            sender: n.sender ? {
+              id: n.sender.id,
+              username: n.sender.username || null,
+              image: n.sender.image
+            } : undefined,
+            metadata: n.metadata || null
+          }))
+        ] as NotificationWithExtras[]}
       />
     </>
   );

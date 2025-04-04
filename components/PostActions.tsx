@@ -77,26 +77,32 @@ function PostActions({ post, userId, className, inputRef }: Props) {
 
   const handleLikeUpdate = useCallback((data: LikeUpdateData) => {
     if (data.post.id === post.id) {
-      setCurrentPost((prevPost) => {
+      setCurrentPost((prevPost: PostWithExtras) => {
         let updatedLikes = [...prevPost.likes];
 
         if (data.action === "unlike") {
           updatedLikes = updatedLikes.filter((like) => like.user_id !== data.user_id);
         } else {
-          const newLike: Like = {
-            id: crypto.randomUUID(),
-            user_id: data.likedBy.id,
-            postId: data.post.id,
-            reelId: null,
-            storyId: null,
-            user: data.likedBy,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-          updatedLikes.push(newLike);
+          const likeExists = updatedLikes.some((like) => like.user_id === data.likedBy.id);
+          if (!likeExists) {
+            const newLike = {
+              id: crypto.randomUUID(),
+              user_id: data.likedBy.id,
+              postId: data.post.id,
+              reelId: null,
+              storyId: null,
+              user: data.likedBy,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            updatedLikes.push(newLike);
+          }
         }
 
-        return { ...prevPost, likes: updatedLikes };
+        return {
+          ...prevPost,
+          likes: updatedLikes
+        };
       });
     }
   }, [post.id]);

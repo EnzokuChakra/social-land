@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useStoryModal } from "@/hooks/use-story-modal";
-import { Dialog, DialogContent, DialogTitle, DialogContentWithoutClose, DialogDescription } from "@/components/ui/dialog";
 import { useSession } from "next-auth/react";
+import { useStoryModal } from "@/hooks/use-story-modal";
+import useMount from "@/hooks/useMount";
+import { Dialog, DialogContent, DialogTitle, DialogContentWithoutClose, DialogDescription } from "@/components/ui/dialog";
 import { Heart, MoreHorizontal, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSocket } from "@/hooks/use-socket";
+import ReportStoryModal from "./ReportStoryModal";
 import UserAvatar from "../UserAvatar";
 import { Button } from "../ui/button";
 import { ScrollArea } from "../ui/scroll-area";
@@ -16,9 +19,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import useMount from "@/hooks/useMount";
-import { useSocket } from "../../hooks/use-socket";
-import ReportStoryModal from "./ReportStoryModal";
 
 interface StoryUser {
   id: string;
@@ -29,23 +29,13 @@ interface StoryUser {
 
 interface StoryView {
   id: string;
-  user: {
-    id: string;
-    username: string;
-    name: string | null;
-    image: string | null;
-  };
+  user: StoryUser;
   createdAt: Date;
 }
 
 interface StoryLike {
   id: string;
-  user: {
-    id: string;
-    username: string;
-    name: string | null;
-    image: string | null;
-  };
+  user: StoryUser;
   createdAt: Date;
 }
 
@@ -104,6 +94,7 @@ function ViewerListItem({ user, hasLiked }: ViewerListItemProps) {
 export default function StoryModal() {
   const { data: session } = useSession();
   const storyModal = useStoryModal();
+  const mount = useMount();
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -111,7 +102,6 @@ export default function StoryModal() {
   const [isPaused, setIsPaused] = useState(false);
   const [stories, setStories] = useState<Story[]>([]);
   const router = useRouter();
-  const mount = useMount();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lastFetchRef = useRef<number>(0);
@@ -130,107 +120,131 @@ export default function StoryModal() {
   const isAdmin = session?.user?.role === "ADMIN";
   const canDelete = isStoryOwner || isMasterAdmin || isAdmin;
 
-  // Function to progress to next story
-  const progressToNextStory = useCallback(() => {
-    if (!currentUserStories?.stories) return;
+  // Define findNextUnviewedStory first
+  const findNextUnviewedStory = useCallback(() => {
+    if (!session?.user?.id) return null;
 
-    if (currentStoryIndex < currentUserStories.stories.length - 1) {
-      setCurrentStoryIndex(currentStoryIndex + 1);
-      setProgress(0);
-    } else if (storyModal.currentUserIndex < storyModal.userStories.length - 1) {
-      storyModal.setCurrentUserIndex(storyModal.currentUserIndex + 1);
-      setCurrentStoryIndex(0);
-      setProgress(0);
-    } else {
-      // If we've reached the last story of the last user, close the modal
-      storyModal.onClose();
+    // First check remaining stories in current user's stories
+    for (let i = currentStoryIndex + 1; i < currentUserStories?.stories.length; i++) {
+      const story = currentUserStories.stories[i];
+      if (!story.views.some(view => view.user.id === session.user.id)) {
+        return { userIndex: storyModal.currentUserIndex, storyIndex: i };
+      }
     }
-  }, [currentStoryIndex, currentUserStories?.stories?.length, storyModal]);
 
-  // Add a new effect to track when all stories have been viewed
-  useEffect(() => {
-    if (!storyModal.isOpen || !currentUserStories?.stories) return;
+    // Then check other users' stories
+    for (let i = storyModal.currentUserIndex + 1; i < storyModal.userStories.length; i++) {
+      const userStories = storyModal.userStories[i];
+      for (let j = 0; j < userStories.stories.length; j++) {
+        const story = userStories.stories[j];
+        if (!story.views.some(view => view.user.id === session.user.id)) {
+          return { userIndex: i, storyIndex: j };
+        }
+      }
+    }
 
-    // Check if we're on the last story of the last user
-    const isLastStory = currentStoryIndex === currentUserStories.stories.length - 1;
-    const isLastUser = storyModal.currentUserIndex === storyModal.userStories.length - 1;
+    return null;
+  }, [session?.user?.id, currentStoryIndex, currentUserStories, storyModal.currentUserIndex, storyModal.userStories]);
 
-    // Emit storyViewed event when a story is viewed
-    if (currentStory && session?.user?.id) {
-      const isOwnStory = currentStory.user.id === session.user.id;
-      const storageKey = `viewed_stories_${currentStory.user.id}_${session.user.id}`;
-      const storedViewedStories = localStorage.getItem(storageKey);
-      const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
+  // Now define handleStoryEnd which uses findNextUnviewedStory
+  const handleStoryEnd = useCallback(() => {
+    // Prevent multiple calls
+    if (progressInterval.current === null && storyTimeout.current === null) {
+      return;
+    }
+
+    // Clear any existing timers
+    if (progressInterval.current) {
+      clearInterval(progressInterval.current);
+      progressInterval.current = null;
+    }
+    if (storyTimeout.current) {
+      clearTimeout(storyTimeout.current);
+      storyTimeout.current = null;
+    }
+
+    if (currentStoryIndex < currentUserStories?.stories.length - 1) {
+      // Move to next story in current user's stories
+      setCurrentStoryIndex(prev => prev + 1);
+      setProgress(0);
+      lastProgressRef.current = 0;
+      setIsPaused(false);
+    } else {
+      // Find next unviewed story
+      const nextUnviewed = findNextUnviewedStory();
       
-      // Mark the current story as viewed
-      viewedStories[currentStory.id] = true;
-      localStorage.setItem(storageKey, JSON.stringify(viewedStories));
-
-      // Emit the storyViewed event
-      const event = new CustomEvent('storyViewed', {
-        detail: {
-          userId: currentStory.user.id,
-          viewedStories,
-          isOwnStory
-        }
-      });
-      window.dispatchEvent(event);
-    }
-
-    if (isLastStory && isLastUser) {
-      // Set a timeout to close the modal after the last story is viewed
-      const timeout = setTimeout(() => {
-        storyModal.onClose();
-      }, 5000); // Close after 5 seconds of viewing the last story
-
-      return () => clearTimeout(timeout);
-    }
-  }, [currentStoryIndex, storyModal.currentUserIndex, currentUserStories?.stories?.length, storyModal.isOpen, storyModal.onClose]);
-
-  // Handle story click for navigation
-  const handleStoryClick = (e: React.MouseEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const width = rect.width;
-
-    // If clicked on the left half, go to previous story
-    if (x < width / 2) {
-      if (currentStoryIndex > 0) {
-        setCurrentStoryIndex(currentStoryIndex - 1);
+      if (nextUnviewed) {
+        // Move to the next unviewed story
+        storyModal.setCurrentUserIndex(nextUnviewed.userIndex);
+        setCurrentStoryIndex(nextUnviewed.storyIndex);
         setProgress(0);
-      } else if (storyModal.currentUserIndex > 0) {
-        // Move to the last story of the previous user
-        storyModal.setCurrentUserIndex(storyModal.currentUserIndex - 1);
-        setCurrentStoryIndex(storyModal.userStories[storyModal.currentUserIndex - 1].stories.length - 1);
-        setProgress(0);
+        lastProgressRef.current = 0;
+        setIsPaused(false);
+      } else {
+        // Schedule modal close for next tick to avoid state updates during render
+        setTimeout(() => {
+          storyModal.onClose();
+        }, 0);
       }
-    } else {
-      // If clicked on the right half, go to next story
-      progressToNextStory();
     }
-  };
+  }, [currentStoryIndex, currentUserStories?.stories.length, findNextUnviewedStory, storyModal]);
 
-  // Handle keyboard navigation
+  // Update the useEffect for progress
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') {
-        if (currentStoryIndex > 0) {
-          setCurrentStoryIndex(currentStoryIndex - 1);
-          setProgress(0);
-        } else if (storyModal.currentUserIndex > 0) {
-          // Move to the last story of the previous user
-          storyModal.setCurrentUserIndex(storyModal.currentUserIndex - 1);
-          setCurrentStoryIndex(storyModal.userStories[storyModal.currentUserIndex - 1].stories.length - 1);
-          setProgress(0);
+    if (!mount || !storyModal.isOpen || isPaused) return;
+
+    const startProgress = () => {
+      if (progressInterval.current) clearInterval(progressInterval.current);
+      if (storyTimeout.current) clearTimeout(storyTimeout.current);
+
+      const interval = 100; // Update every 100ms
+      const duration = 5000; // 5 seconds per story
+      const step = (interval / duration) * 100;
+
+      progressInterval.current = setInterval(() => {
+        setProgress(prev => {
+          const newProgress = prev + step;
+          if (newProgress >= 100) {
+            if (progressInterval.current) {
+              clearInterval(progressInterval.current);
+              progressInterval.current = null;
+            }
+            // Instead of calling handleStoryEnd directly, schedule it
+            requestAnimationFrame(() => {
+              handleStoryEnd();
+            });
+            return 100;
+          }
+          return newProgress;
+        });
+      }, interval);
+
+      // Set a timeout for the entire story duration
+      storyTimeout.current = setTimeout(() => {
+        if (progressInterval.current) {
+          clearInterval(progressInterval.current);
+          progressInterval.current = null;
         }
-      } else if (e.key === 'ArrowRight') {
-        progressToNextStory();
-      }
+        // Schedule handleStoryEnd call
+        requestAnimationFrame(() => {
+          handleStoryEnd();
+        });
+      }, duration);
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentStoryIndex, storyModal.currentUserIndex, currentUserStories, progressToNextStory]);
+    startProgress();
+
+    return () => {
+      if (progressInterval.current) {
+        clearInterval(progressInterval.current);
+        progressInterval.current = null;
+      }
+      if (storyTimeout.current) {
+        clearTimeout(storyTimeout.current);
+        storyTimeout.current = null;
+      }
+    };
+  }, [mount, storyModal.isOpen, isPaused, handleStoryEnd]);
 
   // Track view when story is opened
   useEffect(() => {
@@ -264,9 +278,26 @@ export default function StoryModal() {
       return;
     }
 
-    // For others' stories, track view normally
+    // Rate limiting for view tracking
+    const viewedKey = `story_view_${currentStory.id}`;
+    const lastViewTime = parseInt(sessionStorage.getItem(viewedKey) || '0');
+    const now = Date.now();
+    const VIEW_COOLDOWN = 5000; // 5 second cooldown between view tracking
+
+    if (now - lastViewTime < VIEW_COOLDOWN) {
+      return;
+    }
+
+    // Only track view when story has been viewed for at least 1 second
+    if (progress < 20) {
+      return;
+    }
+
+    // For others' stories, track view with rate limiting
     const trackView = async () => {
       try {
+        sessionStorage.setItem(viewedKey, now.toString());
+
         const response = await axios.post('/api/stories/view', {
           storyIds: [currentStory.id]
         });
@@ -287,7 +318,7 @@ export default function StoryModal() {
             viewedStories[currentStory.id] = true;
             localStorage.setItem(storageKey, JSON.stringify(viewedStories));
 
-            // Dispatch a custom event to notify ProfileAvatar
+            // Dispatch event to update UI
             const event = new CustomEvent('storyViewed', {
               detail: {
                 userId: currentStory.user.id,
@@ -301,7 +332,7 @@ export default function StoryModal() {
 
           // Update local state with the new view
           setStories(prevStories => {
-            const updatedStories = prevStories.map(story => {
+            return prevStories.map(story => {
               if (story.id === currentStory.id) {
                 const hasExistingView = story.views?.some(view => view.user.id === session.user.id);
                 if (!hasExistingView) {
@@ -322,7 +353,6 @@ export default function StoryModal() {
               }
               return story;
             });
-            return updatedStories;
           });
 
           // Update the userStories in the modal context
@@ -364,112 +394,77 @@ export default function StoryModal() {
       }
     };
 
-    // Only track view if the story is actually being viewed
-    if (progress > 0) {
-      trackView();
-    }
-  }, [currentStory, session?.user?.id, socket, progress]);
-
-  // Handle socket events for view updates
-  useEffect(() => {
-    if (!socket || !currentStory) return;
-
-    const handleViewUpdate = (data: { storyId: string; userId: string; timestamp: string }) => {
-      if (data.storyId === currentStory.id) {
-        setStories(prevStories => {
-          return prevStories.map(story => {
-            if (story.id === data.storyId) {
-              // Add view if not already present
-              const hasExistingView = story.views.some(view => view.user.id === data.userId);
-              if (!hasExistingView) {
-                return {
-                  ...story,
-                  views: [...story.views, {
-                    id: `temp-${Date.now()}`,
-                    createdAt: new Date(data.timestamp),
-                    user: {
-                      id: data.userId,
-                      username: '', // Will be updated on next fetch
-                      name: null,
-                      image: null
-                    }
-                  }]
-                };
-              }
-            }
-            return story;
-          });
-        });
-      }
-    };
-
-    socket.on('storyViewUpdate', handleViewUpdate);
-    return () => {
-      socket.off('storyViewUpdate', handleViewUpdate);
-    };
-  }, [socket, currentStory?.id]);
-
-  // Reset progress when story changes
-  useEffect(() => {
-    setProgress(0);
-  }, [currentStory?.id]);
+    trackView();
+  }, [currentStory?.id, session?.user?.id, progress]);
 
   // Update the progress timer effect
   useEffect(() => {
-    if (!currentStory || isPaused) {
+    if (!currentStory || isPaused || !storyModal.isOpen) {
       return;
     }
 
-    let progressTimer: NodeJS.Timeout;
-    let startDelay: NodeJS.Timeout;
+    let progressTimer: NodeJS.Timeout | null = null;
+    let startDelay: NodeJS.Timeout | null = null;
     const STORY_DURATION = 5000; // 5 seconds per story
     const PROGRESS_INTERVAL = 50; // Update every 50ms for smooth animation
-    const PROGRESS_INCREMENT = (100 / (STORY_DURATION / PROGRESS_INTERVAL)); // Calculate increment based on duration
 
     const startProgress = () => {
-      // Reset progress before starting new timer
-      requestAnimationFrame(() => {
-        setProgress(0);
+      setProgress(0);
+      
+      startDelay = setTimeout(() => {
+        const startTime = Date.now();
         
-        startDelay = setTimeout(() => {
-          progressTimer = setInterval(() => {
-            setProgress((prev) => {
-              const newProgress = prev + PROGRESS_INCREMENT;
-              if (newProgress >= 100) {
-                clearInterval(progressTimer);
-                
-                // Move to next story immediately
-                if (currentStoryIndex < (currentUserStories?.stories.length || 0) - 1) {
-                  setCurrentStoryIndex(currentStoryIndex + 1);
-                } else if (storyModal.currentUserIndex < storyModal.userStories.length - 1) {
-                  storyModal.setCurrentUserIndex(storyModal.currentUserIndex + 1);
-                  setCurrentStoryIndex(0);
-                } else {
-                  storyModal.onClose();
-                }
-                
-                return 0; // Reset progress
-              }
-              return newProgress;
-            });
-          }, PROGRESS_INTERVAL);
-        }, 100); // Small delay before starting to ensure smooth transition
-      });
+        progressTimer = setInterval(() => {
+          const elapsedTime = Date.now() - startTime;
+          const calculatedProgress = (elapsedTime / STORY_DURATION) * 100;
+          
+          if (calculatedProgress >= 100) {
+            if (progressTimer) clearInterval(progressTimer);
+            if (startDelay) clearTimeout(startDelay);
+            
+            // Move to next story immediately
+            if (currentStoryIndex < (currentUserStories?.stories.length || 0) - 1) {
+              setCurrentStoryIndex(prev => prev + 1);
+            } else if (storyModal.currentUserIndex < storyModal.userStories.length - 1) {
+              storyModal.setCurrentUserIndex(storyModal.currentUserIndex + 1);
+              setCurrentStoryIndex(0);
+            } else {
+              storyModal.onClose();
+            }
+          } else {
+            setProgress(calculatedProgress);
+          }
+        }, PROGRESS_INTERVAL);
+      }, 100);
     };
 
     startProgress();
 
     return () => {
-      clearTimeout(startDelay);
-      clearInterval(progressTimer);
+      if (progressTimer) {
+        clearInterval(progressTimer);
+      }
+      if (startDelay) {
+        clearTimeout(startDelay);
+      }
     };
-  }, [currentStory?.id, isPaused, currentStoryIndex, currentUserStories, storyModal]);
+  }, [
+    currentStory?.id,
+    isPaused,
+    storyModal.isOpen,
+    currentStoryIndex,
+    currentUserStories?.stories.length,
+    storyModal.currentUserIndex,
+    storyModal.userStories.length,
+    storyModal.onClose
+  ]);
 
   // Handle story transitions
   useEffect(() => {
-    if (!currentStory) return;
-    
-    // Reset progress when story changes
+    if (!currentStory) {
+      return;
+    }
+
     const timeout = setTimeout(() => {
       requestAnimationFrame(() => {
         setProgress(0);
@@ -478,62 +473,6 @@ export default function StoryModal() {
 
     return () => clearTimeout(timeout);
   }, [currentStory?.id]);
-
-  // Update isLiked when currentStory changes
-  useEffect(() => {
-    if (currentStory && session?.user?.id) {
-      setIsLiked(currentStory.likes.some((like: StoryLike) => like.user.id === session.user.id));
-    }
-  }, [currentStory, session?.user?.id]);
-
-  // Update the fetchStories function to be less aggressive and preserve story state
-  const fetchStories = async () => {
-    if (!storyModal.userId || showViewersList) return;
-    
-    // Prevent fetching too frequently
-    const now = Date.now();
-    if (now - lastFetchRef.current < 15000) return; // Back to 15s to prevent frequent refreshes
-    lastFetchRef.current = now;
-
-    try {
-      const response = await fetch(`/api/stories?userId=${storyModal.userId}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch stories');
-      }
-      
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.error || "Failed to load stories");
-      }
-
-      // Sort stories by createdAt in ascending order (oldest first)
-      const newStories = data.data.sort((a: Story, b: Story) => 
-        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-      );
-
-      // Update stories while preserving current story state
-      setStories((prevStories) => {
-        if (currentStory) {
-          return newStories.map((story: Story) => 
-            story.id === currentStory.id ? currentStory : story
-          );
-        }
-        return newStories;
-      });
-
-      // Update userStories in modal context
-      if (storyModal.userStories.length > 0) {
-        const updatedUserStories = [...storyModal.userStories];
-        updatedUserStories[storyModal.currentUserIndex] = {
-          ...updatedUserStories[storyModal.currentUserIndex],
-          stories: newStories
-        };
-        storyModal.setUserStories(updatedUserStories);
-      }
-    } catch (error) {
-      setError("Failed to load stories");
-    }
-  };
 
   // Reset all states when modal closes
   useEffect(() => {
@@ -821,6 +760,203 @@ export default function StoryModal() {
 
   const handleReportStory = () => {
     setIsReportModalOpen(true);
+  };
+
+  // Function to progress to next story
+  const progressToNextStory = useCallback(() => {
+    if (!currentUserStories?.stories) return;
+
+    if (currentStoryIndex < currentUserStories.stories.length - 1) {
+      setCurrentStoryIndex(currentStoryIndex + 1);
+      setProgress(0);
+    } else if (storyModal.currentUserIndex < storyModal.userStories.length - 1) {
+      storyModal.setCurrentUserIndex(storyModal.currentUserIndex + 1);
+      setCurrentStoryIndex(0);
+      setProgress(0);
+    } else {
+      // If we've reached the last story of the last user, close the modal
+      storyModal.onClose();
+    }
+  }, [currentStoryIndex, currentUserStories?.stories?.length, storyModal]);
+
+  // Add a new effect to track when all stories have been viewed
+  useEffect(() => {
+    if (!storyModal.isOpen || !currentUserStories?.stories) return;
+
+    // Check if we're on the last story of the last user
+    const isLastStory = currentStoryIndex === currentUserStories.stories.length - 1;
+    const isLastUser = storyModal.currentUserIndex === storyModal.userStories.length - 1;
+
+    // Emit storyViewed event when a story is viewed
+    if (currentStory && session?.user?.id) {
+      const isOwnStory = currentStory.user.id === session.user.id;
+      const storageKey = `viewed_stories_${currentStory.user.id}_${session.user.id}`;
+      const storedViewedStories = localStorage.getItem(storageKey);
+      const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
+      
+      // Mark the current story as viewed
+      viewedStories[currentStory.id] = true;
+      localStorage.setItem(storageKey, JSON.stringify(viewedStories));
+
+      // Emit the storyViewed event
+      const event = new CustomEvent('storyViewed', {
+        detail: {
+          userId: currentStory.user.id,
+          viewedStories,
+          isOwnStory
+        }
+      });
+      window.dispatchEvent(event);
+    }
+
+    if (isLastStory && isLastUser) {
+      // Set a timeout to close the modal after the last story is viewed
+      const timeout = setTimeout(() => {
+        storyModal.onClose();
+      }, 5000); // Close after 5 seconds of viewing the last story
+
+      return () => clearTimeout(timeout);
+    }
+  }, [currentStoryIndex, storyModal.currentUserIndex, currentUserStories?.stories?.length, storyModal.isOpen, storyModal.onClose]);
+
+  // Handle story click for navigation
+  const handleStoryClick = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const width = rect.width;
+
+    // If clicked on the left half, go to previous story
+    if (x < width / 2) {
+      if (currentStoryIndex > 0) {
+        setCurrentStoryIndex(currentStoryIndex - 1);
+        setProgress(0);
+      } else if (storyModal.currentUserIndex > 0) {
+        // Move to the last story of the previous user
+        storyModal.setCurrentUserIndex(storyModal.currentUserIndex - 1);
+        setCurrentStoryIndex(storyModal.userStories[storyModal.currentUserIndex - 1].stories.length - 1);
+        setProgress(0);
+      }
+    } else {
+      // If clicked on the right half, go to next story
+      progressToNextStory();
+    }
+  };
+
+  // Handle keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        if (currentStoryIndex > 0) {
+          setCurrentStoryIndex(currentStoryIndex - 1);
+          setProgress(0);
+        } else if (storyModal.currentUserIndex > 0) {
+          // Move to the last story of the previous user
+          storyModal.setCurrentUserIndex(storyModal.currentUserIndex - 1);
+          setCurrentStoryIndex(storyModal.userStories[storyModal.currentUserIndex - 1].stories.length - 1);
+          setProgress(0);
+        }
+      } else if (e.key === 'ArrowRight') {
+        progressToNextStory();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentStoryIndex, storyModal.currentUserIndex, currentUserStories, progressToNextStory]);
+
+  // Handle socket events for view updates
+  useEffect(() => {
+    if (!socket || !currentStory) return;
+
+    const handleViewUpdate = (data: { storyId: string; userId: string; timestamp: string }) => {
+      if (data.storyId === currentStory.id) {
+        setStories(prevStories => {
+          return prevStories.map(story => {
+            if (story.id === data.storyId) {
+              // Add view if not already present
+              const hasExistingView = story.views.some(view => view.user.id === data.userId);
+              if (!hasExistingView) {
+                return {
+                  ...story,
+                  views: [...story.views, {
+                    id: `temp-${Date.now()}`,
+                    createdAt: new Date(data.timestamp),
+                    user: {
+                      id: data.userId,
+                      username: '', // Will be updated on next fetch
+                      name: null,
+                      image: null
+                    }
+                  }]
+                };
+              }
+            }
+            return story;
+          });
+        });
+      }
+    };
+
+    socket.on('storyViewUpdate', handleViewUpdate);
+    return () => {
+      socket.off('storyViewUpdate', handleViewUpdate);
+    };
+  }, [socket, currentStory?.id]);
+
+  // Update isLiked when currentStory changes
+  useEffect(() => {
+    if (currentStory && session?.user?.id) {
+      setIsLiked(currentStory.likes.some((like: StoryLike) => like.user.id === session.user.id));
+    }
+  }, [currentStory, session?.user?.id]);
+
+  // Update the fetchStories function to be less aggressive and preserve story state
+  const fetchStories = async () => {
+    if (!storyModal.userId || showViewersList) return;
+    
+    // Prevent fetching too frequently
+    const now = Date.now();
+    if (now - lastFetchRef.current < 15000) return; // Back to 15s to prevent frequent refreshes
+    lastFetchRef.current = now;
+
+    try {
+      const response = await fetch(`/api/stories?userId=${storyModal.userId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch stories');
+      }
+      
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error || "Failed to load stories");
+      }
+
+      // Sort stories by createdAt in ascending order (oldest first)
+      const newStories = data.data.sort((a: Story, b: Story) => 
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+
+      // Update stories while preserving current story state
+      setStories((prevStories) => {
+        if (currentStory) {
+          return newStories.map((story: Story) => 
+            story.id === currentStory.id ? currentStory : story
+          );
+        }
+        return newStories;
+      });
+
+      // Update userStories in modal context
+      if (storyModal.userStories.length > 0) {
+        const updatedUserStories = [...storyModal.userStories];
+        updatedUserStories[storyModal.currentUserIndex] = {
+          ...updatedUserStories[storyModal.currentUserIndex],
+          stories: newStories
+        };
+        storyModal.setUserStories(updatedUserStories);
+      }
+    } catch (error) {
+      setError("Failed to load stories");
+    }
   };
 
   if (!mount) return null;
