@@ -87,19 +87,72 @@ function Comments({
   const [newComments] = useState<string[]>([]);
 
   // Fetch initial comment count
+  const fetchCommentCount = async () => {
+    try {
+      const response = await fetch(`/api/posts/${postId}/comments?page=1&limit=10`, {
+        credentials: 'include',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.log('User not authenticated for comments');
+          return { comments: [], totalComments: 0, hasMore: false };
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return {
+        comments: data.comments || [],
+        totalComments: data.totalComments || 0,
+        hasMore: data.hasMore || false,
+      };
+    } catch (error) {
+      // In development, log the error but don't throw
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Comments fetch error (expected in dev):', error);
+        return { comments: [], totalComments: 0, hasMore: false };
+      }
+      // In production, we might want to log this to monitoring
+      console.error('Comments fetch error:', error);
+      return { comments: [], totalComments: 0, hasMore: false };
+    }
+  };
+
   useEffect(() => {
-    const fetchCommentCount = async () => {
+    let mounted = true;
+
+    const loadComments = async () => {
       try {
-        const response = await fetch(`/api/posts/${postId}/comments?page=1&limit=10`);
-        const data = await response.json();
-        setTotalComments(data.totalComments);
-        setHasMore(data.totalComments > 10);
+        const result = await fetchCommentCount();
+        if (mounted) {
+          setComments(result.comments);
+          setTotalComments(result.totalComments);
+          setHasMore(result.hasMore);
+        }
       } catch (error) {
-        console.error("Error fetching comment count:", error);
+        // Handle error silently in development
+        if (process.env.NODE_ENV !== 'development') {
+          console.error('Error loading comments:', error);
+        }
+      } finally {
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
-    fetchCommentCount();
-  }, [postId, initialComments.length]);
+
+    if (postId) {
+      loadComments();
+    }
+
+    return () => {
+      mounted = false;
+    };
+  }, [postId, initialComments?.length]);
 
   // Load more comments
   const loadMoreComments = async () => {

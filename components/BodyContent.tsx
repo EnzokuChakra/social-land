@@ -6,7 +6,6 @@ import { SessionProvider } from "next-auth/react";
 import Providers from "@/app/providers";
 import StoryModal from "@/components/modals/StoryModal";
 import EditProfileModal from "@/components/modals/EditProfileModal";
-import { NavbarProvider } from "@/lib/hooks/use-navbar";
 import { Suspense } from "react";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import { memo } from "react";
@@ -44,15 +43,13 @@ export default function BodyContent({ children }: { children: React.ReactNode })
             storageKey="theme-preference"
             disableTransitionOnChange={false}
           >
-            <NavbarProvider>
-              <div className="pb-14 md:pb-0">
-                {children}
-              </div>
-              <MemoizedToaster />
-              <Suspense fallback={null}>
-                <MemoizedModals />
-              </Suspense>
-            </NavbarProvider>
+            <div className="pb-14 md:pb-0">
+              {children}
+            </div>
+            <MemoizedToaster />
+            <Suspense fallback={null}>
+              <MemoizedModals />
+            </Suspense>
           </ThemeProvider>
         </Providers>
       </SessionProvider>

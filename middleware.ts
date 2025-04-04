@@ -1,26 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth } from "next-auth/middleware";
 import { getToken } from 'next-auth/jwt';
+import type { NextRequest as NextRequestType } from 'next/server';
 
-// Paths that should be accessible without authentication
-const PUBLIC_PATHS = [
+// Paths that require authentication
+const protectedPaths = [
+  '/dashboard',
+  '/api/profile',
+  '/api/users',
+  '/api/posts',
+  '/api/stories',
+  '/api/admin',
+];
+
+// Paths that are always public
+const publicPaths = [
   '/login',
   '/register',
+  '/forgot-password',
+  '/reset-password',
   '/api/auth',
-  '/maintenance',
-  '/api/admin/settings/maintenance',
-  '/api/admin/settings/maintenance/bypass',
-  '/api/status',
   '/_next',
-  '/favicon.ico',
-  '/banned',
+  '/images',
   '/uploads',
-  '/images'
+  '/public',
+  '/favicon.ico',
 ];
 
 // Check if the path is public
 const isPublicPath = (pathname: string) => {
-  return PUBLIC_PATHS.some(path => pathname.startsWith(path));
+  return publicPaths.some(path => pathname.startsWith(path));
 };
 
 // Check maintenance mode
@@ -45,95 +53,100 @@ async function checkMaintenanceMode(request: NextRequest, token: any) {
 }
 
 // Export the default middleware function
-export default withAuth(
-  async function middleware(request) {
-    const { pathname } = request.nextUrl;
-    const token = await getToken({ req: request });
+export async function middleware(request: NextRequestType) {
+  const { pathname } = request.nextUrl;
+
+  // Skip middleware for public paths and static files
+  if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Handle static files
+  if (pathname.match(/\.(jpg|jpeg|png|gif|ico|css|js)$/)) {
     const response = NextResponse.next();
-    
-    // Clean up the pathname by removing query parameters
-    const cleanPathname = pathname.split('?')[0];
-
-    // Skip middleware for API routes except specific ones that need auth
-    if (cleanPathname.startsWith('/api/') && !cleanPathname.startsWith('/api/admin/')) {
-      return response;
-    }
-
-    // Add caching headers for static files
-    if (cleanPathname.startsWith('/uploads/') || cleanPathname.startsWith('/images/')) {
-      // Set cache control for static files
-      response.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-      
-      // Set content type based on file extension
-      const ext = cleanPathname.split('.').pop()?.toLowerCase();
-      if (ext === 'jpg' || ext === 'jpeg') {
-        response.headers.set('Content-Type', 'image/jpeg');
-      } else if (ext === 'png') {
-        response.headers.set('Content-Type', 'image/png');
-      } else if (ext === 'webp') {
-        response.headers.set('Content-Type', 'image/webp');
-      } else if (ext === 'gif') {
-        response.headers.set('Content-Type', 'image/gif');
-      }
-
-      // Add security headers
-      response.headers.set('X-Content-Type-Options', 'nosniff');
-      response.headers.set('X-Frame-Options', 'DENY');
-      response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-      
-      return response;
-    }
-
-    // Skip maintenance check for public paths, MASTER_ADMIN users
-    if (isPublicPath(cleanPathname) || token?.role === 'MASTER_ADMIN') {
-      return response;
-    }
-
-    // Check maintenance mode only for non-API routes
-    if (!cleanPathname.startsWith('/api/')) {
-      const isMaintenance = await checkMaintenanceMode(request, token);
-      if (isMaintenance) {
-        const maintenanceUrl = new URL('/maintenance', request.url);
-        return NextResponse.redirect(maintenanceUrl);
-      }
-    }
-
+    response.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    response.headers.set('X-Content-Type-Options', 'nosniff');
     return response;
-  },
-  {
-    callbacks: {
-      authorized: ({ token, req }) => {
-        const { pathname } = req.nextUrl;
-        const cleanPathname = pathname.split('?')[0];
+  }
 
-        // Allow access to public paths and API routes
-        if (isPublicPath(cleanPathname) || cleanPathname.startsWith('/api/')) {
-          return true;
-        }
+  // Check if the path needs protection
+  const isProtectedPath = protectedPaths.some(path => pathname.startsWith(path));
+  const isApiRoute = pathname.startsWith('/api/');
 
-        // If has token and trying to access login page, redirect to dashboard
-        if (token && cleanPathname === '/login') {
-          return false;
-        }
+  if (isProtectedPath) {
+    try {
+      const token = await getToken({
+        req: request,
+        secret: process.env.NEXTAUTH_SECRET,
+      });
 
-        // If no token and trying to access protected route, redirect to login
-        if (!token && !isPublicPath(cleanPathname)) {
-          return false;
-        }
+      // For API routes, return 401 instead of redirecting
+      if (!token && isApiRoute) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Authentication required' }),
+          {
+            status: 401,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
 
-        return true;
-      },
-    },
-    pages: {
-      signIn: '/login',
+      // For non-API routes, redirect to login if no token
+      if (!token && !isApiRoute) {
+        const url = new URL('/login', request.url);
+        url.searchParams.set('callbackUrl', encodeURI(request.url));
+        return NextResponse.redirect(url);
+      }
+
+      // Special handling for admin routes
+      if (pathname.startsWith('/api/admin') && token?.role !== 'ADMIN') {
+        return new NextResponse(
+          JSON.stringify({ error: 'Admin access required' }),
+          {
+            status: 403,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
+    } catch (error) {
+      console.error('Middleware auth error:', error);
+      if (isApiRoute) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Authentication error' }),
+          {
+            status: 401,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+      }
+      const url = new URL('/login', request.url);
+      return NextResponse.redirect(url);
     }
   }
-);
+
+  const response = NextResponse.next();
+
+  // Add security headers
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set(
+    'Strict-Transport-Security',
+    'max-age=31536000; includeSubDomains'
+  );
+
+  return response;
+}
 
 // Middleware matcher configuration
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.png).*)',
-    '/uploads/:path*'
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };

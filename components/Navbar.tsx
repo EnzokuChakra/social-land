@@ -89,7 +89,7 @@ type VerificationStatus = {
 export default function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
-  const { isCollapsed, setIsCollapsed } = useNavbar();
+  const { isCollapsed, setIsCollapsed, navbarWidth } = useNavbar();
   const { notifications, isLoading, setNotifications } = useNotifications();
   const isMobile = useMediaQuery("(max-width: 768px)");
   const router = useRouter();
@@ -97,7 +97,7 @@ export default function Navbar() {
   const { language, setLanguage, showLanguageToggle, setShowLanguageToggle } = useLanguage();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [reelsEnabled, setReelsEnabled] = useState(false);
-  const [isLoadingReels, setIsLoadingReels] = useState(true);
+  const [isLoadingReels, setIsLoadingReels] = useState(false);
   const { profile } = useProfile();
   const [showModeToggle, setShowModeToggle] = useState(false);
   
@@ -142,25 +142,65 @@ export default function Navbar() {
     }
   }, [theme, setTheme]);
 
-  // Fetch reels visibility setting
-  useEffect(() => {
-    const fetchReelsVisibility = async () => {
-      try {
-        const response = await fetch("/api/admin/settings/reels");
-        if (!response.ok) {
-          throw new Error('Failed to fetch reels settings');
+  const fetchReelsVisibility = async () => {
+    try {
+      const response = await fetch('/api/admin/settings/reels/', {
+        credentials: 'include',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.log('User not authenticated for reels settings');
+          return false;
         }
-        const data = await response.json();
-        setReelsEnabled(data.reelsEnabled === true);
+        console.log('Failed to fetch reels settings:', response.status);
+        return false;
+      }
+
+      const data = await response.json();
+      return data.enabled ?? false;
+    } catch (error) {
+      // In development, log the error but don't throw
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Reels settings fetch error (expected in dev):', error);
+        return false;
+      }
+      // In production, we might want to log this to monitoring
+      console.error('Reels settings fetch error:', error);
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    setIsLoadingReels(true); // Set loading state when starting to fetch
+
+    const getReelsVisibility = async () => {
+      try {
+        const isEnabled = await fetchReelsVisibility();
+        if (mounted) {
+          setReelsEnabled(isEnabled);
+          setIsLoadingReels(false); // Clear loading state after fetch
+        }
       } catch (error) {
-        console.error("Error fetching reels visibility setting:", error);
-        setReelsEnabled(false);
-      } finally {
-        setIsLoadingReels(false);
+        if (mounted) {
+          setIsLoadingReels(false); // Clear loading state on error
+        }
+        // Handle error silently in development
+        if (process.env.NODE_ENV !== 'development') {
+          console.error('Error setting reels visibility:', error);
+        }
       }
     };
 
-    fetchReelsVisibility();
+    getReelsVisibility();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Close dropdowns when clicking outside
@@ -390,7 +430,7 @@ export default function Navbar() {
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex h-full w-[240px] flex-col bg-white dark:bg-black border-r border-neutral-200 dark:border-neutral-800 transition-all duration-300 ease-in-out",
           isCollapsed && "w-[72px]",
-          isMobile && "hidden" // Hide on mobile
+          isMobile ? "hidden" : "flex" // Show on desktop, hide on mobile
         )}
       >
         {/* Collapse Toggle Button */}

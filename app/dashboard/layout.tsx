@@ -2,6 +2,8 @@ import Navbar from "@/components/Navbar";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ProfileProvider } from "@/lib/contexts/profile-context";
+import PageLayout from "@/components/PageLayout";
+import { NavbarProvider } from "@/lib/hooks/use-navbar";
 
 export default async function DashboardLayout({
   children,
@@ -16,12 +18,14 @@ export default async function DashboardLayout({
 
   return (
     <ProfileProvider>
-      <div className="bg-white dark:bg-black" suppressHydrationWarning>
-        <Navbar />
-        <main className="transition-all duration-300 ease-in-out">
-          {children}
-        </main>
-      </div>
+      <NavbarProvider>
+        <div className="relative min-h-screen bg-white dark:bg-black" suppressHydrationWarning>
+          <Navbar />
+          <PageLayout>
+            {children}
+          </PageLayout>
+        </div>
+      </NavbarProvider>
     </ProfileProvider>
   );
 }

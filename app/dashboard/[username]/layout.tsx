@@ -6,7 +6,6 @@ import Header from "@/components/Header";
 import { unstable_noStore as noStore } from "next/cache";
 import { Suspense, ReactNode } from "react";
 import PageLayout from "@/components/PageLayout";
-import { NavbarProvider } from "@/components/NavbarProvider";
 
 interface Props {
   children: ReactNode;
@@ -56,16 +55,14 @@ export default async function ProfileLayout({ children, params }: Props) {
     }
 
     return (
-      <NavbarProvider>
-        <PageLayout>
-          <div className="flex flex-col min-h-screen bg-white dark:bg-black">
-            <Suspense fallback={<div>Loading...</div>}>
-              <ProfileHeader />
-            </Suspense>
-            {children}
-          </div>
-        </PageLayout>
-      </NavbarProvider>
+      <PageLayout>
+        <div className="flex flex-col min-h-screen bg-white dark:bg-black">
+          <Suspense fallback={<div>Loading...</div>}>
+            <ProfileHeader />
+          </Suspense>
+          {children}
+        </div>
+      </PageLayout>
     );
   } catch (error) {
     console.error("[PROFILE_LAYOUT] Error:", {

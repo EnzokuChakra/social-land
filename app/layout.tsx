@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import BodyContent from "@/components/BodyContent";
-import EditProfileModal from "@/components/modals/EditProfileModal";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -28,7 +27,6 @@ export default function RootLayout({
       </head>
       <body className={cn(inter.className, "antialiased")} suppressHydrationWarning>
         <BodyContent>
-          <EditProfileModal />
           {children}
         </BodyContent>
       </body>

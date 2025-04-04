@@ -7,7 +7,6 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import type { DefaultJWT } from "next-auth/jwt";
 import { UserRole, UserRoleType } from "./definitions";
 import { db } from "@/lib/db";
-import bcrypt from "bcryptjs";
 
 // Function to get base URL
 const getBaseUrl = () => {
@@ -24,11 +23,12 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-    updateAge: 7 * 24 * 60 * 60, // 7 days (increased from 24 hours)
+    maxAge: 24 * 60 * 60, // 24 hours
+    updateAge: 12 * 60 * 60, // 12 hours
   },
   pages: {
     signIn: "/login",
+    error: "/login",
   },
   debug: false,
   providers: [
@@ -38,15 +38,23 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials, req) {
+      async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Invalid credentials");
         }
 
         const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.email,
-          },
+          where: { email: credentials.email },
+          select: {
+            id: true,
+            email: true,
+            password: true,
+            name: true,
+            image: true,
+            username: true,
+            role: true,
+            verified: true
+          }
         });
 
         if (!user) {
@@ -59,26 +67,23 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid password");
         }
 
+        // Only return necessary user data
         return {
           id: user.id,
-          email: user.email,
           name: user.name,
           image: user.image,
           username: user.username,
           role: user.role,
-          verified: user.verified,
+          verified: user.verified
         };
       },
     }),
   ],
   callbacks: {
-    async signIn({ user, account, profile, email, credentials }) {
-      return true;
-    },
-    async jwt({ token, user, account, profile, trigger, session }) {
+    async jwt({ token, user }) {
       if (user) {
+        // Only include necessary user data in the JWT
         token.id = user.id;
-        token.email = user.email;
         token.name = user.name;
         token.image = user.image;
         token.username = user.username;
@@ -91,12 +96,12 @@ export const authOptions: NextAuthOptions = {
       if (token) {
         // Only include necessary user data in the session
         session.user = {
-          id: token.id,
+          id: token.id as string,
           name: token.name,
           image: token.image,
-          username: token.username,
-          role: token.role,
-          verified: token.verified
+          username: token.username as string,
+          role: token.role as UserRoleType,
+          verified: token.verified as boolean
         };
       }
       return session;
@@ -110,29 +115,29 @@ export const authOptions: NextAuthOptions = {
       name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.session-token' : 'next-auth.session-token',
       options: {
         httpOnly: true,
-        sameSite: 'lax',
+        sameSite: 'strict',
         path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        domain: typeof process.env.NODE_ENV === 'string' && process.env.NODE_ENV === 'production' ? 'social-land.ro' : undefined
-      },
+        secure: true,
+        domain: process.env.NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN : undefined
+      }
     },
     callbackUrl: {
       name: process.env.NODE_ENV === 'production' ? '__Secure-next-auth.callback-url' : 'next-auth.callback-url',
       options: {
-        sameSite: 'lax',
+        sameSite: 'strict',
         path: '/',
-        secure: true,
-      },
+        secure: true
+      }
     },
     csrfToken: {
       name: process.env.NODE_ENV === 'production' ? '__Host-next-auth.csrf-token' : 'next-auth.csrf-token',
       options: {
         httpOnly: true,
-        sameSite: 'lax',
+        sameSite: 'strict',
         path: '/',
-        secure: true,
-      },
-    },
+        secure: true
+      }
+    }
   },
   events: {
     async signIn(message) {

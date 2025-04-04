@@ -1,4 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
 interface ProfileStats {
   posts: number;
@@ -8,21 +10,46 @@ interface ProfileStats {
 }
 
 async function fetchProfileStats(username: string): Promise<ProfileStats> {
-  const response = await fetch(`/api/profile/${username}/stats/`);
+  const response = await fetch(`/api/profile/${username}/stats/`, {
+    credentials: 'include',
+    headers: {
+      'Cache-Control': 'no-cache',
+    },
+  });
+
+  if (response.status === 401) {
+    throw new Error('Unauthorized');
+  }
+
   if (!response.ok) {
     throw new Error('Failed to fetch profile stats');
   }
+
   const data = await response.json();
   return data.stats; // Extract the stats object from the response
 }
 
 export function useStats(username: string | null) {
+  const router = useRouter();
+  const { data: session } = useSession();
+
   return useQuery({
     queryKey: ['profileStats', username],
     queryFn: () => (username ? fetchProfileStats(username) : null),
-    enabled: !!username,
-    staleTime: 1000 * 60 * 5, // Consider data fresh for 5 minutes
-    gcTime: 1000 * 60 * 30, // Keep data in cache for 30 minutes
-    refetchInterval: 1000 * 60 * 2, // Refetch every 2 minutes
+    enabled: !!username && !!session,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 30, // 30 minutes
+    retry: (failureCount, error) => {
+      if (error instanceof Error && error.message === 'Unauthorized') {
+        router.push('/login');
+        return false;
+      }
+      return failureCount < 2;
+    },
+    onError: (error) => {
+      if (error instanceof Error && error.message === 'Unauthorized') {
+        router.push('/login');
+      }
+    }
   });
 } 

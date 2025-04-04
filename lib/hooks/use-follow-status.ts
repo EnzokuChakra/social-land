@@ -1,26 +1,47 @@
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
-interface FollowStatus {
-  status: 'ACCEPTED' | 'PENDING' | null;
+export type FollowStatus = {
   isFollowing: boolean;
-  hasPendingRequest: boolean;
-  isFollowedByUser: boolean;
-}
+  isPending: boolean;
+};
 
 async function fetchFollowStatus(userId: string): Promise<FollowStatus> {
-  const response = await fetch(`/api/users/follow/status?userId=${userId}`);
+  const response = await fetch(`/api/users/follow/status?userId=${userId}`, {
+    credentials: 'include',
+    headers: {
+      'Cache-Control': 'no-cache',
+    },
+  });
+
+  if (response.status === 401) {
+    throw new Error('Unauthorized');
+  }
+
   if (!response.ok) {
     throw new Error('Failed to fetch follow status');
   }
+
   return response.json();
 }
 
 export function useFollowStatus(userId: string | null) {
+  const router = useRouter();
+  const { data: session } = useSession();
+
   return useQuery({
     queryKey: ['followStatus', userId],
     queryFn: () => (userId ? fetchFollowStatus(userId) : null),
-    enabled: !!userId,
-    staleTime: 1000 * 60 * 5, // Consider data fresh for 5 minutes
-    gcTime: 1000 * 60 * 30, // Keep data in cache for 30 minutes
+    enabled: !!userId && !!session,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 30, // 30 minutes
+    retry: (failureCount, error) => {
+      if (error instanceof Error && error.message === 'Unauthorized') {
+        router.push('/login');
+        return false;
+      }
+      return failureCount < 2;
+    }
   });
 } 
