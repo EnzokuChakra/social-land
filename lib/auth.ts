@@ -89,13 +89,15 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (token) {
-        session.user.id = token.id;
-        session.user.email = token.email;
-        session.user.name = token.name;
-        session.user.image = token.image;
-        session.user.username = token.username;
-        session.user.role = token.role;
-        session.user.verified = token.verified;
+        // Only include necessary user data in the session
+        session.user = {
+          id: token.id,
+          name: token.name,
+          image: token.image,
+          username: token.username,
+          role: token.role,
+          verified: token.verified
+        };
       }
       return session;
     },
