@@ -46,30 +46,12 @@ const nextConfig = {
   },
   // Enable standalone output for deployments
   output: 'standalone',
-  // Configure asset prefix for production
-  assetPrefix: process.env.NODE_ENV === 'production' ? 'https://social-land.ro' : '',
-  // Configure base path
+  // Enable static exports
+  trailingSlash: true,
+  // Configure base path if needed
   basePath: '',
-  // Configure environment variables
-  env: {
-    NEXT_PUBLIC_SITE_URL: process.env.NODE_ENV === 'production' ? 'https://social-land.ro' : ''
-  },
-  // Configure static file serving
-  async rewrites() {
-    return {
-      beforeFiles: [
-        // Handle /uploads and /images without /public prefix
-        {
-          source: '/uploads/:path*',
-          destination: '/public/uploads/:path*',
-        },
-        {
-          source: '/images/:path*',
-          destination: '/public/images/:path*',
-        }
-      ]
-    }
-  },
+  // Configure asset prefix if needed
+  assetPrefix: '',
   // Reduce logging
   logging: {
     fetches: {
