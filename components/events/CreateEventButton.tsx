@@ -86,10 +86,22 @@ export default function CreateEventButton() {
 
   async function onSubmit(data: FormData) {
     try {
+      console.log("[CreateEvent] Starting event creation...");
       if (!photo) {
         toast.error("Please select a photo for the event");
         return;
       }
+
+      console.log("[CreateEvent] Creating FormData with:", {
+        name: data.name,
+        type: data.type,
+        location: data.location,
+        startDate: data.startDate,
+        hasRules: !!data.rules,
+        hasPrizes: !!(data.prizes && data.prizes.length > 0),
+        photoSize: photo.size,
+        photoType: photo.type
+      });
 
       const formData = new FormData();
       formData.append("photo", photo);
@@ -103,15 +115,22 @@ export default function CreateEventButton() {
       formData.append("location", data.location);
       formData.append("startDate", data.startDate.toISOString());
 
+      console.log("[CreateEvent] Sending request to /api/events...");
       const response = await fetch("/api/events", {
         method: "POST",
         body: formData,
       });
 
+      console.log("[CreateEvent] Response status:", response.status);
+      
       if (!response.ok) {
         const error = await response.text();
+        console.error("[CreateEvent] Error response:", error);
         throw new Error(error || "Failed to create event");
       }
+
+      const result = await response.json();
+      console.log("[CreateEvent] Success response:", result);
 
       toast.success("Event created successfully");
       router.refresh();
@@ -121,6 +140,7 @@ export default function CreateEventButton() {
       setPhotoPreview(undefined);
       setPrizes([""]);
     } catch (error) {
+      console.error("[CreateEvent] Error:", error);
       if (error instanceof Error) {
         toast.error(error.message);
       } else {

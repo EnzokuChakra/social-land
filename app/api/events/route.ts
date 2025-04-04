@@ -2,12 +2,11 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { uploadFile } from "@/lib/uploadFile";
 import { nanoid } from "nanoid";
-import { deleteUploadedFile } from "@/lib/server-utils";
-import { Fields, Files, File as FormidableFile, formidable } from 'formidable';
+import { writeFile } from 'fs/promises';
 import { mkdir } from 'fs/promises';
 import path from 'path';
+import { unlink } from 'fs/promises';
 
 export const config = {
   api: {
@@ -17,7 +16,9 @@ export const config = {
 
 export async function POST(req: Request) {
   try {
+    console.log("[EVENTS_POST] Starting event creation...");
     const session = await getServerSession(authOptions);
+    console.log("[EVENTS_POST] Session:", { userId: session?.user?.id, verified: session?.user?.verified });
 
     if (!session?.user || !session.user.verified) {
       return new NextResponse("Unauthorized", { status: 401 });
@@ -25,50 +26,72 @@ export async function POST(req: Request) {
 
     // Ensure upload directory exists
     const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'events');
-    await mkdir(uploadDir, { recursive: true });
+    console.log("[EVENTS_POST] Upload directory:", uploadDir);
+    
+    try {
+      await mkdir(uploadDir, { recursive: true });
+      console.log("[EVENTS_POST] Upload directory created/verified");
+    } catch (error) {
+      console.error("[EVENTS_POST] Error creating upload directory:", error);
+      throw error;
+    }
 
-    const form = formidable({
-      uploadDir,
-      filename: (name: string, ext: string) => `${nanoid()}${ext}`,
-      maxFileSize: 4 * 1024 * 1024, // 4MB
-    });
+    // Get form data
+    const formData = await req.formData();
+    console.log("[EVENTS_POST] Form data received");
 
-    const [fields, files] = await new Promise<[Fields, Files]>((resolve, reject) => {
-      form.parse(req, (err: Error | null, fields: Fields, files: Files) => {
-        if (err) reject(err);
-        resolve([fields, files]);
-      });
-    });
-
-    if (!files.photo) {
+    // Handle photo upload
+    const photo = formData.get("photo");
+    if (!photo || typeof photo === 'string') {
+      console.error("[EVENTS_POST] No photo found in request or invalid photo");
       return new NextResponse("Event photo is required", { status: 400 });
     }
 
-    const photo = Array.isArray(files.photo) ? files.photo[0] : files.photo;
-    const photoUrl = `/uploads/events/${path.basename(photo.filepath)}`;
+    // Create a unique filename
+    const ext = path.extname(photo.name);
+    const filename = `${nanoid()}${ext}`;
+    const filepath = path.join(uploadDir, filename);
+    
+    console.log("[EVENTS_POST] Saving photo:", { filename, filepath });
+
+    // Convert file to buffer and save
+    const bytes = await photo.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    await writeFile(filepath, buffer);
+
+    const photoUrl = `/uploads/events/${filename}`;
+    console.log("[EVENTS_POST] Photo saved:", photoUrl);
 
     // Create event in database
     try {
-      const prizes = fields.prizes ? JSON.parse(fields.prizes.toString()) : [];
+      console.log("[EVENTS_POST] Creating event in database...");
+      const prizes = formData.get("prizes") ? JSON.parse(formData.get("prizes") as string) : [];
       const event = await db.event.create({
         data: {
           id: nanoid(),
-          name: fields.name?.toString() || '',
-          type: fields.type?.toString() || '',
-          description: fields.description?.toString() || '',
-          rules: fields.rules?.toString(),
+          name: formData.get("name") as string,
+          type: formData.get("type") as string,
+          description: formData.get("description") as string,
+          rules: formData.get("rules") as string,
           prize: prizes.length > 0 ? prizes[0] : null,
-          location: fields.location?.toString() || '',
-          startDate: new Date(fields.startDate?.toString() || ''),
+          location: formData.get("location") as string,
+          startDate: new Date(formData.get("startDate") as string),
           photoUrl,
           user_id: session.user.id,
           updatedAt: new Date(),
         },
       });
 
+      console.log("[EVENTS_POST] Event created successfully:", { eventId: event.id });
       return NextResponse.json(event);
     } catch (error) {
       console.error("[EVENTS_POST_DB]", error);
+      // Try to clean up the uploaded file if database operation fails
+      try {
+        await unlink(filepath);
+      } catch (unlinkError) {
+        console.error("[EVENTS_POST] Failed to clean up file:", unlinkError);
+      }
       return new NextResponse(
         error instanceof Error ? error.message : "Failed to create event in database",
         { status: 500 }
@@ -169,7 +192,7 @@ export async function DELETE(req: Request) {
 
     // Delete the event photo
     if (event.photoUrl) {
-      await deleteUploadedFile(event.photoUrl);
+      await unlink(event.photoUrl.replace('/uploads/events/', ''));
     }
 
     return new NextResponse("Event deleted successfully", { status: 200 });
