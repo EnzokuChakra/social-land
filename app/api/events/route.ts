@@ -6,6 +6,12 @@ import { nanoid } from "nanoid";
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { unlink } from 'fs/promises';
+import { io } from "socket.io-client";
+
+// Initialize socket connection
+const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5002", {
+  transports: ['websocket']
+});
 
 export const config = {
   api: {
@@ -97,9 +103,16 @@ export async function POST(req: Request) {
           user_id: session.user.id,
           updatedAt: new Date(),
         },
+        include: {
+          user: true,
+        },
       });
 
       console.log("[EVENTS_POST] Event created successfully:", { eventId: event.id });
+      
+      // Emit socket event for real-time update
+      socket.emit("newEvent", event);
+      
       return NextResponse.json(event);
     } catch (error) {
       console.error("[EVENTS_POST_DB]", error);
@@ -167,6 +180,7 @@ export async function GET(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    console.log("[EVENTS_DELETE] Starting event deletion...");
     const session = await getServerSession(authOptions);
 
     if (!session?.user) {
@@ -180,6 +194,7 @@ export async function DELETE(req: Request) {
       return new NextResponse("Event ID is required", { status: 400 });
     }
 
+    console.log("[EVENTS_DELETE] Fetching event:", eventId);
     // Get the event to check ownership and permissions
     const event = await db.event.findUnique({
       where: { id: eventId },
@@ -203,6 +218,7 @@ export async function DELETE(req: Request) {
       return new NextResponse("Unauthorized", { status: 403 });
     }
 
+    console.log("[EVENTS_DELETE] Deleting event from database:", eventId);
     // Delete the event
     await db.event.delete({
       where: { id: eventId },
@@ -210,9 +226,23 @@ export async function DELETE(req: Request) {
 
     // Delete the event photo
     if (event.photoUrl) {
-      await unlink(event.photoUrl.replace('/uploads/events/', ''));
+      try {
+        const filename = event.photoUrl.split('/').pop();
+        const filepath = path.join('/var/www/OG-GRAM/public/uploads/events', filename || '');
+        console.log("[EVENTS_DELETE] Deleting photo file:", filepath);
+        
+        await unlink(filepath);
+        console.log("[EVENTS_DELETE] Photo file deleted successfully");
+      } catch (error) {
+        console.error("[EVENTS_DELETE] Error deleting photo file:", error);
+        // Don't throw here - the event is already deleted from DB
+      }
     }
 
+    // Emit socket event for real-time update
+    socket.emit("deleteEvent", eventId);
+
+    console.log("[EVENTS_DELETE] Event deleted successfully:", eventId);
     return new NextResponse("Event deleted successfully", { status: 200 });
   } catch (error) {
     console.error("[EVENTS_DELETE]", error);

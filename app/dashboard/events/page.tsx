@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { EventWithUser, UserRole, UserStatus } from "@/lib/definitions";
+import { useSocket } from "@/hooks/use-socket";
+import { toast } from "sonner";
+import { Event, EventWithUser, UserRole, UserStatus, EventStatus } from "@/lib/definitions";
 import { fetchEvents } from "@/lib/actions";
 import { CalendarDays, Search, Filter, CalendarClock, Trophy, MoreVertical, Trash2, Edit, Eye } from "lucide-react";
 import CreateEventButton from "@/components/events/CreateEventButton";
@@ -56,48 +58,32 @@ const item = {
   show: { opacity: 1, y: 0 }
 };
 
-type EventStatus = 'ongoing' | 'upcoming' | 'ended';
-
 function getStatusColor(startDate: Date) {
-  const now = new Date();
-  const eventDate = new Date(startDate);
-  const oneDayBefore = new Date(eventDate);
-  oneDayBefore.setDate(eventDate.getDate() - 1);
-  const oneDayAfter = new Date(eventDate);
-  oneDayAfter.setDate(eventDate.getDate() + 1);
-
-  if (now >= oneDayBefore && now <= oneDayAfter) {
-    return {
-      bg: "bg-blue-500/10",
-      text: "text-blue-500",
-    };
-  } else if (now > oneDayAfter) {
-    return {
-      bg: "bg-red-500/10",
-      text: "text-red-500",
-    };
-  } else {
+  if (isToday(startDate)) {
     return {
       bg: "bg-green-500/10",
       text: "text-green-500",
+    };
+  } else if (isPast(startDate)) {
+    return {
+      bg: "bg-gray-500/10",
+      text: "text-gray-500",
+    };
+  } else {
+    return {
+      bg: "bg-blue-500/10",
+      text: "text-blue-500",
     };
   }
 }
 
 function getStatusText(startDate: Date): EventStatus {
-  const now = new Date();
-  const eventDate = new Date(startDate);
-  const oneDayBefore = new Date(eventDate);
-  oneDayBefore.setDate(eventDate.getDate() - 1);
-  const oneDayAfter = new Date(eventDate);
-  oneDayAfter.setDate(eventDate.getDate() + 1);
-
-  if (now >= oneDayBefore && now <= oneDayAfter) {
-    return "ongoing";
-  } else if (now > oneDayAfter) {
-    return "ended";
+  if (isToday(startDate)) {
+    return "ONGOING";
+  } else if (isPast(startDate)) {
+    return "ENDED";
   } else {
-    return "upcoming";
+    return "UPCOMING";
   }
 }
 
@@ -105,9 +91,10 @@ export default function EventsPage() {
   const [events, setEvents] = useState<EventWithUser[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("All Types");
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<EventWithUser | null>(null);
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
+  const socket = useSocket();
 
   const filterEvents = (events: EventWithUser[]) => {
     return events.filter((event) => {
@@ -125,8 +112,13 @@ export default function EventsPage() {
     const aStatus = getStatusText(aDate);
     const bStatus = getStatusText(bDate);
     
-    // First sort by status priority (ongoing > upcoming > ended)
-    const statusPriority: Record<EventStatus, number> = { ongoing: 0, upcoming: 1, ended: 2 };
+    // First sort by status priority (ONGOING > UPCOMING > ENDED)
+    const statusPriority: Record<EventStatus, number> = { 
+      ONGOING: 0, 
+      UPCOMING: 1, 
+      ENDED: 2 
+    };
+    
     if (statusPriority[aStatus] !== statusPriority[bStatus]) {
       return statusPriority[aStatus] - statusPriority[bStatus];
     }
@@ -136,26 +128,50 @@ export default function EventsPage() {
   });
 
   useEffect(() => {
-    async function loadEvents() {
+    const fetchEvents = async () => {
       try {
-        const data = await fetchEvents();
-        const typedEvents = data.map(event => ({
-          ...event,
-          user: {
-            ...event.user,
-            role: event.user.role as UserRole,
-            status: event.user.status as UserStatus
-          }
-        })) as EventWithUser[];
-        setEvents(typedEvents);
+        const response = await fetch("/api/events");
+        if (!response.ok) throw new Error("Failed to fetch events");
+        const data = await response.json();
+        setEvents(data);
+      } catch (error) {
+        console.error("Error fetching events:", error);
+        toast.error("Failed to load events");
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
-    }
-    loadEvents();
+    };
+
+    fetchEvents();
   }, []);
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!socket) return;
+
+    // Handle new event
+    const handleNewEvent = (newEvent: EventWithUser) => {
+      setEvents(prev => [newEvent, ...prev]);
+      toast.success("New event created!");
+    };
+
+    // Handle event deletion
+    const handleEventDeleted = (eventId: string) => {
+      setEvents(prev => prev.filter(event => event.id !== eventId));
+      toast.success("Event deleted successfully");
+    };
+
+    // Subscribe to socket events
+    socket.on("newEvent", handleNewEvent);
+    socket.on("deleteEvent", handleEventDeleted);
+
+    // Cleanup
+    return () => {
+      socket.off("newEvent", handleNewEvent);
+      socket.off("deleteEvent", handleEventDeleted);
+    };
+  }, [socket]);
+
+  if (loading) {
     return (
       <PageLayout>
         <div className="container max-w-5xl px-4 min-h-[calc(100vh-80px)] flex items-center justify-center">
@@ -164,6 +180,23 @@ export default function EventsPage() {
       </PageLayout>
     );
   }
+
+  const handleDeleteEvent = async (eventId: string) => {
+    if (!confirm("Are you sure you want to delete this event?")) return;
+
+    try {
+      const response = await fetch(`/api/events?id=${eventId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete event");
+      
+      // Socket will handle the UI update
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      toast.error("Failed to delete event");
+    }
+  };
 
   return (
     <PageLayout>
@@ -282,20 +315,7 @@ export default function EventsPage() {
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   if (!confirm('Are you sure you want to delete this event?')) return;
-                                  
-                                  try {
-                                    const response = await fetch(`/api/events?id=${event.id}`, {
-                                      method: 'DELETE',
-                                    });
-                                    
-                                    if (!response.ok) throw new Error('Failed to delete event');
-                                    
-                                    // Refresh the events list
-                                    window.location.reload();
-                                  } catch (error) {
-                                    console.error('Error deleting event:', error);
-                                    alert('Failed to delete event');
-                                  }
+                                  await handleDeleteEvent(event.id);
                                 }}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />

@@ -6,36 +6,19 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import { formatCurrency } from "@/lib/utils";
+import { EventWithUser } from "@/lib/definitions";
 
 interface EventViewModalProps {
-  event: {
-    id: string;
-    name: string;
-    type: string;
-    description: string;
-    rules?: string;
-    prizes?: string[] | null;
-    location: string;
-    startDate: Date;
-    photoUrl: string;
-    user: {
-      id: string;
-      username: string;
-      name: string;
-      image: string | null;
-    };
-  };
+  event: EventWithUser;
   isOpen: boolean;
   onClose: () => void;
 }
 
 export default function EventViewModal({ event, isOpen, onClose }: EventViewModalProps) {
-  const calculateTotalPrizePool = (prizes: string[] | null) => {
-    if (!prizes || prizes.length === 0) return 0;
-    return prizes.reduce((sum, prize) => {
-      const numericValue = parseFloat(prize.replace(/[^0-9.]/g, ''));
-      return sum + (isNaN(numericValue) ? 0 : numericValue);
-    }, 0);
+  const calculateTotalPrizePool = (prize: string | null) => {
+    if (!prize) return 0;
+    const numericValue = parseFloat(prize.replace(/[^0-9.]/g, ''));
+    return isNaN(numericValue) ? 0 : numericValue;
   };
 
   return (
@@ -62,7 +45,7 @@ export default function EventViewModal({ event, isOpen, onClose }: EventViewModa
             </div>
             <div>
               <h3 className="text-lg font-semibold">{event.name}</h3>
-              <p className="text-sm text-neutral-400">by {event.user.username}</p>
+              <p className="text-sm text-neutral-400">by {event.user.username || "Anonymous"}</p>
             </div>
           </div>
 
@@ -78,32 +61,25 @@ export default function EventViewModal({ event, isOpen, onClose }: EventViewModa
               </div>
             </div>
 
-            {event.prizes && event.prizes.length > 0 && (
+            {event.prize && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-sm text-neutral-400">
                   <Trophy className="w-4 h-4" />
-                  <span>Prize Pool</span>
+                  <span>Prize</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {event.prizes.map((prize, index) => (
-                    <div
-                      key={index}
-                      className="bg-neutral-900/50 rounded-lg p-4 text-sm flex items-center justify-between border border-neutral-800 hover:border-neutral-700 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-primary">
-                          #{index + 1}
-                        </div>
-                        <span className="text-white font-medium">{formatCurrency(prize)}</span>
-                      </div>
-                      <Trophy className="w-4 h-4 text-yellow-500" />
+                <div className="bg-neutral-900/50 rounded-lg p-4 text-sm flex items-center justify-between border border-neutral-800 hover:border-neutral-700 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-primary">
+                      #1
                     </div>
-                  ))}
+                    <span className="text-white font-medium">{formatCurrency(event.prize)}</span>
+                  </div>
+                  <Trophy className="w-4 h-4 text-yellow-500" />
                 </div>
                 <div className="text-sm text-neutral-400 mt-2 flex items-center justify-between border-t border-neutral-800 pt-4">
-                  <span>Total Prize Pool</span>
+                  <span>Total Prize</span>
                   <span className="text-primary font-semibold">
-                    {formatCurrency(calculateTotalPrizePool(event.prizes).toString())}
+                    {formatCurrency(calculateTotalPrizePool(event.prize).toString())}
                   </span>
                 </div>
               </div>
