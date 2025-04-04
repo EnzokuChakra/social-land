@@ -45,6 +45,7 @@ export async function POST(req: Request) {
         id: crypto.randomUUID(),
         email: email.toLowerCase(),
         username,
+        name: username,
         password: hashedPassword,
         updatedAt: new Date(),
       },
