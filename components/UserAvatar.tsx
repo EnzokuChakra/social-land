@@ -55,16 +55,18 @@ export default function UserAvatar({ user, priority = false, className, ...avata
   }, [socket, user?.id]);
 
   const imageUrl = useMemo(() => {
-    if (!currentImage) return "/images/profile_placeholder.webp";
+    if (!currentImage) return "/public/images/profile_placeholder.webp";
     
     // Handle absolute URLs
     if (currentImage.startsWith('http')) return currentImage;
     
-    // Remove /public/ prefix if it exists
-    const cleanPath = currentImage.replace(/^\/public/, '');
+    // Ensure path has /public/ prefix
+    const path = currentImage.startsWith('/public/') 
+      ? currentImage 
+      : `/public${currentImage.startsWith('/') ? currentImage : `/${currentImage}`}`;
     
     // Add timestamp for cache busting if needed
-    return `${cleanPath}${needsUpdate ? `?t=${Date.now()}` : ''}`;
+    return `${path}${needsUpdate ? `?t=${Date.now()}` : ''}`;
   }, [currentImage, needsUpdate]);
 
   const altText = user ? `${user.name || user.username || 'User'}'s profile picture` : 'User profile picture';
