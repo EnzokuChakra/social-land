@@ -20,7 +20,7 @@ import { UserWithExtras } from "@/lib/definitions";
 import { UpdateUser } from "@/lib/schemas";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSession } from "next-auth/react";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -58,27 +58,16 @@ import ProfilePictureOptionsModal from "./modals/ProfilePictureOptionsModal";
 interface Story {
   id: string;
   fileUrl: string;
-  createdAt: string;
+  createdAt: Date;
   scale?: number;
-  views?: Array<{
+  views?: any[];
+  likes?: any[];
+  user: {
     id: string;
-    user: {
-      id: string;
-      username: string;
-      name: string | null;
-      image: string | null;
-    };
-    createdAt: string;
-  }>;
-  likes?: Array<{
-    id: string;
-    user: {
-      id: string;
-      username: string;
-      name: string | null;
-      image: string | null;
-    };
-  }>;
+    username: string;
+    name: string;
+    image: string;
+  };
 }
 
 interface Props {
@@ -126,7 +115,7 @@ function ViewerListItem({ user, hasLiked }: ViewerListItemProps) {
 function ProfileAvatar({
   user,
   children,
-  stories = [],
+  stories: initialStories = [],
   showModal = false,
 }: Props) {
   const { data: session } = useSession();
@@ -139,6 +128,7 @@ function ProfileAvatar({
   const [showProfileOptions, setShowProfileOptions] = useState(false);
   const [showViewers, setShowViewers] = useState(false);
   const [showViewersList, setShowViewersList] = useState(false);
+  const [stories, setStories] = useState(initialStories);
 
   const hasStories = stories.length > 0 && stories.some(story => {
     const storyDate = new Date(story.createdAt);
@@ -148,13 +138,50 @@ function ProfileAvatar({
     return hours < 24;
   });
 
+  // Keep track of viewed stories in local storage
+  useEffect(() => {
+    if (session?.user?.id && user.id) {
+      const storageKey = `viewed_stories_${user.id}_${session.user.id}`;
+      const storedViewedStories = localStorage.getItem(storageKey);
+      const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
+      
+      // Update viewed stories in localStorage when stories change
+      stories.forEach(story => {
+        if (story.views?.some(view => view.user.id === session.user.id)) {
+          viewedStories[story.id] = true;
+        }
+      });
+      
+      localStorage.setItem(storageKey, JSON.stringify(viewedStories));
+    }
+  }, [stories, session?.user?.id, user.id]);
+
   const hasUnviewedStories = hasStories && stories.some(story => {
     const storyDate = new Date(story.createdAt);
     const now = new Date();
     const diff = now.getTime() - storyDate.getTime();
     const hours = diff / (1000 * 60 * 60);
-    return hours < 24 && (!story.views || !story.views.some(view => view.user.id === session?.user?.id));
+    
+    // Only consider stories within the last 24 hours
+    if (hours >= 24) return false;
+    
+    // Check if this story has been viewed by the current user
+    const isViewed = story.views?.some(view => view.user.id === session?.user?.id) ?? false;
+    
+    // Also check localStorage for persistent view state
+    const storageKey = `viewed_stories_${user.id}_${session?.user?.id}`;
+    const storedViewedStories = localStorage.getItem(storageKey);
+    const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
+    const isViewedInStorage = viewedStories[story.id] === true;
+    
+    // Return true if there's at least one unviewed story
+    return !(isViewed || isViewedInStorage);
   });
+
+  // Update local stories when prop changes
+  useEffect(() => {
+    setStories(initialStories);
+  }, [initialStories]);
 
   const handleProfileClick = () => {
     if (hasStories) {
@@ -174,6 +201,12 @@ function ProfileAvatar({
         return;
       }
 
+      // If all stories are viewed, show the options modal instead
+      if (!hasUnviewedStories) {
+        setShowOptionsModal(true);
+        return;
+      }
+
       // First fetch the latest story data to ensure we have current views/likes
       const fetchStoryData = async () => {
         try {
@@ -183,7 +216,7 @@ function ProfileAvatar({
           const data = await response.json();
           if (!data.success) throw new Error(data.error || 'Failed to fetch stories');
 
-          const formattedStories = data.data.map((story: any) => ({
+          const formattedStories = data.data.map((story: Story) => ({
             id: story.id,
             fileUrl: story.fileUrl,
             createdAt: story.createdAt,
@@ -246,6 +279,48 @@ function ProfileAvatar({
         hasStory={hasStories}
         userId={user.id}
         isOwnProfile={isCurrentUser}
+        onViewStory={() => {
+          setShowOptionsModal(false);
+          const fetchStoryData = async () => {
+            try {
+              const response = await fetch(`/api/stories?userId=${user.id}`);
+              if (!response.ok) throw new Error('Failed to fetch stories');
+              
+              const data = await response.json();
+              if (!data.success) throw new Error(data.error || 'Failed to fetch stories');
+
+              const formattedStories = data.data.map((story: Story) => ({
+                id: story.id,
+                fileUrl: story.fileUrl,
+                createdAt: story.createdAt,
+                scale: story.scale || 1,
+                views: story.views || [],
+                likes: story.likes || [],
+                user: {
+                  id: user.id,
+                  username: user.username,
+                  name: user.name,
+                  image: user.image
+                }
+              }));
+
+              const allStories = [{
+                userId: user.id,
+                stories: formattedStories
+              }];
+
+              storyModal.setUserStories(allStories);
+              storyModal.setCurrentUserIndex(0);
+              storyModal.setUserId(user.id);
+              storyModal.onOpen();
+            } catch (error) {
+              console.error('Error fetching story data:', error);
+              toast.error('Failed to load story');
+            }
+          };
+
+          fetchStoryData();
+        }}
       />
     </>
   );

@@ -61,21 +61,33 @@ export default function MobileBottomNav() {
   // Hide on non-mobile devices and auth pages
   if (!isMobile || hiddenPaths.includes(pathname)) return null;
 
-  const handleSearchClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsSearchOpen(true);
+  const isActive = (href: string) => {
+    // Special case for home page
+    if (href === "/dashboard") {
+      return pathname === "/dashboard" || pathname === "/";
+    }
+    return pathname.startsWith(href);
   };
 
-  const handleNotificationsClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsNotificationsOpen(true);
+  const handleNavigationClick = (e: React.MouseEvent, item: typeof navigation[0]) => {
+    if (item.name === "Search") {
+      e.preventDefault();
+      setIsSearchOpen(true);
+    } else if (item.name === "Notifications") {
+      e.preventDefault();
+      setIsNotificationsOpen(true);
+    } else {
+      // Close any open sidebars when clicking other navigation items
+      setIsSearchOpen(false);
+      setIsNotificationsOpen(false);
+    }
   };
 
   return (
     <>
       <nav className="fixed bottom-0 left-0 right-0 z-[200] flex h-14 items-center justify-around border-t border-neutral-200 bg-white dark:border-neutral-800 dark:bg-black md:hidden">
         {navigation.map((item) => {
-          const isActive = pathname === item.href;
+          const active = isActive(item.href);
           const isSearch = item.name === "Search";
           const isNotifications = item.name === "Notifications";
 
@@ -83,15 +95,16 @@ export default function MobileBottomNav() {
             <Link
               key={item.name}
               href={item.href}
-              onClick={isSearch ? handleSearchClick : isNotifications ? handleNotificationsClick : undefined}
+              onClick={(e) => handleNavigationClick(e, item)}
               className={cn(
-                "flex items-center justify-center p-2",
-                isActive
+                "flex items-center justify-center p-2 rounded-lg transition-all",
+                active
                   ? "text-black dark:text-white"
                   : "text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white"
               )}
+              aria-current={active ? "page" : undefined}
             >
-              <item.icon className="h-6 w-6" />
+              <item.icon className={cn("h-6 w-6", active && "scale-110")} />
             </Link>
           );
         })}
@@ -100,13 +113,13 @@ export default function MobileBottomNav() {
           <Link
             href={`/dashboard/${session.user.username}`}
             className={cn(
-              "flex items-center justify-center p-2",
-              pathname === `/dashboard/${session.user.username}`
+              "flex items-center justify-center p-2 rounded-lg transition-all",
+              isActive(`/dashboard/${session.user.username}`)
                 ? "text-black dark:text-white"
                 : "text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white"
             )}
           >
-            <UserIcon className="h-6 w-6" />
+            <UserIcon className={cn("h-6 w-6", isActive(`/dashboard/${session.user.username}`) && "scale-110")} />
           </Link>
         )}
       </nav>
