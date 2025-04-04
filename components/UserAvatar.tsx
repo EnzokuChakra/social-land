@@ -62,11 +62,8 @@ export default function UserAvatar({ user, priority = false, className, ...avata
     // Handle absolute URLs
     if (currentImage.startsWith('http')) return currentImage;
     
-    // Remove /public/ prefix if it exists (since it's not needed in the URL)
-    const cleanPath = currentImage.replace(/^\/public/, '');
-    
-    // Add timestamp for cache busting if needed
-    return `${baseUrl}${cleanPath}${needsUpdate ? `?t=${Date.now()}` : ''}`;
+    // Keep the /public prefix since it's needed in the URL
+    return `${baseUrl}${currentImage}${needsUpdate ? `?t=${Date.now()}` : ''}`;
   }, [currentImage, needsUpdate]);
 
   const altText = user ? `${user.name || user.username || 'User'}'s profile picture` : 'User profile picture';
