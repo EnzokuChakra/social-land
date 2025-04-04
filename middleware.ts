@@ -55,6 +55,7 @@ export default withAuth(
 
     // Add caching headers for static files
     if (cleanPathname.startsWith('/uploads/')) {
+      // Set cache control for static files
       response.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
       
       // Set content type based on file extension
@@ -68,6 +69,12 @@ export default withAuth(
       } else if (ext === 'gif') {
         response.headers.set('Content-Type', 'image/gif');
       }
+
+      // Add security headers
+      response.headers.set('X-Content-Type-Options', 'nosniff');
+      response.headers.set('X-Frame-Options', 'DENY');
+      response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+      
       return response;
     }
 

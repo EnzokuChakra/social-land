@@ -24,7 +24,7 @@ interface Props extends AvatarProps {
 export default function UserAvatar({ user, priority = false, className, ...avatarProps }: Props) {
   const [isMounted, setIsMounted] = useState(false);
   const [currentImage, setCurrentImage] = useState<string | null>(user?.image || null);
-  const [timestamp, setTimestamp] = useState<number>(Date.now());
+  const [needsUpdate, setNeedsUpdate] = useState(false);
   const socket = useSocket();
 
   useEffect(() => {
@@ -39,11 +39,11 @@ export default function UserAvatar({ user, priority = false, className, ...avata
     if (!socket || !user?.id) return;
 
     const handleProfileUpdate = (data: { userId: string; image: string | null }) => {
-      console.log('[UserAvatar] Received profile update:', { data, userId: user.id });
       if (data.userId === user.id) {
-        console.log('[UserAvatar] Updating image for user:', user.id);
         setCurrentImage(data.image);
-        setTimestamp(Date.now());
+        setNeedsUpdate(true);
+        // Reset the update flag after a short delay
+        setTimeout(() => setNeedsUpdate(false), 1000);
       }
     };
 
@@ -62,8 +62,9 @@ export default function UserAvatar({ user, priority = false, className, ...avata
         ? currentImage
         : `/uploads/${currentImage}`;
     
-    return `${baseUrl}?t=${timestamp}`;
-  }, [currentImage, timestamp]);
+    // Only add timestamp when there's an actual update
+    return needsUpdate ? `${baseUrl}?t=${Date.now()}` : baseUrl;
+  }, [currentImage, needsUpdate]);
 
   const altText = user ? `${user.name || user.username || 'User'}'s profile picture` : 'User profile picture';
 
