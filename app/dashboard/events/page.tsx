@@ -135,7 +135,6 @@ export default function EventsPage() {
         const data = await response.json();
         setEvents(data);
       } catch (error) {
-        console.error("Error fetching events:", error);
         toast.error("Failed to load events");
       } finally {
         setLoading(false);
@@ -204,7 +203,6 @@ export default function EventsPage() {
       // Show success message
       toast.success("Event deleted successfully");
     } catch (error) {
-      console.error("Error deleting event:", error);
       toast.error(error instanceof Error ? error.message : "Failed to delete event");
     }
   };
@@ -259,7 +257,6 @@ export default function EventsPage() {
 
       toast.success("Event created successfully");
     } catch (error) {
-      console.error("Error creating event:", error);
       toast.error(error instanceof Error ? error.message : "Failed to create event");
     }
   };

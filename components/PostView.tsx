@@ -739,6 +739,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                       <Comment
                         key={`${comment.id}-${comment.createdAt}`}
                         comment={comment}
+                        replies={comment.replies}
                         inputRef={inputRef}
                         postUserId={post.user.id}
                         onReply={handleReplyToComment}
