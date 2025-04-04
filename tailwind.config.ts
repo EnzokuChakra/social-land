@@ -68,10 +68,23 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "scale-up": {
+          "0%": { transform: "scale(0)", opacity: "0" },
+          "50%": { transform: "scale(1.5)", opacity: "1" },
+          "100%": { transform: "scale(1) translateY(-20px)", opacity: "0" }
+        },
+        "float-heart": {
+          "0%": { transform: "scale(0) translateY(0)", opacity: "0" },
+          "15%": { transform: "scale(1.5) translateY(0)", opacity: "1" },
+          "30%": { transform: "scale(1) translateY(0)", opacity: "1" },
+          "100%": { transform: "scale(1) translateY(-100px)", opacity: "0" }
+        }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "scale-up": "scale-up 1s ease-out forwards",
+        "float-heart": "float-heart 1s cubic-bezier(0.4, 0, 0.2, 1) forwards"
       },
     },
   },

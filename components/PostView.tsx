@@ -26,11 +26,11 @@ import MiniPost from "./MiniPost";
 import Comment from "./Comment";
 import PostOptions from "./PostOptions";
 import { Button } from "./ui/button";
-import { Flag, X, MoreHorizontal, ChevronLeft } from "lucide-react";
+import { Flag, X, MoreHorizontal, ChevronLeft, Heart } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import VerifiedBadge from "./VerifiedBadge";
-import { deletePost } from "@/lib/actions";
+import { deletePost, likePost } from "@/lib/actions";
 import FollowButton from "@/components/FollowButton";
 import TaggedUsersModal from "@/components/TaggedUsersModal";
 import ProfileHoverCard from "@/components/ProfileHoverCard";
@@ -40,10 +40,11 @@ import { useSocket } from "@/hooks/use-socket";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { getSocket } from "@/lib/socket";
 
-const MemoizedImage = memo(({ src, alt, aspectRatio }: { 
+const MemoizedImage = memo(({ src, alt, aspectRatio, onDoubleClick }: { 
   src: string;
   alt: string;
   aspectRatio: number;
+  onDoubleClick?: () => void;
 }) => (
   <Image
     src={src}
@@ -56,6 +57,7 @@ const MemoizedImage = memo(({ src, alt, aspectRatio }: {
     height={1200}
     priority
     quality={100}
+    onDoubleClick={onDoubleClick}
   />
 ));
 MemoizedImage.displayName = "MemoizedImage";
@@ -111,6 +113,8 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const [isLoadingComments, setIsLoadingComments] = useState(false);
   const socket = getSocket();
   const isMobile = useMediaQuery("(max-width: 768px)");
+  const [showHeartAnimation, setShowHeartAnimation] = useState(false);
+  const [lastClickTime, setLastClickTime] = useState(0);
   
   // Initialize currentPost with expanded likes data
   const [currentPost, setCurrentPost] = useState<PostWithExtras>(() => ({
@@ -418,6 +422,29 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     }
   };
 
+  const handleImageDoubleClick = async () => {
+    if (!user?.id) return;
+    
+    setShowHeartAnimation(true);
+    setTimeout(() => setShowHeartAnimation(false), 1000);
+
+    // Only trigger like if the post is not already liked
+    const isLiked = post.likes.some(like => like.user_id === user.id);
+    if (!isLiked) {
+      const result = await likePost({ postId: post.id });
+      if (result && socket) {
+        const eventData = {
+          post: result.post,
+          likedBy: result.likedBy,
+          unlike: result.unlike,
+          action: result.unlike ? "unlike" : "like",
+          user_id: user.id,
+        };
+        socket.emit("like", eventData);
+      }
+    }
+  };
+
   if (!mount) return null;
 
   return (
@@ -456,12 +483,18 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
         {isMobile ? (
           <div className="w-full flex flex-col pb-[60px]">
             {/* Image Section */}
-            <div className="w-full bg-black flex items-center justify-center">
+            <div className="w-full bg-black flex items-center justify-center relative">
               <MemoizedImage
                 src={post.fileUrl}
                 alt={post.caption || "Post image"}
                 aspectRatio={post.aspectRatio}
+                onDoubleClick={handleImageDoubleClick}
               />
+              {showHeartAnimation && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Heart className="h-24 w-24 text-red-500 fill-red-500 animate-float-heart" />
+                </div>
+              )}
             </div>
 
             {/* Content Section */}
@@ -625,11 +658,21 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
         ) : (
           // Desktop Layout
           <>
-            <MemoizedDesktopImage
-              src={post.fileUrl}
-              alt={post.caption || "Post image"}
-              aspectRatio={post.aspectRatio}
-            />
+            <div className="relative flex-1 bg-black flex items-center justify-center h-full w-auto min-h-0 max-h-full">
+              <div className="relative w-full h-full flex items-center justify-center">
+                <MemoizedImage
+                  src={post.fileUrl}
+                  alt={post.caption || "Post image"}
+                  aspectRatio={post.aspectRatio}
+                  onDoubleClick={handleImageDoubleClick}
+                />
+                {showHeartAnimation && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Heart className="h-24 w-24 text-red-500 fill-red-500 animate-float-heart" />
+                  </div>
+                )}
+              </div>
+            </div>
 
             {/* Content Section */}
             <div className={cn(
