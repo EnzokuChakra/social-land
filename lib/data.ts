@@ -24,6 +24,7 @@ import {
   EventWithUserData
 } from "./definitions";
 import { auth } from "@/lib/auth";
+import { Post as PrismaPost } from "@prisma/client";
 
 interface FollowerData {
   follower: {
@@ -64,11 +65,27 @@ type UserWithFollowStatus = User & {
 };
 
 export async function fetchPosts(userId?: string) {
+  noStore();
   try {
     const posts = await prisma.post.findMany({
       include: {
         user: true,
-        likes: true,
+        likes: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                username: true,
+                name: true,
+                image: true,
+                verified: true,
+                isPrivate: true,
+                role: true,
+                status: true
+              }
+            }
+          }
+        },
         savedBy: true,
         comments: {
           where: {
@@ -158,6 +175,54 @@ export async function fetchPosts(userId?: string) {
       },
       take: 20
     });
+
+    // If userId is provided, get follow status for each user in likes array
+    if (userId) {
+      console.log(`[DEBUG] Fetching follow status for user ${userId}`);
+      
+      const postsWithFollowStatus = await Promise.all(
+        posts.map(async (post: PostWithExtras) => {
+          const likesWithFollowStatus = await Promise.all(
+            post.likes.map(async (like: Like & { user: UserWithFollowStatus }) => {
+              if (!like.user) return like;
+
+              // Get follow relationship
+              const follow = await prisma.follows.findFirst({
+                where: {
+                  followerId: userId,
+                  followingId: like.user.id,
+                  status: {
+                    in: ["ACCEPTED", "PENDING"]
+                  }
+                }
+              });
+
+              console.log(`[DEBUG] Follow relationship for ${like.user.username}:`, {
+                userId,
+                targetUserId: like.user.id,
+                followStatus: follow?.status || 'none'
+              });
+
+              return {
+                ...like,
+                user: {
+                  ...like.user,
+                  isFollowing: follow?.status === "ACCEPTED" || false,
+                  hasPendingRequest: follow?.status === "PENDING" || false
+                }
+              };
+            })
+          );
+
+          return {
+            ...post,
+            likes: likesWithFollowStatus
+          };
+        })
+      );
+
+      return postsWithFollowStatus;
+    }
 
     return posts;
   } catch (error) {

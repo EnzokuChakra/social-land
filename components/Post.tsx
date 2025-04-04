@@ -201,7 +201,7 @@ function Post({ post }: { post: PostWithExtras }) {
 
       {post.caption && (
         <div className="text-sm px-3 sm:px-0 mt-1">
-          <div className="inline-flex items-center gap-1">
+          <div className="flex flex-wrap items-baseline gap-x-1">
             <ProfileHoverCard user={post.user}>
               <Link
                 href={`/dashboard/${username}`}
@@ -210,8 +210,12 @@ function Post({ post }: { post: PostWithExtras }) {
                 {username}
               </Link>
             </ProfileHoverCard>
-            {post.user.verified && <VerifiedBadge className="h-3.5 w-3.5" />}
-            <span>{post.caption}</span>
+            {post.user.verified && (
+              <div className="inline-flex flex-shrink-0">
+                <VerifiedBadge className="h-3.5 w-3.5" />
+              </div>
+            )}
+            <span className="break-words">{post.caption}</span>
           </div>
         </div>
       )}

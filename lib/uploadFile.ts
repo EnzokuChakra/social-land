@@ -3,13 +3,19 @@ import { join } from 'path';
 import { nanoid } from "nanoid";
 import { ensureUploadDirectories } from './server-utils';
 
-export async function uploadFile(file: File | Blob) {
+export async function uploadFile(file: File | Blob | Buffer) {
   try {
     // Ensure upload directories exist first
     await ensureUploadDirectories();
     
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    let buffer: Buffer;
+    if (Buffer.isBuffer(file)) {
+      buffer = file;
+    } else {
+      // Handle browser File/Blob
+      const bytes = await file.arrayBuffer();
+      buffer = Buffer.from(bytes);
+    }
 
     // Create a unique filename
     const filename = `${nanoid()}-${file instanceof File ? file.name : 'blob'}`;

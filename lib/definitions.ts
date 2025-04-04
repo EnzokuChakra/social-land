@@ -391,7 +391,7 @@ export type Event = {
   description: string;
   rules: string | null;
   type: string;
-  prizes: string[] | null;
+  prize: string | null;
   location: string;
   startDate: Date;
   photoUrl: string;
@@ -416,7 +416,7 @@ export type EventWithUserData = {
   description: string;
   rules: string | null;
   type: string;
-  prizes: string[] | null;
+  prize: string | null;
   location: string;
   startDate: Date;
   photoUrl: string;

@@ -101,7 +101,47 @@ function PostActions({ post, userId, className, inputRef }: Props) {
     }
   }, [post.id]);
 
-  const handleLikesModalOpen = () => {
+  const handleLikesModalOpen = async () => {
+    console.log('Opening likes modal for post:', currentPost.id);
+    console.log('Raw likes data:', JSON.stringify(currentPost.likes, null, 2));
+    
+    // Fetch follow status for each user
+    const likesWithFollowStatus = await Promise.all(
+      currentPost.likes.map(async (like) => {
+        if (!like.user) return like;
+
+        try {
+          const response = await fetch(`/api/users/follow/status/?userId=${like.user.id}`);
+          if (!response.ok) {
+            console.error(`Failed to fetch follow status for user ${like.user.username}`);
+            return like;
+          }
+
+          const followStatus = await response.json();
+          console.log(`[DEBUG] Follow status for ${like.user.username}:`, followStatus);
+
+          return {
+            ...like,
+            user: {
+              ...like.user,
+              isFollowing: followStatus.isFollowing || false,
+              hasPendingRequest: followStatus.hasPendingRequest || false,
+              isPrivate: like.user.isPrivate || false
+            }
+          };
+        } catch (error) {
+          console.error(`Error fetching follow status for user ${like.user.username}:`, error);
+          return like;
+        }
+      })
+    );
+
+    // Update the current post with the new follow status information
+    setCurrentPost(prevPost => ({
+      ...prevPost,
+      likes: likesWithFollowStatus
+    }));
+
     setShowLikesModal(true);
   };
 
