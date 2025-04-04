@@ -416,7 +416,7 @@ export default function StoryModal() {
 
   // Update the progress timer effect
   useEffect(() => {
-    if (!currentStory || isPaused || !session?.user?.id) {
+    if (!currentStory || isPaused) {
       return;
     }
 
@@ -425,29 +425,6 @@ export default function StoryModal() {
     const STORY_DURATION = 5000; // 5 seconds per story
     const PROGRESS_INTERVAL = 50; // Update every 50ms for smooth animation
     const PROGRESS_INCREMENT = (100 / (STORY_DURATION / PROGRESS_INTERVAL)); // Calculate increment based on duration
-
-    const findNextUnviewedStory = () => {
-      // First check remaining stories in current user's stories
-      for (let i = currentStoryIndex + 1; i < (currentUserStories?.stories.length || 0); i++) {
-        const story = currentUserStories?.stories[i];
-        if (story && !story.views.some(view => view.user.id === session.user?.id)) {
-          return { userIndex: storyModal.currentUserIndex, storyIndex: i };
-        }
-      }
-
-      // Then check other users' stories
-      for (let i = storyModal.currentUserIndex + 1; i < storyModal.userStories.length; i++) {
-        const userStories = storyModal.userStories[i].stories;
-        for (let j = 0; j < userStories.length; j++) {
-          const story = userStories[j];
-          if (!story.views.some(view => view.user.id === session.user?.id)) {
-            return { userIndex: i, storyIndex: j };
-          }
-        }
-      }
-
-      return null;
-    };
 
     const startProgress = () => {
       // Reset progress before starting new timer
@@ -461,19 +438,13 @@ export default function StoryModal() {
               if (newProgress >= 100) {
                 clearInterval(progressTimer);
                 
-                // Find next unviewed story
-                const nextUnviewed = findNextUnviewedStory();
-
-                if (nextUnviewed) {
-                  // Move to next unviewed story
-                  if (nextUnviewed.userIndex === storyModal.currentUserIndex) {
-                    setCurrentStoryIndex(nextUnviewed.storyIndex);
-                  } else {
-                    storyModal.setCurrentUserIndex(nextUnviewed.userIndex);
-                    setCurrentStoryIndex(nextUnviewed.storyIndex);
-                  }
+                // Move to next story immediately
+                if (currentStoryIndex < (currentUserStories?.stories.length || 0) - 1) {
+                  setCurrentStoryIndex(currentStoryIndex + 1);
+                } else if (storyModal.currentUserIndex < storyModal.userStories.length - 1) {
+                  storyModal.setCurrentUserIndex(storyModal.currentUserIndex + 1);
+                  setCurrentStoryIndex(0);
                 } else {
-                  // No more unviewed stories, close the modal
                   storyModal.onClose();
                 }
                 
@@ -492,7 +463,7 @@ export default function StoryModal() {
       clearTimeout(startDelay);
       clearInterval(progressTimer);
     };
-  }, [currentStory?.id, isPaused, currentStoryIndex, currentUserStories, storyModal, session?.user?.id]);
+  }, [currentStory?.id, isPaused, currentStoryIndex, currentUserStories, storyModal]);
 
   // Handle story transitions
   useEffect(() => {
