@@ -95,126 +95,32 @@ export default function LoginPage() {
 
       if (res?.error) {
         console.log('[Login] SignIn error:', res.error);
-        // Handle different error cases
-        switch (res.error) {
-          case "CredentialsSignin":
-            try {
-              // Check if email exists first
-              const emailExists = await fetch("/api/auth/check-email", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ email: data.email }),
-              }).then(r => r.json());
+        
+        // Check if the error is due to banned status
+        if (res.error.toLowerCase().includes("banned")) {
+          window.location.href = `/auth/error?error=${encodeURIComponent(res.error)}`;
+          return;
+        }
 
-              console.log('[Login] Email exists check:', emailExists);
-
-              if (!emailExists.exists) {
-                toast.error("No account found with this email address");
-              } else {
-                // Check if user is banned
-                const userStatus = await fetch("/api/auth/check-status", {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({ email: data.email }),
-                }).then(r => r.json());
-
-                if (userStatus.status === "BANNED") {
-                  toast.error("Your account is banned!");
-                  setLoading(false);
-                  return;
-                }
-
-                toast.error("Incorrect password");
-              }
-            } catch (error) {
-              console.error('[Login] Error checking email:', error);
-              toast.error("Invalid email or password");
-            }
-            break;
-          case "AccessDenied":
-            toast.error("Your account has been suspended");
-            break;
-          case "EmailNotVerified":
-            toast.error("Please verify your email address first");
-            break;
-          default:
-            toast.error("Invalid email or password");
+        // Handle other errors
+        if (res.error === "CredentialsSignin") {
+          toast.error("Invalid email or password");
+        } else {
+          toast.error(res.error);
         }
         setLoading(false);
         return;
       }
 
       // Show success message
-      console.log('[Login] Login successful, waiting for session...');
+      console.log('[Login] Login successful, redirecting...');
       toast.success("Logged in successfully!");
       
-      // If we have a URL in the response, use it
-      if (res?.url) {
-        console.log('[Login] Redirecting to:', res.url);
-        window.location.href = res.url;
-        return;
-      }
-      
-      // Wait for session establishment with retries
-      let sessionData = null;
-      let retries = 3;
-      while (retries > 0 && !sessionData?.user) {
-        try {
-          console.log(`[Login] Attempting to get session (${retries} retries left)...`);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Try both session endpoints
-          const [sessionResponse, csrfResponse] = await Promise.all([
-            fetch('/api/auth/session', {
-              credentials: 'include',
-              headers: {
-                'Cache-Control': 'no-cache',
-              },
-            }),
-            fetch('/api/auth/csrf', {
-              credentials: 'include',
-              headers: {
-                'Cache-Control': 'no-cache',
-              },
-            })
-          ]);
-          
-          const [sessionJson, csrfJson] = await Promise.all([
-            sessionResponse.json(),
-            csrfResponse.json()
-          ]);
-          
-          console.log('[Login] Session check response:', sessionJson);
-          console.log('[Login] CSRF check response:', csrfJson);
-          
-          if (sessionJson?.user) {
-            sessionData = sessionJson;
-            break;
-          }
-          
-          retries--;
-          if (retries === 0) {
-            throw new Error('No session data found after retries');
-          }
-        } catch (error) {
-          console.error('[Login] Error checking session:', error);
-          retries--;
-          if (retries === 0) {
-            throw error;
-          }
-        }
-      }
-      
-      // Force a hard refresh to ensure session is established
-      console.log('[Login] Forcing page refresh to establish session...');
-      window.location.href = cleanCallbackUrl;
+      // Redirect to callback URL
+      window.location.href = res?.url || cleanCallbackUrl;
     } catch (error) {
       console.error('[Login] Error during login:', error);
-      toast.error("Session establishment failed. Please try again.");
+      toast.error("An error occurred during login. Please try again.");
       setLoading(false);
     }
   };

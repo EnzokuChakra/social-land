@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +41,14 @@ export default function ProfileMenu({ userId, username, userStatus }: ProfileMen
         const error = await response.text();
         toast.error(error);
         return;
+      }
+
+      // Check if the response has the ban header
+      const isUserBanned = response.headers.get('X-User-Banned') === 'true';
+      
+      if (isUserBanned && session?.user?.id === userId) {
+        // If the banned user is the current user, force logout
+        await signOut({ callbackUrl: '/' });
       }
 
       toast.success(isBanned ? "User unbanned successfully" : "User banned successfully");

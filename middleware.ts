@@ -20,6 +20,7 @@ const publicPaths = [
   '/forgot-password',
   '/reset-password',
   '/api/auth',
+  '/banned',
   '/_next',
   '/images',
   '/uploads',
@@ -99,6 +100,25 @@ export async function middleware(request: NextRequestType) {
       if (!token && !isApiRoute) {
         const url = new URL('/login', request.url);
         url.searchParams.set('callbackUrl', encodeURI(request.url));
+        return NextResponse.redirect(url);
+      }
+
+      // Check if user is banned
+      if (token?.status === "BANNED" && !pathname.startsWith('/banned')) {
+        if (isApiRoute) {
+          return new NextResponse(
+            JSON.stringify({ error: 'Account is banned' }),
+            {
+              status: 403,
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            }
+          );
+        }
+        
+        // For non-API routes, redirect to banned page
+        const url = new URL('/banned', request.url);
         return NextResponse.redirect(url);
       }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import {
   Table,
   TableBody,
@@ -146,6 +146,16 @@ export default function UsersPage() {
       if (!res.ok) {
         const error = await res.text();
         throw new Error(error);
+      }
+
+      // Check if the response has the ban header
+      const isUserBanned = res.headers.get('X-User-Banned') === 'true';
+      
+      if (isUserBanned) {
+        // If the banned user is the current user, force logout
+        if (session?.user?.id === userId) {
+          await signOut({ callbackUrl: '/' });
+        }
       }
 
       toast.success("User banned successfully");

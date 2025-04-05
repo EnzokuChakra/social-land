@@ -28,6 +28,8 @@ declare module "next-auth" {
       username: string;
       role: UserRole;
       verified: boolean;
+      status: string;
+      isBanned?: boolean;
     }
   }
 }
@@ -39,6 +41,7 @@ declare module "next-auth/jwt" {
     username: string;
     role: UserRole;
     verified: boolean;
+    status: string;
   }
 }
 
@@ -52,7 +55,7 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/login",
-    error: "/login",
+    error: "/auth/error",
   },
   debug: process.env.NODE_ENV === 'development',
   providers: [
@@ -77,12 +80,18 @@ export const authOptions: NextAuthOptions = {
             image: true,
             username: true,
             role: true,
-            verified: true
+            verified: true,
+            status: true
           }
         });
 
         if (!user) {
           throw new Error("User not found");
+        }
+
+        // Check if user is banned
+        if (user.status === "BANNED") {
+          throw new Error("Your account has been banned for violating our community guidelines.");
         }
 
         const isPasswordValid = await compare(credentials.password, user.password);
@@ -98,7 +107,8 @@ export const authOptions: NextAuthOptions = {
           image: user.image,
           username: user.username,
           role: user.role,
-          verified: user.verified
+          verified: user.verified,
+          status: user.status
         };
       },
     }),
@@ -113,6 +123,20 @@ export const authOptions: NextAuthOptions = {
         token.username = user.username;
         token.role = user.role;
         token.verified = user.verified;
+        
+        // Get the user's current status
+        const currentUser = await db.user.findUnique({
+          where: { id: user.id },
+          select: { status: true }
+        });
+        token.status = currentUser?.status || 'NORMAL';
+      } else if (token?.id) {
+        // Check user status on every token refresh
+        const user = await db.user.findUnique({
+          where: { id: token.id },
+          select: { status: true }
+        });
+        token.status = user?.status || token.status;
       }
       return token;
     },
@@ -125,11 +149,30 @@ export const authOptions: NextAuthOptions = {
           image: token.image,
           username: token.username,
           role: token.role,
-          verified: token.verified
+          verified: token.verified,
+          status: token.status
         };
+
+        // If user is banned, add a flag to indicate this
+        if (token.status === "BANNED") {
+          session.user.isBanned = true;
+        }
       }
       return session;
     },
+    async signIn({ user, account }) {
+      // Check if user is banned before allowing sign in
+      const userStatus = await db.user.findUnique({
+        where: { id: user.id },
+        select: { status: true }
+      });
+
+      if (userStatus?.status === "BANNED") {
+        throw new Error("Your account has been banned for violating our community guidelines.");
+      }
+
+      return true;
+    }
   },
   jwt: {
     maxAge: 30 * 24 * 60 * 60, // 30 days

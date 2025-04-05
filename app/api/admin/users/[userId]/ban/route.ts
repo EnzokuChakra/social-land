@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { signOut } from "next-auth/react";
 
 export async function POST(
   req: Request,
@@ -39,7 +40,13 @@ export async function POST(
       data: { status: "BANNED" },
     });
 
-    return NextResponse.json(bannedUser);
+    // Create a response with the banned user data
+    const response = NextResponse.json(bannedUser);
+    
+    // Add a custom header to indicate the user was banned
+    response.headers.set('X-User-Banned', 'true');
+    
+    return response;
   } catch (error) {
     console.error("[BAN_USER]", error);
     return new NextResponse("Internal Error", { status: 500 });
