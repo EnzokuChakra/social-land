@@ -293,6 +293,7 @@ model story {
   likes     like[]
   views     storyview[]
   notifications notification[]
+  reports   storyReport[]
 
   @@index([user_id], map: "Story_user_id_idx")
 }
@@ -365,6 +366,7 @@ model user {
   verificationRequests verificationRequest[]
   reportedBy    userReport[] @relation("UserReportReporter")
   reported      userReport[] @relation("UserReportReported")
+  storyReports  storyReport[]
 
   @@index([email], map: "User_email_idx")
   @@index([username], map: "User_username_idx")
