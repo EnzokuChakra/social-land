@@ -355,11 +355,13 @@ export default function VerifyPage() {
   );
 
   return (
-    <div className={cn(
-      "flex-1 space-y-4 p-4 md:p-8 pt-4 md:pt-6",
-      isCollapsed && !isMobile ? "ml-14" : isMobile ? "ml-0" : "ml-64"
+    <main className={cn(
+      "flex-1 pt-4 md:pt-6",
+      isCollapsed && !isMobile ? "pl-4" : isMobile ? "pl-0" : "pl-8"
     )}>
-      {mainContent}
-    </div>
+      <div className="container max-w-4xl mx-auto">
+        {mainContent}
+      </div>
+    </main>
   );
 } 
