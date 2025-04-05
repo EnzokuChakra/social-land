@@ -28,6 +28,16 @@ import ProfilePictureOptionsModal from "./modals/ProfilePictureOptionsModal";
 import { cn } from "@/lib/utils";
 import { EmojiPicker } from "./EmojiPicker";
 import VerifiedBadge from "./VerifiedBadge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type ProfileFormErrors = {
   [K in keyof z.infer<typeof UserSchema>]?: string[];
@@ -38,6 +48,25 @@ type ProfileFormErrors = {
 function ProfileForm({ profile }: { profile: UserWithExtras }) {
   const router = useRouter();
   const [isOptionsModalOpen, setIsOptionsModalOpen] = useState(false);
+  const [showPrivacyWarning, setShowPrivacyWarning] = useState(false);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+
+  const fetchPendingRequests = async () => {
+    try {
+      const response = await fetch(`/api/users/follow-requests/count`);
+      const data = await response.json();
+      if (response.ok) {
+        setPendingRequestsCount(data.count);
+      }
+    } catch (error) {
+      console.error("Error fetching pending requests count:", error);
+    }
+  };
+
+  useEffect(() => {
+    // Fetch pending follow requests count when component mounts
+    fetchPendingRequests();
+  }, []); // Remove the profile.isPrivate dependency
 
   const form = useForm<z.infer<typeof UserSchema>>({
     resolver: zodResolver(UserSchema),
@@ -54,6 +83,23 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
 
   const handleProfilePhotoClick = () => {
     setIsOptionsModalOpen(true);
+  };
+
+  const handlePrivacyChange = async (checked: boolean) => {
+    // If switching to public, check for pending requests first
+    if (!checked) {
+      await fetchPendingRequests(); // Fetch latest count
+      if (pendingRequestsCount > 0) {
+        setShowPrivacyWarning(true);
+        return;
+      }
+    }
+    form.setValue("isPrivate", checked, { shouldDirty: true });
+  };
+
+  const handlePrivacyWarningConfirm = () => {
+    form.setValue("isPrivate", false, { shouldDirty: true });
+    setShowPrivacyWarning(false);
   };
 
   return (
@@ -106,6 +152,23 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
           userId={profile.id}
           isOwnProfile={true}
         />
+
+        {/* Privacy Warning Alert Dialog */}
+        <AlertDialog open={showPrivacyWarning} onOpenChange={setShowPrivacyWarning}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Switch to Public Profile?</AlertDialogTitle>
+              <AlertDialogDescription>
+                You have {pendingRequestsCount} pending follow {pendingRequestsCount === 1 ? 'request' : 'requests'}. 
+                Switching to a public profile will delete all pending follow requests.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setShowPrivacyWarning(false)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handlePrivacyWarningConfirm}>Continue</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Form Fields */}
         <Form {...form}>
@@ -251,7 +314,11 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
               {/* Privacy Section */}
               <div className="space-y-6">
                 <div className="flex items-center gap-2">
-                  <Lock className="w-5 h-5 text-neutral-500" />
+                  {profile.isPrivate ? (
+                    <Lock className="w-5 h-5 text-neutral-500" />
+                  ) : (
+                    <Globe2 className="w-5 h-5 text-neutral-500" />
+                  )}
                   <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Privacy Settings</h2>
                 </div>
 
@@ -269,25 +336,22 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
                             Control your visibility
                           </FormDescription>
                         </div>
-                        <div className="flex items-center gap-4 bg-black rounded-xl border-2 border-neutral-800 p-4">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <Lock className="w-4 h-4 text-neutral-400" />
-                              <h4 className="text-sm font-medium text-white">Private Account</h4>
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <div className="text-sm font-medium text-neutral-900 dark:text-white">
+                              Private Account
                             </div>
-                            <p className="mt-1.5 text-sm text-neutral-400">
-                              {field.value 
-                                ? "Only approved followers can see your content"
+                            <div className="text-sm text-neutral-500 dark:text-neutral-400">
+                              {field.value
+                                ? "Only approved followers can see your photos and videos"
                                 : "Anyone can see your photos and videos"}
-                            </p>
+                            </div>
                           </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              className="data-[state=checked]:bg-blue-600"
-                            />
-                          </FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={handlePrivacyChange}
+                            className="ml-4"
+                          />
                         </div>
                       </div>
                     </FormItem>

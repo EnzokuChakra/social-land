@@ -299,6 +299,12 @@ function getNotificationText(notification: NotificationWithExtras): string | nul
         return `and ${othersCount} others liked your post`;
       }
       return "liked your post";
+    case "STORY_LIKE":
+      const storyOthersCount = notification.metadata?.othersCount;
+      if (storyOthersCount > 0) {
+        return `and ${storyOthersCount} others liked your story`;
+      }
+      return "liked your story";
     case "COMMENT":
       return `commented: ${notification.comment?.text ?? ''}`;
     case "FOLLOW_REQUEST":
@@ -323,48 +329,10 @@ function getActionButton(
 ) {
   if (!notification.sender) return null;
   
-  const isFollowing = followingStates[notification.sender.id] ?? notification.sender.isFollowing ?? false;
-  const requestState = requestStates[notification.sender.id];
-  const hasPendingRequest = notification.sender.hasPendingRequest ?? false;
-
-  // Don't show follow button if already following
-  if (isFollowing && notification.type !== "FOLLOW_REQUEST") {
-    return null;
-  }
+  const isFollowing = followingStates[notification.sender.id] || false;
+  const hasPendingRequest = requestStates[notification.sender.id] === "PENDING";
 
   switch (notification.type) {
-    case "FOLLOW_REQUEST":
-      if (requestState === "accept") {
-        return (
-          <FollowButton
-            followingId={notification.sender.id}
-            isFollowing={true}
-            hasPendingRequest={false}
-            isPrivate={false}
-            className="text-xs"
-          />
-        );
-      }
-      if (requestState === "delete") return null;
-      return (
-        <div className="flex gap-2">
-          <Button 
-            size="sm" 
-            className="bg-blue-500 hover:bg-blue-400 text-white px-4 font-semibold text-sm"
-            onClick={() => handleFollowRequest(notification.sender!.id, "accept")}
-          >
-            Confirm
-          </Button>
-          <Button 
-            size="sm" 
-            variant="secondary" 
-            className="px-4 bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 text-neutral-900 dark:text-white font-semibold text-sm"
-            onClick={() => handleFollowRequest(notification.sender!.id, "delete")}
-          >
-            Delete
-          </Button>
-        </div>
-      );
     case "FOLLOW":
       // Only show follow button if not following and they're following us (Follow Back)
       if (!isFollowing && notification.sender.isFollowedByUser) {
@@ -405,6 +373,58 @@ function getActionButton(
         );
       }
       return null;
+    case "STORY_LIKE":
+      // Check if the story is expired (24 hours old)
+      const storyCreatedAt = notification.story?.createdAt;
+      const isExpired = storyCreatedAt && 
+        new Date().getTime() - new Date(storyCreatedAt).getTime() > 24 * 60 * 60 * 1000;
+
+      if (notification.story?.fileUrl && !isExpired) {
+        return (
+          <Link href={`/dashboard/s/${notification.story.id}`}>
+            <div className="h-11 w-11 rounded border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+              <img 
+                src={notification.story.fileUrl} 
+                alt="Story" 
+                className="h-full w-full object-cover"
+              />
+            </div>
+          </Link>
+        );
+      }
+      return null;
+    case "FOLLOW_REQUEST":
+      if (requestStates[notification.sender.id] === "accept") {
+        return (
+          <FollowButton
+            followingId={notification.sender.id}
+            isFollowing={true}
+            hasPendingRequest={false}
+            isPrivate={false}
+            className="text-xs"
+          />
+        );
+      }
+      if (requestStates[notification.sender.id] === "delete") return null;
+      return (
+        <div className="flex gap-2">
+          <Button 
+            size="sm" 
+            className="bg-blue-500 hover:bg-blue-400 text-white px-4 font-semibold text-sm"
+            onClick={() => handleFollowRequest(notification.sender!.id, "accept")}
+          >
+            Confirm
+          </Button>
+          <Button 
+            size="sm" 
+            variant="secondary" 
+            className="px-4 bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 text-neutral-900 dark:text-white font-semibold text-sm"
+            onClick={() => handleFollowRequest(notification.sender!.id, "delete")}
+          >
+            Delete
+          </Button>
+        </div>
+      );
     default:
       return null;
   }

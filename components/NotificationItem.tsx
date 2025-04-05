@@ -155,10 +155,18 @@ function NotificationItem({ notification }: NotificationItemProps) {
         return notification.postId ? `/dashboard/p/${notification.postId}` : "#";
       case "REPLY":
         return notification.postId ? `/dashboard/p/${notification.postId}#${notification.metadata?.commentId}` : "#";
+      case "STORY_LIKE":
+        // Check if the story is expired (24 hours old)
+        const storyCreatedAt = notification.story?.createdAt;
+        const isExpired = storyCreatedAt && 
+          new Date().getTime() - new Date(storyCreatedAt).getTime() > 24 * 60 * 60 * 1000;
+        
+        // Return "#" if the story is expired, otherwise return the story link
+        return !isExpired && notification.storyId ? `/dashboard/s/${notification.storyId}` : "#";
       default:
         return "#";
     }
-  }, [notification.type, notification.sender?.username, notification.postId, notification.metadata?.commentId]);
+  }, [notification.type, notification.sender?.username, notification.postId, notification.metadata?.commentId, notification.storyId, notification.story?.createdAt]);
 
   const handleNavigate = useCallback((e: React.MouseEvent, path: string) => {
     e.preventDefault();

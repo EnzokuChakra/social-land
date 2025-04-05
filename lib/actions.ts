@@ -27,9 +27,13 @@ import { db } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
 import { uploadFile } from "@/lib/uploadFile";
 import { deleteUploadedFile } from "@/lib/server-utils";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 const followCooldowns = new Map<string, number>();
 const FOLLOW_COOLDOWN_MS = 5000; // 5 seconds cooldown
+
+// Initialize Prisma client
+const prismaClient = new PrismaClient();
 
 export async function createPost(values: z.infer<typeof CreatePost>) {
   const session = await auth();
@@ -211,11 +215,13 @@ async function createNotification({
   user_id,
   postId,
   commentId,
+  storyId,
 }: {
-  type: "LIKE" | "COMMENT" | "FOLLOW" | "FOLLOW_REQUEST" | "COMMENT_REPLY" | "REPLY";
+  type: "LIKE" | "COMMENT" | "FOLLOW" | "FOLLOW_REQUEST" | "COMMENT_REPLY" | "REPLY" | "STORY_LIKE";
   user_id: string;
   postId?: string;
   commentId?: string;
+  storyId?: string;
 }) {
   const sender_id = await getUserId();
 
@@ -266,6 +272,52 @@ async function createNotification({
             userId: user_id,
             sender_id,
             postId,
+            metadata: otherLikes > 0 ? JSON.stringify({ othersCount: otherLikes }) : null,
+          },
+        });
+      }
+    } else if (type === "STORY_LIKE" && storyId) {
+      // Find any existing story like notification
+      const existingNotification = await prisma.notification.findFirst({
+        where: {
+          type: "STORY_LIKE",
+          userId: user_id,
+          storyId,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      // Get count of other story likes (excluding the current user)
+      const otherLikes = await prisma.like.count({
+        where: {
+          storyId,
+          user_id: {
+            not: sender_id,
+          },
+        },
+      });
+
+      if (existingNotification) {
+        // Update the existing notification with new sender and others count
+        await prisma.notification.update({
+          where: { id: existingNotification.id },
+          data: {
+            sender_id,
+            createdAt: new Date(),
+            metadata: otherLikes > 0 ? JSON.stringify({ othersCount: otherLikes }) : null,
+          },
+        });
+      } else {
+        // Create new notification if none exists
+        await prisma.notification.create({
+          data: {
+            id: crypto.randomUUID(),
+            type,
+            userId: user_id,
+            sender_id,
+            storyId,
             metadata: otherLikes > 0 ? JSON.stringify({ othersCount: otherLikes }) : null,
           },
         });
@@ -1039,11 +1091,16 @@ export async function updateProfile(values: z.infer<typeof UpdateUser>) {
   const { name, image, bio, isPrivate } = validatedFields.data;
 
   try {
-    // Get current user data to check for existing image
-    const currentUser = await db.user.findUnique({
+    if (!prisma) {
+      throw new Error("Database connection not available");
+    }
+
+    // Get current user data to check for existing image and privacy status
+    const currentUser = await prisma.user.findUnique({
       where: { id: user_id },
       select: { 
-        image: true
+        image: true,
+        isPrivate: true
       }
     });
 
@@ -1066,8 +1123,56 @@ export async function updateProfile(values: z.infer<typeof UpdateUser>) {
       }
     }
 
+    // If switching from private to public, delete all pending follow requests
+    if (currentUser.isPrivate && isPrivate === false) {
+      // Use a transaction to ensure all operations succeed or fail together
+      await prisma.$transaction(async (tx) => {
+        // Get all pending follow requests
+        const pendingRequests = await tx.follows.findMany({
+          where: {
+            followingId: user_id,
+            status: "PENDING"
+          },
+          select: {
+            followerId: true
+          }
+        });
+
+        // Delete all pending requests
+        await tx.follows.deleteMany({
+          where: {
+            followingId: user_id,
+            status: "PENDING"
+          }
+        });
+
+        // Delete all follow request notifications
+        await tx.notification.deleteMany({
+          where: {
+            type: "FOLLOW_REQUEST",
+            OR: [
+              // Delete notifications where the user is the receiver of the follow request
+              {
+                userId: user_id,
+                sender_id: {
+                  in: pendingRequests.map(request => request.followerId)
+                }
+              },
+              // Delete notifications where the user is the sender of the follow request
+              {
+                userId: {
+                  in: pendingRequests.map(request => request.followerId)
+                },
+                sender_id: user_id
+              }
+            ]
+          }
+        });
+      });
+    }
+
     // Prepare update data
-    const updateData: any = {
+    const updateData: Prisma.UserUpdateInput = {
       ...(name !== undefined && { name }),
       ...(image !== undefined && { image }),
       ...(bio !== undefined && { bio }),
@@ -1078,7 +1183,7 @@ export async function updateProfile(values: z.infer<typeof UpdateUser>) {
 
     // Only update if there are changes
     if (Object.keys(updateData).length > 0) {
-      await db.user.update({
+      await prisma.user.update({
         where: {
           id: user_id,
         },
@@ -1504,6 +1609,13 @@ export async function getNotifications() {
             fileUrl: true,
           },
         },
+        story: {
+          select: {
+            id: true,
+            fileUrl: true,
+            createdAt: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -1572,6 +1684,7 @@ export async function getNotifications() {
         hasPendingRequest: true,
       },
       post: null,
+      story: null,
       isRead: false,
       reelId: null,
       storyId: null,

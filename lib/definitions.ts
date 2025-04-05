@@ -83,13 +83,14 @@ export type SavedPost = {
 };
 
 export type NotificationType = 
+  | "FOLLOW" 
   | "LIKE" 
   | "COMMENT" 
-  | "FOLLOW" 
   | "FOLLOW_REQUEST" 
   | "REPLY" 
   | "MENTION" 
-  | "TAG";
+  | "TAG"
+  | "STORY_LIKE";
 
 export type Notification = {
   id: string;
@@ -261,6 +262,11 @@ export type NotificationWithExtras = Notification & {
   post?: {
     id: string;
     fileUrl: string;
+  } | null;
+  story?: {
+    id: string;
+    fileUrl: string;
+    createdAt: Date;
   } | null;
   comment?: {
     id: string;
