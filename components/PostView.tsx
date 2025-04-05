@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import useMount from "@/hooks/useMount";
-import { PostWithExtras, CommentWithExtras } from "@/lib/definitions";
+import { PostWithExtras, CommentWithExtras, SavedPost } from "@/lib/definitions";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -429,7 +429,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     setTimeout(() => setShowHeartAnimation(false), 1000);
 
     // Only trigger like if the post is not already liked
-    const isLiked = post.likes.some(like => like.user_id === user.id);
+    const isLiked = currentPost.likes.some(like => like.user_id === user.id);
     if (!isLiked) {
       const result = await likePost({ postId: post.id });
       if (result && socket) {
@@ -445,7 +445,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     }
   };
 
-  const handleBookmarkUpdate = useCallback((savedBy: savedpost[]) => {
+  const handleBookmarkUpdate = useCallback((savedBy: SavedPost[]) => {
     setCurrentPost(prev => ({
       ...prev,
       savedBy
