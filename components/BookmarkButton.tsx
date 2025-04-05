@@ -12,9 +12,10 @@ import { toast } from "sonner";
 type Props = {
   post: PostWithExtras;
   userId?: string;
+  onBookmarkUpdate?: (savedBy: savedpost[]) => void;
 };
 
-function BookmarkButton({ post, userId }: Props) {
+function BookmarkButton({ post, userId, onBookmarkUpdate }: Props) {
   const [isPending, setIsPending] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout>();
   const predicate = (bookmark: savedpost) =>
@@ -69,13 +70,22 @@ function BookmarkButton({ post, userId }: Props) {
     
     // Optimistically update the UI within a transition
     startTransition(() => {
-      addOptimisticBookmark({ 
+      const newBookmark = { 
         postId: post.id, 
         user_id: userId,
         id: Date.now().toString(),
         createdAt: new Date(),
         updatedAt: new Date()
-      });
+      };
+      addOptimisticBookmark(newBookmark);
+      
+      // Call onBookmarkUpdate with the new state
+      if (onBookmarkUpdate) {
+        const newBookmarks = isBookmarked 
+          ? currentState.filter(bookmark => bookmark.user_id !== userId)
+          : [...currentState, newBookmark];
+        onBookmarkUpdate(newBookmarks);
+      }
     });
     
     console.log('BookmarkButton - After optimistic update:', {
@@ -108,6 +118,10 @@ function BookmarkButton({ post, userId }: Props) {
           createdAt: new Date(),
           updatedAt: new Date()
         });
+        // Revert the bookmark update
+        if (onBookmarkUpdate) {
+          onBookmarkUpdate(currentState);
+        }
       });
     } finally {
       // Set a timeout to re-enable the button after 500ms
@@ -115,7 +129,7 @@ function BookmarkButton({ post, userId }: Props) {
         setIsPending(false);
       }, 500);
     }
-  }, [isBookmarked, post.savedBy, optimisticBookmarks, userId, post.id, isPending]);
+  }, [isBookmarked, post.savedBy, optimisticBookmarks, userId, post.id, isPending, onBookmarkUpdate]);
 
   return (
     <div className="ml-auto">

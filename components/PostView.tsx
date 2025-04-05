@@ -21,7 +21,7 @@ import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useRef, useEffect, useState, memo } from "react";
+import { useRef, useEffect, useState, memo, useCallback } from "react";
 import MiniPost from "./MiniPost";
 import Comment from "./Comment";
 import PostOptions from "./PostOptions";
@@ -445,6 +445,13 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     }
   };
 
+  const handleBookmarkUpdate = useCallback((savedBy: savedpost[]) => {
+    setCurrentPost(prev => ({
+      ...prev,
+      savedBy
+    }));
+  }, []);
+
   if (!mount) return null;
 
   return (
@@ -645,6 +652,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                   userId={user?.id}
                   className="pb-2"
                   inputRef={inputRef}
+                  onBookmarkUpdate={handleBookmarkUpdate}
                 />
                 <CommentForm
                   ref={commentFormRef}
@@ -835,6 +843,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                     userId={user?.id}
                     className="pb-2"
                     inputRef={inputRef}
+                    onBookmarkUpdate={handleBookmarkUpdate}
                   />
                   <CommentForm
                     ref={commentFormRef}

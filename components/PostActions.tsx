@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import {useSocket} from "@/hooks/use-socket";
 import { getSocket } from "@/lib/socket";
+import { savedpost } from "@prisma/client";
 
 type ExtendedUser = User & {
   isFollowing?: boolean;
@@ -50,9 +51,10 @@ type Props = {
   userId?: string;
   className?: string;
   inputRef?: React.RefObject<HTMLInputElement>;
+  onBookmarkUpdate?: (savedBy: savedpost[]) => void;
 };
 
-function PostActions({ post, userId, className, inputRef }: Props) {
+function PostActions({ post, userId, className, inputRef, onBookmarkUpdate }: Props) {
   const [showLikesModal, setShowLikesModal] = useState(false);
   const [currentPost, setCurrentPost] = useState<PostWithExtras>(post);
   const router = useRouter();
@@ -186,7 +188,7 @@ function PostActions({ post, userId, className, inputRef }: Props) {
             </Link>
           )}
           <ShareButton postId={currentPost.id} />
-          <BookmarkButton post={currentPost} userId={userId} />
+          <BookmarkButton post={currentPost} userId={userId} onBookmarkUpdate={onBookmarkUpdate} />
         </div>
 
         {/* Like count section */}
