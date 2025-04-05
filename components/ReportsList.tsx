@@ -33,18 +33,10 @@ interface StoryReport {
   createdAt: string;
   reason: string | null;
   status: string;
-  reporter: {
-    id: string;
-    username: string | null;
-    image: string | null;
-  };
+  reporter: ReportUser;
   story: {
     id: string;
-    user: {
-      id: string;
-      username: string | null;
-      image: string | null;
-    };
+    user: ReportUser;
   };
 }
 
@@ -60,21 +52,23 @@ export function ReportsList() {
 
   async function fetchReports() {
     try {
-      const [postsResponse, usersResponse] = await Promise.all([
+      const [postsResponse, usersResponse, storiesResponse] = await Promise.all([
         fetch("/api/admin/reports"),
-        fetch("/api/admin/user-reports")
+        fetch("/api/admin/user-reports"),
+        fetch("/api/admin/story-reports")
       ]);
 
-      if (!postsResponse.ok || !usersResponse.ok) {
+      if (!postsResponse.ok || !usersResponse.ok || !storiesResponse.ok) {
         throw new Error("Failed to fetch reports");
       }
 
       const postsData = await postsResponse.json();
       const usersData = await usersResponse.json();
+      const storiesData = await storiesResponse.json();
 
       setReports(postsData.reports || []);
       setUserReports(usersData.reports || []);
-      setStoryReports([]); // Set to empty array since story reports are not available
+      setStoryReports(storiesData.reports || []);
     } catch (error) {
       console.error("Error fetching reports:", error);
       toast.error("Failed to load reports");
@@ -83,11 +77,13 @@ export function ReportsList() {
     }
   }
 
-  async function handleUpdateStatus(reportId: string, status: "REVIEWED" | "DISMISSED", type: "post" | "user") {
+  async function handleUpdateStatus(reportId: string, status: "REVIEWED" | "DISMISSED", type: "post" | "user" | "story") {
     try {
       const endpoint = type === "post" 
         ? `/api/admin/reports/${reportId}`
-        : `/api/admin/user-reports/${reportId}`;
+        : type === "user"
+        ? `/api/admin/user-reports/${reportId}`
+        : `/api/admin/story-reports/${reportId}`;
         
       const response = await fetch(endpoint, {
         method: "PATCH",
@@ -133,63 +129,63 @@ export function ReportsList() {
       {reports.length > 0 && (
         <div>
           <h2 className="text-xl font-semibold mb-4">Post Reports</h2>
-    <div className="space-y-6">
+          <div className="space-y-6">
             {reports.map((report) => {
               const reviewInfo = parseReviewInfo(report.reason);
               const originalReason = report.reason?.split('\n\nReviewed by')[0];
               
               return (
-        <div
-          key={report.id}
-          className="bg-white dark:bg-neutral-950 rounded-lg shadow p-4 border border-neutral-200 dark:border-neutral-800"
-        >
-          <div className="flex items-start justify-between">
-            <div className="flex items-start space-x-3">
-              <UserAvatar user={report.user} />
-              <div>
-                <div className="flex items-center space-x-2">
-                  <Link
-                    href={`/dashboard/${report.user.username}`}
-                    className="font-semibold hover:underline"
-                  >
-                    {report.user.username}
-                  </Link>
-                  <span className="text-neutral-500 dark:text-neutral-400 text-sm">
-                    reported a post
-                  </span>
-                </div>
-                <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                  {formatTimeToNow(new Date(report.createdAt))}
-                </p>
+                <div
+                  key={report.id}
+                  className="bg-white dark:bg-neutral-950 rounded-lg shadow p-4 border border-neutral-200 dark:border-neutral-800"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-3">
+                      <UserAvatar user={report.user} />
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <Link
+                            href={`/dashboard/${report.user.username}`}
+                            className="font-semibold hover:underline"
+                          >
+                            {report.user.username}
+                          </Link>
+                          <span className="text-neutral-500 dark:text-neutral-400 text-sm">
+                            reported a post
+                          </span>
+                        </div>
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                          {formatTimeToNow(new Date(report.createdAt))}
+                        </p>
                         {originalReason && (
                           <p className="mt-2 text-sm">{originalReason}</p>
-                )}
-              </div>
-            </div>
+                        )}
+                      </div>
+                    </div>
                     <div className="flex flex-col items-end space-y-2">
                       {report.status === "PENDING" ? (
-                <>
-                  <Button
+                        <>
+                          <Button
                             onClick={() => handleUpdateStatus(report.id, "REVIEWED", "post")}
-                    variant="default"
-                    size="sm"
-                  >
-                    Review
-                  </Button>
-                  <Button
+                            variant="default"
+                            size="sm"
+                          >
+                            Review
+                          </Button>
+                          <Button
                             onClick={() => handleUpdateStatus(report.id, "DISMISSED", "post")}
-                    variant="outline"
-                    size="sm"
-                  >
-                    Dismiss
-                  </Button>
-                </>
+                            variant="outline"
+                            size="sm"
+                          >
+                            Dismiss
+                          </Button>
+                        </>
                       ) : (
                         <>
                           <div className="flex items-center space-x-1">
                             <span className="text-sm text-neutral-500 dark:text-neutral-400 capitalize">
-                  {report.status.toLowerCase()}
-                </span>
+                              {report.status.toLowerCase()}
+                            </span>
                             {reviewInfo && (
                               <>
                                 <span className="text-sm text-neutral-500 dark:text-neutral-400">by</span>
@@ -203,22 +199,22 @@ export function ReportsList() {
                             )}
                           </div>
                         </>
-              )}
-            </div>
-          </div>
-          <div className="mt-4">
-            <Link
-              href={`/dashboard/p/${report.post.id}`}
-              className="block relative aspect-square w-32 rounded-lg overflow-hidden"
-            >
-              <img
-                src={report.post.fileUrl}
-                alt="Reported post"
-                className="object-cover w-full h-full"
-              />
-            </Link>
-          </div>
-        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <Link
+                      href={`/dashboard/p/${report.post.id}`}
+                      className="block relative aspect-square w-32 rounded-lg overflow-hidden"
+                    >
+                      <img
+                        src={report.post.fileUrl}
+                        alt="Reported post"
+                        className="object-cover w-full h-full"
+                      />
+                    </Link>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -331,13 +327,7 @@ export function ReportsList() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-3">
-                      <div className="w-10 h-10 rounded-full overflow-hidden">
-                        <img
-                          src={report.reporter.image || "/default-avatar.png"}
-                          alt={report.reporter.username || "User"}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
+                      <UserAvatar user={report.reporter} />
                       <div>
                         <div className="flex items-center space-x-2">
                           <Link
@@ -351,9 +341,9 @@ export function ReportsList() {
                           </span>
                           <Link
                             href={`/dashboard/${report.story.user.username}`}
-                            className="font-semibold hover:underline text-red-500"
+                            className="font-semibold hover:underline"
                           >
-                            @{report.story.user.username}
+                            {report.story.user.username}
                           </Link>
                         </div>
                         <p className="text-sm text-neutral-500 dark:text-neutral-400">
@@ -368,14 +358,14 @@ export function ReportsList() {
                       {report.status === "PENDING" ? (
                         <>
                           <Button
-                            onClick={() => handleUpdateStatus(report.id, "REVIEWED", "post")}
+                            onClick={() => handleUpdateStatus(report.id, "REVIEWED", "story")}
                             variant="default"
                             size="sm"
                           >
                             Review
                           </Button>
                           <Button
-                            onClick={() => handleUpdateStatus(report.id, "DISMISSED", "post")}
+                            onClick={() => handleUpdateStatus(report.id, "DISMISSED", "story")}
                             variant="outline"
                             size="sm"
                           >

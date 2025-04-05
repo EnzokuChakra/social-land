@@ -111,6 +111,7 @@ export default function StoryModal() {
   const lastProgressRef = useRef<number>(0);
   const socket = useSocket();
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [storyToReport, setStoryToReport] = useState<Story | null>(null);
 
   const currentUserStories = storyModal.userStories[storyModal.currentUserIndex];
   const currentStory = currentUserStories?.stories[currentStoryIndex];
@@ -193,6 +194,8 @@ export default function StoryModal() {
   useEffect(() => {
     if (!mount || !storyModal.isOpen || isPaused) return;
 
+    console.log('Starting progress bar for story:', currentStory?.id);
+
     const startProgress = () => {
       if (progressInterval.current) clearInterval(progressInterval.current);
       if (storyTimeout.current) clearTimeout(storyTimeout.current);
@@ -201,40 +204,82 @@ export default function StoryModal() {
       const duration = 5000; // 5 seconds per story
       const step = (interval / duration) * 100;
 
-      progressInterval.current = setInterval(() => {
-        setProgress(prev => {
-          const newProgress = prev + step;
-          if (newProgress >= 100) {
+      // Wait for the story to load before starting the progress
+      const image = new Image();
+      image.src = currentStory?.fileUrl || '';
+      
+      image.onload = () => {
+        console.log('Story image loaded, starting progress');
+        progressInterval.current = setInterval(() => {
+          setProgress(prev => {
+            const newProgress = prev + step;
+            if (newProgress >= 100) {
+              if (progressInterval.current) {
+                clearInterval(progressInterval.current);
+                progressInterval.current = null;
+              }
+              // Instead of calling handleStoryEnd directly, schedule it
+              requestAnimationFrame(() => {
+                handleStoryEnd();
+              });
+              return 100;
+            }
+            return newProgress;
+          });
+        }, interval);
+
+        // Set a timeout for the entire story duration
+        storyTimeout.current = setTimeout(() => {
+          if (progressInterval.current) {
+            clearInterval(progressInterval.current);
+            progressInterval.current = null;
+          }
+          // Schedule handleStoryEnd call
+          requestAnimationFrame(() => {
+            handleStoryEnd();
+          });
+        }, duration);
+      };
+
+      image.onerror = () => {
+        console.error('Failed to load story image');
+        // If image fails to load, still start the progress after a short delay
+        setTimeout(() => {
+          console.log('Starting progress despite image load failure');
+          progressInterval.current = setInterval(() => {
+            setProgress(prev => {
+              const newProgress = prev + step;
+              if (newProgress >= 100) {
+                if (progressInterval.current) {
+                  clearInterval(progressInterval.current);
+                  progressInterval.current = null;
+                }
+                requestAnimationFrame(() => {
+                  handleStoryEnd();
+                });
+                return 100;
+              }
+              return newProgress;
+            });
+          }, interval);
+
+          storyTimeout.current = setTimeout(() => {
             if (progressInterval.current) {
               clearInterval(progressInterval.current);
               progressInterval.current = null;
             }
-            // Instead of calling handleStoryEnd directly, schedule it
             requestAnimationFrame(() => {
               handleStoryEnd();
             });
-            return 100;
-          }
-          return newProgress;
-        });
-      }, interval);
-
-      // Set a timeout for the entire story duration
-      storyTimeout.current = setTimeout(() => {
-        if (progressInterval.current) {
-          clearInterval(progressInterval.current);
-          progressInterval.current = null;
-        }
-        // Schedule handleStoryEnd call
-        requestAnimationFrame(() => {
-          handleStoryEnd();
-        });
-      }, duration);
+          }, duration);
+        }, 1000);
+      };
     };
 
     startProgress();
 
     return () => {
+      console.log('Cleaning up progress timers');
       if (progressInterval.current) {
         clearInterval(progressInterval.current);
         progressInterval.current = null;
@@ -244,7 +289,7 @@ export default function StoryModal() {
         storyTimeout.current = null;
       }
     };
-  }, [mount, storyModal.isOpen, isPaused, handleStoryEnd]);
+  }, [mount, storyModal.isOpen, isPaused, handleStoryEnd, currentStory?.fileUrl]);
 
   // Track view when story is opened
   useEffect(() => {
@@ -759,7 +804,16 @@ export default function StoryModal() {
   };
 
   const handleReportStory = () => {
-    setIsReportModalOpen(true);
+    console.log('Report button clicked');
+    console.log('Current story:', currentStory);
+    setStoryToReport(currentStory);
+    storyModal.onClose(); // Close the story modal first
+    console.log('Story modal closed, opening report modal');
+    // Use setTimeout to ensure the story modal is closed before opening the report modal
+    setTimeout(() => {
+      console.log('Setting report modal to open');
+      setIsReportModalOpen(true);
+    }, 100);
   };
 
   // Function to progress to next story
@@ -958,6 +1012,23 @@ export default function StoryModal() {
       setError("Failed to load stories");
     }
   };
+
+  // Add effect to log when report modal state changes
+  useEffect(() => {
+    console.log('Report modal state changed:', isReportModalOpen);
+  }, [isReportModalOpen]);
+
+  // Add effect to log when story modal state changes
+  useEffect(() => {
+    console.log('Story modal state changed:', storyModal.isOpen);
+  }, [storyModal.isOpen]);
+
+  // Add effect to reset storyToReport when report modal closes
+  useEffect(() => {
+    if (!isReportModalOpen) {
+      setStoryToReport(null);
+    }
+  }, [isReportModalOpen]);
 
   if (!mount) return null;
 
@@ -1203,12 +1274,12 @@ export default function StoryModal() {
         </DialogContent>
       </Dialog>
 
-      {currentStory && (
+      {storyToReport && (
         <ReportStoryModal
           isOpen={isReportModalOpen}
           onClose={() => setIsReportModalOpen(false)}
-          storyId={currentStory.id}
-          username={currentStory.user.username}
+          storyId={storyToReport.id}
+          username={storyToReport.user.username}
         />
       )}
     </>

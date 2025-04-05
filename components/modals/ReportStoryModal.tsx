@@ -31,7 +31,7 @@ export default function ReportStoryModal({ isOpen, onClose, storyId, username }:
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/reports/story", {
+      const response = await fetch("/api/reports/story/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

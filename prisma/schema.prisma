@@ -310,6 +310,21 @@ model storyview {
   @@index([user_id], map: "StoryView_user_id_idx")
 }
 
+model storyReport {
+  id          String   @id
+  createdAt   DateTime @default(now())
+  reporterId  String
+  storyId     String
+  reason      String?  @db.Text
+  status      String   @default("PENDING")
+
+  reporter    user     @relation(fields: [reporterId], references: [id])
+  story       story    @relation(fields: [storyId], references: [id])
+
+  @@index([reporterId], map: "StoryReport_reporterId_idx")
+  @@index([storyId], map: "StoryReport_storyId_idx")
+}
+
 model user {
   id        String   @id
   name      String?
