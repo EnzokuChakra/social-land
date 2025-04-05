@@ -162,7 +162,10 @@ function PostActions({ post, userId, className, inputRef }: Props) {
 
   const handleCommentClick = () => {
     if (inputRef?.current) {
+      // Focus the input
       inputRef.current.focus();
+      // Scroll the input into view if needed
+      inputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   };
 

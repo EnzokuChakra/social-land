@@ -701,8 +701,8 @@ function Comments({
                       {...field}
                       ref={(e) => {
                         field.ref(e);
-                        if (commentRef && 'current' in commentRef && e) {
-                          (commentRef as React.MutableRefObject<HTMLInputElement>).current = e;
+                        if (inputRef && e) {
+                          (inputRef as React.MutableRefObject<HTMLInputElement>).current = e;
                         }
                       }}
                     />
