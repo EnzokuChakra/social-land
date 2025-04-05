@@ -93,9 +93,11 @@ function Suggestions({ users, className, hideTitle = false }: SuggestionsProps) 
                       </p>
                       {user.verified && <VerifiedBadge size={14} />}
                     </div>
-                    <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                      {user.name || `${user.followersCount || 0} followers`}
-                    </p>
+                    {user.name && (
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                        {user.name}
+                      </p>
+                    )}
                   </div>
                 </Link>
 

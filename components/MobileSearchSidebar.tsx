@@ -10,6 +10,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "./ui/button";
+import VerifiedBadge from "./VerifiedBadge";
 
 interface MobileSearchSidebarProps {
   isOpen: boolean;
@@ -208,7 +209,7 @@ export default function MobileSearchSidebar({ isOpen, onClose }: MobileSearchSid
                         <div className="flex items-center gap-1">
                           <p className="font-semibold">{search.searchedUser?.username || "Unknown User"}</p>
                           {search.searchedUser?.verified && (
-                            <Badge variant="secondary" className="h-4 w-4 p-0" />
+                            <VerifiedBadge size={16} />
                           )}
                         </div>
                         {search.searchedUser?.name && (
@@ -257,7 +258,7 @@ export default function MobileSearchSidebar({ isOpen, onClose }: MobileSearchSid
                     <div className="flex items-center gap-1">
                       <p className="font-semibold">{user?.username || "Unknown User"}</p>
                       {user?.verified && (
-                        <Badge variant="secondary" className="h-4 w-4 p-0" />
+                        <VerifiedBadge size={16} />
                       )}
                     </div>
                     {user?.name && (

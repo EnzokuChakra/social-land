@@ -29,6 +29,12 @@ export default function NotificationSidebar({
     setNotifications(initialNotifications);
   }, [initialNotifications]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setShowFollowRequests(false);
+    }
+  }, [isOpen]);
+
   const followRequests = notifications.filter(n => n.type === "FOLLOW_REQUEST");
   
   // Group follow requests by sender to eliminate duplicates

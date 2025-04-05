@@ -27,6 +27,12 @@ export default function MobileNotificationSidebar({
     setNotifications(initialNotifications);
   }, [initialNotifications]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setShowFollowRequests(false);
+    }
+  }, [isOpen]);
+
   const followRequests = notifications.filter(
     (n) => n.type === "FOLLOW_REQUEST" && n.sender
   );
