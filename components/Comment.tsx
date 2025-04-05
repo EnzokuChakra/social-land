@@ -30,9 +30,32 @@ type Props = {
   onAvatarClick?: (e: React.MouseEvent) => Promise<void>;
 };
 
+type CommentLikeState = {
+  id: string;
+  user_id: string;
+  user: {
+    id: string;
+    username: string | null;
+    name: string | null;
+    image: string | null;
+    verified: boolean;
+  };
+};
+
 function Comment({ comment: initialComment, replies, inputRef, postUserId, onReply, initialShowReplies = false, hasStoryRing, onAvatarClick }: Props) {
   const [comment, setComment] = useState<CommentWithExtras | null>(initialComment);
   const [likesCount, setLikesCount] = useState(initialComment.likes?.length || 0);
+  const [likes, setLikes] = useState<CommentLikeState[]>(initialComment.likes?.map(like => ({
+    id: like.id,
+    user_id: like.user_id,
+    user: {
+      id: like.user.id,
+      username: like.user.username || null,
+      name: like.user.name || null,
+      image: like.user.image || null,
+      verified: like.user.verified || false
+    }
+  })) || []);
   const [isLiked, setIsLiked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showReplies, setShowReplies] = useState(false);
@@ -82,12 +105,6 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
   useEffect(() => {
     if (!comment) return;
     
-    console.log("[Comment] Initializing comment state:", {
-      commentId: comment.id,
-      initialLikes: comment.likes,
-      initialCount: comment.likes?.length || 0
-    });
-    
     if (status === "authenticated" && comment.likes) {
       const isCommentOwner = comment.user_id === session?.user.id;
       const isPostOwner = postUserId === session?.user.id;
@@ -111,19 +128,30 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
 
     const handleLikeUpdate = (data: { commentId: string; userId: string; action: 'like' | 'unlike'; timestamp: string }) => {
       if (data.commentId === comment.id) {
-        console.log("[Comment] Received like update:", {
-          commentId: data.commentId,
-          currentCount: likesCount,
-          action: data.action,
-          timestamp: data.timestamp
-        });
-        
         // Only update the count if it's from another user
         if (session?.user?.id !== data.userId) {
           setLikesCount(prev => {
             const newCount = data.action === 'like' ? prev + 1 : Math.max(0, prev - 1);
-            console.log("[Comment] Updating count:", { prev, newCount, fromSocket: true });
             return newCount;
+          });
+
+          // Update likes array
+          setLikes(prev => {
+            if (data.action === 'like') {
+              return [...prev, {
+                id: data.timestamp,
+                user_id: data.userId,
+                user: {
+                  id: session?.user?.id || '',
+                  username: session?.user?.username || null,
+                  name: session?.user?.name || null,
+                  image: session?.user?.image || null,
+                  verified: session?.user?.verified || false
+                }
+              }];
+            } else {
+              return prev.filter(like => like.user_id !== data.userId);
+            }
           });
         }
         
@@ -138,7 +166,7 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
     return () => {
       socket.off("commentLikeUpdate", handleLikeUpdate);
     };
-  }, [socket, comment?.id, session?.user?.id]);
+  }, [socket, comment?.id, session?.user?.id, session?.user]);
 
   // Initialize show replies state from prop when it changes
   useEffect(() => {
@@ -173,42 +201,49 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
   const hasReplies = replies && replies.length > 0;
   
   const handleLikeClick = async () => {
-    if (!session?.user || isLoading) return;
-    
-    const newLikeState = !isLiked;
-    const prevLikesCount = likesCount;
-    
-    // Optimistic update
-    setIsLiked(newLikeState);
-    setLikesCount(prev => newLikeState ? prev + 1 : Math.max(0, prev - 1));
+    if (!session?.user?.id || !comment) return;
     
     setIsLoading(true);
     try {
-      if (newLikeState) {
-        await likeComment(comment.id);
-        // Emit socket event for real-time update
-        socket?.emit("commentLikeUpdate", {
-          commentId: comment.id,
-          userId: session.user.id,
-          action: 'like',
-          timestamp: new Date().toISOString()
-        });
-      } else {
+      if (isLiked) {
         await unlikeComment(comment.id);
-        // Emit socket event for real-time update
-        socket?.emit("commentLikeUpdate", {
-          commentId: comment.id,
-          userId: session.user.id,
-          action: 'unlike',
-          timestamp: new Date().toISOString()
-        });
+        setLikesCount(prev => prev - 1);
+        setLikes(prev => prev.filter(like => like.user_id !== session.user.id));
+        setIsLiked(false);
+        
+        if (socket) {
+          socket.emit("commentLikeUpdate", {
+            commentId: comment.id,
+            userId: session.user.id,
+            action: "unlike"
+          });
+        }
+      } else {
+        await likeComment(comment.id);
+        setLikesCount(prev => prev + 1);
+        setLikes(prev => [...prev, {
+          id: Date.now().toString(),
+          user_id: session.user.id,
+          user: {
+            id: session.user.id,
+            username: session.user.username || null,
+            name: session.user.name || null,
+            image: session.user.image || null,
+            verified: session.user.verified || false
+          }
+        }]);
+        setIsLiked(true);
+        
+        if (socket) {
+          socket.emit("commentLikeUpdate", {
+            commentId: comment.id,
+            userId: session.user.id,
+            action: "like"
+          });
+        }
       }
     } catch (error) {
-      console.error("[Comment] Error handling like:", error);
       toast.error("Something went wrong");
-      // Revert the optimistic update
-      setIsLiked(!newLikeState);
-      setLikesCount(prevLikesCount);
     } finally {
       setIsLoading(false);
     }
@@ -241,6 +276,10 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
         inputRef.current.dispatchEvent(event);
       }
     }
+  };
+
+  const handleLikesModalOpen = async () => {
+    setShowLikesModal(true);
   };
 
   return (
@@ -284,7 +323,7 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
             <Timestamp createdAt={comment.createdAt} className="text-[11px]" />
             {likesCount > 0 && (
               <button 
-                onClick={() => setShowLikesModal(true)} 
+                onClick={handleLikesModalOpen} 
                 className="font-semibold hover:underline text-[11px]"
               >
                 {likesCount} {likesCount === 1 ? 'like' : 'likes'}
@@ -354,39 +393,63 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
 
       {/* Likes Modal */}
       <Dialog open={showLikesModal} onOpenChange={setShowLikesModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="text-center text-base font-medium">
+        <DialogContent className="dialogContent max-w-md h-[80vh] flex flex-col bg-white dark:bg-neutral-950">
+          <DialogHeader className="border-b border-neutral-200 dark:border-neutral-800 px-4 py-4">
+            <DialogTitle className="text-center font-medium text-base">
               Likes
             </DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col space-y-4 max-h-[300px] overflow-y-auto">
-            {comment.likes?.map((like) => (
-              <div key={like.id} className="flex items-center gap-x-2 px-4">
-                <Link href={`/dashboard/${like.user.username}`}>
-                  <UserAvatar user={like.user} />
-                </Link>
-                <div className="flex flex-col">
-                  <Link href={`/dashboard/${like.user.username}`}>
-                    <p className="font-semibold text-sm hover:underline">
-                      {like.user.username}
-                    </p>
-                  </Link>
-                  <p className="text-sm text-neutral-500">{like.user.name}</p>
+          <div className="flex-1 overflow-y-auto">
+            <div className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
+              {likes && likes.length > 0 ? (
+                likes.map((like) => {
+                  return (
+                    <div
+                      key={like.id}
+                      className="flex items-center justify-between p-4"
+                    >
+                      <div className="flex items-center gap-x-2">
+                        <Link href={`/dashboard/${like.user.username}`}>
+                          <UserAvatar user={like.user} />
+                        </Link>
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-x-1">
+                            <Link href={`/dashboard/${like.user.username}`}>
+                              <p className="font-semibold text-sm hover:underline">
+                                {like.user.username}
+                              </p>
+                            </Link>
+                            {like.user.verified && (
+                              <VerifiedBadge className="h-4 w-4" />
+                            )}
+                          </div>
+                          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                            {like.user.name}
+                          </p>
+                        </div>
+                      </div>
+
+                      {session?.user?.id !== like.user.id && (
+                        <FollowButton
+                          followingId={like.user.id}
+                          isFollowing={false}
+                          hasPendingRequest={false}
+                          isPrivate={false}
+                          className="ml-auto"
+                          variant="default"
+                        />
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="flex items-center justify-center flex-1 p-4">
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                    No likes yet
+                  </p>
                 </div>
-                {session?.user.id !== like.user.id && (
-                  <div className="ml-auto">
-                    <FollowButton
-                      followingId={like.user.id}
-                      isFollowing={false}
-                      hasPendingRequest={false}
-                      isPrivate={false}
-                      className="text-xs"
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

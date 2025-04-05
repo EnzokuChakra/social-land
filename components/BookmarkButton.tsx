@@ -1,10 +1,9 @@
 "use client";
 
 import { bookmarkPost } from "@/lib/actions";
-import { PostWithExtras } from "@/lib/definitions";
+import { PostWithExtras, SavedPost, User } from "@/lib/definitions";
 import { cn } from "@/lib/utils";
 import ActionIcon from "@/components/ActionIcon";
-import { savedpost } from "@prisma/client";
 import { Bookmark } from "lucide-react";
 import { useOptimistic, useState, useCallback, useRef, startTransition } from "react";
 import { toast } from "sonner";
@@ -12,23 +11,23 @@ import { toast } from "sonner";
 type Props = {
   post: PostWithExtras;
   userId?: string;
-  onBookmarkUpdate?: (savedBy: savedpost[]) => void;
+  onBookmarkUpdate?: (savedBy: (SavedPost & { user: User })[]) => void;
 };
 
 function BookmarkButton({ post, userId, onBookmarkUpdate }: Props) {
   const [isPending, setIsPending] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout>();
-  const predicate = (bookmark: savedpost) =>
+  const predicate = (bookmark: SavedPost & { user: User }) =>
     bookmark.user_id === userId && bookmark.postId === post.id;
     
   const isBookmarked = post.savedBy.some(predicate);
   
   const [optimisticBookmarks, addOptimisticBookmark] = useOptimistic<
-    savedpost[]
+    (SavedPost & { user: User })[]
   >(
     post.savedBy,
     // @ts-ignore
-    (state: savedpost[], newBookmark: savedpost) =>
+    (state: (SavedPost & { user: User })[], newBookmark: SavedPost & { user: User }) =>
       state.find(predicate)
         ? state.filter((bookmark) => bookmark.user_id !== userId)
         : [...state, newBookmark]

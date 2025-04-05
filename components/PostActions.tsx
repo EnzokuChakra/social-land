@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { PostWithExtras, User, Like as PrismaLike } from "@/lib/definitions";
+import { PostWithExtras, User, Like as PrismaLike, SavedPost } from "@/lib/definitions";
 import { cn } from "@/lib/utils";
 import ActionIcon from "@/components/ActionIcon";
 import { MessageCircle } from "lucide-react";
@@ -20,7 +20,6 @@ import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import {useSocket} from "@/hooks/use-socket";
 import { getSocket } from "@/lib/socket";
-import { savedpost } from "@prisma/client";
 
 type ExtendedUser = User & {
   isFollowing?: boolean;
@@ -51,7 +50,7 @@ type Props = {
   userId?: string;
   className?: string;
   inputRef?: React.RefObject<HTMLInputElement>;
-  onBookmarkUpdate?: (savedBy: savedpost[]) => void;
+  onBookmarkUpdate?: (savedBy: (SavedPost & { user: User })[]) => void;
 };
 
 function PostActions({ post, userId, className, inputRef, onBookmarkUpdate }: Props) {

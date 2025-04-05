@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import useMount from "@/hooks/useMount";
-import { PostWithExtras, CommentWithExtras, SavedPost } from "@/lib/definitions";
+import { PostWithExtras, CommentWithExtras, SavedPost, User, CommentLike, SavedPostWithExtras } from "@/lib/definitions";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -183,12 +183,55 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
       }
     };
 
+    const handleCommentLikeUpdate = (data: { commentId: string; userId: string; action: 'like' | 'unlike' }) => {
+      setComments(prevComments => {
+        return prevComments.map(comment => {
+          if (comment.id === data.commentId) {
+            const updatedLikes = data.action === 'like' 
+              ? [...(comment.likes || []), { id: crypto.randomUUID(), user_id: data.userId, createdAt: new Date(), updatedAt: new Date(), commentId: data.commentId, user: { id: data.userId } as User }]
+              : (comment.likes || []).filter(like => like.user_id !== data.userId);
+            
+            return {
+              ...comment,
+              likes: updatedLikes
+            };
+          }
+          
+          // Check replies
+          if (comment.replies) {
+            const updatedReplies = comment.replies.map(reply => {
+              if (reply.id === data.commentId) {
+                const updatedReplyLikes = data.action === 'like'
+                  ? [...(reply.likes || []), { id: crypto.randomUUID(), user_id: data.userId, createdAt: new Date(), updatedAt: new Date(), commentId: data.commentId, user: { id: data.userId } as User }]
+                  : (reply.likes || []).filter(like => like.user_id !== data.userId);
+                
+                return {
+                  ...reply,
+                  likes: updatedReplyLikes
+                };
+              }
+              return reply;
+            });
+            
+            return {
+              ...comment,
+              replies: updatedReplies
+            };
+          }
+          
+          return comment;
+        });
+      });
+    };
+
     socket.on("commentUpdate", handleCommentUpdate);
     socket.on("commentDelete", handleCommentDelete);
+    socket.on("commentLikeUpdate", handleCommentLikeUpdate);
     
     return () => {
       socket.off("commentUpdate", handleCommentUpdate);
       socket.off("commentDelete", handleCommentDelete);
+      socket.off("commentLikeUpdate", handleCommentLikeUpdate);
     };
   }, [socket, id]);
 
@@ -445,7 +488,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     }
   };
 
-  const handleBookmarkUpdate = useCallback((savedBy: SavedPost[]) => {
+  const handleBookmarkUpdate = useCallback((savedBy: (SavedPost & { user: User })[]) => {
     setCurrentPost(prev => ({
       ...prev,
       savedBy
