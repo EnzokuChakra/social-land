@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { useFollowStatus } from "@/lib/hooks/use-follow-status";
+import { CustomLoader } from "@/components/ui/custom-loader";
 
 interface FollowButtonProps {
   followingId: string;
@@ -230,17 +231,12 @@ export default function FollowButton({
 
   if (isLoadingStatus) {
     return (
-      <Button
-        disabled
-        className={cn(
-          "relative font-semibold transition-all duration-200 px-6",
-          "hover:scale-[0.98] active:scale-[0.97]",
-          "disabled:opacity-50 disabled:cursor-not-allowed",
-          className
-        )}
-      >
-        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-      </Button>
+      <div className={cn(
+        "relative font-semibold transition-all duration-200 px-6 h-10 flex items-center justify-center",
+        className
+      )}>
+        <CustomLoader size="sm" />
+      </div>
     );
   }
 
