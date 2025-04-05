@@ -47,43 +47,46 @@ function ProfileTabs({
   const ownPosts = profile.posts.filter(post => post.user_id === profile.id);
   
   // Transform saved posts and remove duplicates
-  const uniqueSavedPosts = profile.savedPosts?.map(savedPost => {
-    if (!savedPost.post) return null;
-    
-    // Transform the post data to include all required fields
-    const transformedPost: PostWithExtras = {
-      ...savedPost.post,
-      likes: savedPost.post.likes || [],
-      comments: (savedPost.post.comments || []).map(comment => ({
-        ...comment,
-        user: {
-          ...comment.user,
-          hasActiveStory: comment.user.stories && comment.user.stories.length > 0,
-          stories: undefined
-        },
-        replies: (comment.replies || []).map(reply => ({
-          ...reply,
+  const uniqueSavedPosts = profile.savedPosts
+    ?.map(savedPost => {
+      if (!savedPost.post) return null;
+      
+      // Transform the post data to include all required fields
+      const transformedPost: PostWithExtras = {
+        ...savedPost.post,
+        likes: savedPost.post.likes || [],
+        comments: (savedPost.post.comments || []).map(comment => ({
+          ...comment,
           user: {
-            ...reply.user,
-            hasActiveStory: reply.user.stories && reply.user.stories.length > 0,
+            ...comment.user,
+            hasActiveStory: comment.user.stories && comment.user.stories.length > 0,
             stories: undefined
-          }
-        }))
-      })),
-      savedBy: savedPost.post.savedBy || [],
-      tags: savedPost.post.tags || [],
-      user: {
-        ...(savedPost.post.user || profile),
-        isFollowing: false,
-        isPrivate: false,
-        hasPendingRequest: false,
-        isFollowedByUser: false,
-        hasActiveStory: savedPost.post.user?.stories && savedPost.post.user.stories.length > 0
-      }
-    };
+          },
+          replies: (comment.replies || []).map(reply => ({
+            ...reply,
+            user: {
+              ...reply.user,
+              hasActiveStory: reply.user.stories && reply.user.stories.length > 0,
+              stories: undefined
+            }
+          }))
+        })),
+        savedBy: savedPost.post.savedBy || [],
+        tags: savedPost.post.tags || [],
+        user: {
+          ...(savedPost.post.user || profile),
+          isFollowing: false,
+          isPrivate: false,
+          hasPendingRequest: false,
+          isFollowedByUser: false,
+          hasActiveStory: savedPost.post.user?.stories && savedPost.post.user.stories.length > 0
+        }
+      };
 
-    return transformedPost;
-  }).filter((post): post is PostWithExtras => post !== null) || [];
+      return transformedPost;
+    })
+    .filter((post): post is PostWithExtras => post !== null)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) || [];
 
   // Get tagged posts from profile.taggedPosts
   const taggedPosts = profile.taggedPosts || [];
