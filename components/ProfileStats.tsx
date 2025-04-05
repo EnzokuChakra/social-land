@@ -7,7 +7,7 @@ import FollowingModal from "./FollowingModal";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useStats } from "@/lib/hooks/use-stats";
-import { Skeleton } from "./ui/skeleton";
+import { CustomLoader } from "@/components/ui/custom-loader";
 
 interface Props {
   profile: UserWithExtras;
@@ -39,13 +39,15 @@ export default function ProfileStats({ profile, isCurrentUser, isFollowing }: Pr
         )}
       >
         {isLoading ? (
-          <Skeleton className="h-6 w-12" />
+          <div className="h-6 w-12 flex items-center justify-center">
+            <CustomLoader size="sm" />
+          </div>
         ) : (
           <span className="font-semibold text-lg md:text-base" suppressHydrationWarning>
             {count}
           </span>
         )}
-        <span className="text-neutral-500 dark:text-neutral-400 text-[11px] md:text-sm tracking-wide uppercase">
+        <span className="text-neutral-500 dark:text-neutral-400 text-[11px] md:text-sm tracking-wide">
           {label}
         </span>
       </Component>

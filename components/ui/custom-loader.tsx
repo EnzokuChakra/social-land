@@ -42,14 +42,14 @@ export function CustomLoader({ className = "", size = "default", noPadding = fal
             fy=".3125" 
             gradientTransform="scale(1.5)"
           >
-            <stop offset="0" stopColor="#FFFFFF" />
-            <stop offset=".3" stopColor="#FFFFFF" stopOpacity=".9" />
-            <stop offset=".6" stopColor="#FFFFFF" stopOpacity=".6" />
-            <stop offset=".8" stopColor="#FFFFFF" stopOpacity=".3" />
-            <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+            <stop offset="0" stopColor="#000000" />
+            <stop offset=".3" stopColor="#000000" stopOpacity=".9" />
+            <stop offset=".6" stopColor="#000000" stopOpacity=".6" />
+            <stop offset=".8" stopColor="#000000" stopOpacity=".3" />
+            <stop offset="1" stopColor="#000000" stopOpacity="0" />
           </radialGradient>
           <circle
-            transform-origin="center"
+            style={{ transformOrigin: "center" }}
             fill="none"
             stroke="url(#a12)"
             strokeWidth="15"
@@ -72,10 +72,10 @@ export function CustomLoader({ className = "", size = "default", noPadding = fal
             />
           </circle>
           <circle
-            transform-origin="center"
+            style={{ transformOrigin: "center" }}
             fill="none"
             opacity=".2"
-            stroke="#FFFFFF"
+            stroke="currentColor"
             strokeWidth="15"
             strokeLinecap="round"
             cx="100"
@@ -114,7 +114,7 @@ export function CustomLoader({ className = "", size = "default", noPadding = fal
           <stop offset="1" stopColor="#000000" stopOpacity="0" />
         </radialGradient>
         <circle
-          transform-origin="center"
+          style={{ transformOrigin: "center" }}
           fill="none"
           stroke="url(#a12)"
           strokeWidth="15"
@@ -137,7 +137,7 @@ export function CustomLoader({ className = "", size = "default", noPadding = fal
           />
         </circle>
         <circle
-          transform-origin="center"
+          style={{ transformOrigin: "center" }}
           fill="none"
           opacity=".2"
           stroke="currentColor"
