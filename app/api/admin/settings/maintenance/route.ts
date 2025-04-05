@@ -36,7 +36,17 @@ export async function GET(request: Request) {
     const isMiddlewareRequest = request.headers.get('user-agent')?.includes('Next.js Middleware');
     
     if (!session && !isMiddlewareRequest) {
-      return new NextResponse('Unauthorized', { status: 401 });
+      return NextResponse.json({ 
+        maintenanceMode: false,
+        error: 'Unauthorized'
+      }, { 
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
     }
 
     const maintenanceMode = await db.setting.findUnique({
@@ -47,10 +57,26 @@ export async function GET(request: Request) {
       maintenanceMode: maintenanceMode?.value === "true",
       estimatedTime: "2:00",
       message: "We're making some improvements to bring you a better experience. We'll be back shortly!"
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
     });
   } catch (error) {
     console.error('[MAINTENANCE API] Error:', error);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return NextResponse.json({ 
+      maintenanceMode: false,
+      error: 'Internal Server Error'
+    }, { 
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
+    });
   }
 }
 
@@ -60,16 +86,28 @@ export async function POST(request: Request) {
     const session = await getServerSession(authOptions);
     
     if (!session || session.user.role !== 'MASTER_ADMIN') {
+      console.error('[MAINTENANCE API] Unauthorized access:', {
+        hasSession: !!session,
+        userRole: session?.user?.role
+      });
       return new NextResponse('Unauthorized', { status: 401 });
     }
 
     const body = await request.json();
     const { maintenanceMode } = body;
 
+    console.log('[MAINTENANCE API] Received request:', {
+      maintenanceMode,
+      userId: session.user.id,
+      timestamp: new Date().toISOString()
+    });
+
     // First try to find existing setting
     const existingSetting = await db.setting.findUnique({
       where: { key: "maintenanceMode" }
     });
+
+    console.log('[MAINTENANCE API] Existing setting:', existingSetting);
 
     if (existingSetting) {
       // Update existing setting
@@ -83,21 +121,32 @@ export async function POST(request: Request) {
         data: {
           id: `maintenanceMode_${Date.now()}`,
           key: "maintenanceMode",
-          value: maintenanceMode.toString()
+          value: maintenanceMode.toString(),
+          updatedAt: new Date()
         }
       });
     }
 
     // Emit maintenance mode change to all connected clients
-    socket.emit("maintenanceMode", {
-      maintenanceMode,
-      estimatedTime: "2:00",
-      message: "We're making some improvements to bring you a better experience. We'll be back shortly!"
-    });
+    try {
+      socket.emit("maintenanceMode", {
+        maintenanceMode,
+        estimatedTime: "2:00",
+        message: "We're making some improvements to bring you a better experience. We'll be back shortly!"
+      });
+    } catch (socketError) {
+      console.error('[MAINTENANCE API] Socket error:', socketError);
+      // Continue execution even if socket fails
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[MAINTENANCE API] Error:', error);
+    console.error('[MAINTENANCE API] Error:', {
+      error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
@@ -131,7 +180,8 @@ export async function PUT(request: Request) {
         data: {
           id: `maintenanceMode_${Date.now()}`,
           key: "maintenanceMode",
-          value: maintenanceMode.toString()
+          value: maintenanceMode.toString(),
+          updatedAt: new Date()
         }
       });
     }

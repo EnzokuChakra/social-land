@@ -21,7 +21,6 @@ export default function AdminSettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [estimatedTime, setEstimatedTime] = useState("2:00");
   const [maintenanceMessage, setMaintenanceMessage] = useState(
     "We're making some improvements to bring you a better experience. We'll be back shortly!"
   );
@@ -47,7 +46,6 @@ export default function AdminSettingsPage() {
       if (response.ok) {
         const data = await response.json();
         setMaintenanceMode(data.maintenanceMode || false);
-        setEstimatedTime(data.estimatedTime || "2:00");
         setMaintenanceMessage(data.message || "We're making some improvements to bring you a better experience. We'll be back shortly!");
       }
     } catch (error) {
@@ -69,7 +67,6 @@ export default function AdminSettingsPage() {
         },
         body: JSON.stringify({
           maintenanceMode,
-          estimatedTime,
           message: maintenanceMessage,
         }),
       });
@@ -81,7 +78,6 @@ export default function AdminSettingsPage() {
         const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5002");
         socket.emit("maintenanceMode", {
           maintenanceMode,
-          estimatedTime,
           message: maintenanceMessage,
         });
         socket.disconnect();
@@ -112,24 +108,7 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Admin Settings</h2>
-        <p className="text-muted-foreground">
-          Configure platform settings and preferences
-        </p>
-      </div>
-
-      {maintenanceMode && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Maintenance Mode Active</AlertTitle>
-          <AlertDescription>
-            Your site is currently in maintenance mode and is not accessible to regular users.
-          </AlertDescription>
-        </Alert>
-      )}
-      
+    <div className="container mx-auto py-8">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -156,23 +135,6 @@ export default function AdminSettingsPage() {
           </div>
           
           <div className="space-y-2 mt-4">
-            <Label htmlFor="maintenanceEstimatedTime" className="flex items-center gap-2">
-              <Clock className="h-4 w-4" />
-              Estimated Maintenance Time (HH:MM)
-            </Label>
-            <Input 
-              id="maintenanceEstimatedTime" 
-              value={estimatedTime}
-              placeholder="2:00"
-              onChange={(e) => setEstimatedTime(e.target.value)}
-              className="max-w-xs"
-            />
-            <p className="text-xs text-muted-foreground">
-              Format: hours:minutes (e.g., 2:30 for 2 hours and 30 minutes)
-            </p>
-          </div>
-          
-          <div className="space-y-2 mt-4">
             <Label htmlFor="maintenanceMessage">Maintenance Message</Label>
             <Textarea 
               id="maintenanceMessage" 
@@ -183,10 +145,7 @@ export default function AdminSettingsPage() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button 
-            onClick={saveMaintenanceSettings}
-            disabled={isSaving}
-          >
+          <Button onClick={saveMaintenanceSettings} disabled={isSaving}>
             {isSaving ? "Saving..." : "Save Settings"}
           </Button>
         </CardFooter>

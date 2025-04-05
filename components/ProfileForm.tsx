@@ -98,7 +98,7 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
   };
 
   const handlePrivacyWarningConfirm = () => {
-    form.setValue("isPrivate", false, { shouldDirty: true });
+    form.setValue("isPrivate", false, { shouldDirty: true, shouldValidate: true });
     setShowPrivacyWarning(false);
   };
 

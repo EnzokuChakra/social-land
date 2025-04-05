@@ -7,7 +7,6 @@ import { useSession } from 'next-auth/react';
 
 interface MaintenanceContextType {
   maintenanceMode: boolean;
-  estimatedTime: string;
   message: string;
   isLoading: boolean;
   error: string | null;
@@ -17,7 +16,6 @@ interface MaintenanceContextType {
 
 interface MaintenanceData {
   maintenanceMode: boolean;
-  estimatedTime: string;
   message: string;
 }
 
@@ -28,7 +26,6 @@ export function MaintenanceProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [estimatedTime, setEstimatedTime] = useState("2:00");
   const [message, setMessage] = useState("We're making some improvements to bring you a better experience. We'll be back shortly!");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -119,7 +116,6 @@ export function MaintenanceProvider({ children }: { children: ReactNode }) {
       console.log('[MAINTENANCE] Received maintenance status:', data);
       
       setMaintenanceMode(data.maintenanceMode);
-      setEstimatedTime(data.estimatedTime);
       setMessage(data.message);
 
       checkMaintenanceAndRedirect(data.maintenanceMode);
@@ -156,7 +152,6 @@ export function MaintenanceProvider({ children }: { children: ReactNode }) {
     socket.on("maintenanceModeUpdate", (data: MaintenanceData) => {
       console.log('[MAINTENANCE] Received maintenance mode update:', data);
       setMaintenanceMode(data.maintenanceMode);
-      setEstimatedTime(data.estimatedTime);
       setMessage(data.message);
 
       checkMaintenanceAndRedirect(data.maintenanceMode);
@@ -182,7 +177,6 @@ export function MaintenanceProvider({ children }: { children: ReactNode }) {
 
   const value = {
     maintenanceMode,
-    estimatedTime,
     message,
     isLoading,
     error,

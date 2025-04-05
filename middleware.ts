@@ -36,27 +36,97 @@ const isPublicPath = (pathname: string) => {
 // Check maintenance mode
 async function checkMaintenanceMode(request: NextRequest, token: JWT | null) {
   try {
+    // Skip maintenance check for maintenance page and API routes
+    if (request.nextUrl.pathname === '/maintenance' || 
+        request.nextUrl.pathname === '/maintenance/' ||
+        request.nextUrl.pathname.startsWith('/api/')) {
+      return false;
+    }
+
     const response = await fetch(`${request.nextUrl.origin}/api/admin/settings/maintenance`, {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token?.accessToken || ''}`
+        'Authorization': `Bearer ${token?.accessToken || ''}`,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
       },
       cache: 'no-store'
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      return data.maintenanceMode === true;
+    if (!response.ok) {
+      console.error('[MIDDLEWARE] Maintenance check failed:', response.status);
+      return false;
     }
-    return false;
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('[MIDDLEWARE] Invalid content type:', contentType);
+      return false;
+    }
+
+    const data = await response.json();
+    return data.maintenanceMode === true;
   } catch (error) {
+    console.error('[MIDDLEWARE] Error checking maintenance mode:', error);
     return false;
   }
 }
 
+// Check if the path should bypass maintenance mode
+const shouldBypassMaintenance = (pathname: string, token: JWT | null) => {
+  // Only MASTER_ADMIN can bypass maintenance mode
+  if (token?.role === 'MASTER_ADMIN') {
+    return true;
+  }
+
+  // Allow access to maintenance page, auth routes, and static files
+  return (
+    pathname === '/maintenance' ||
+    pathname === '/maintenance/' ||
+    pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/images') ||
+    pathname.startsWith('/api/admin/settings/maintenance') ||
+    pathname.match(/\.(jpg|jpeg|png|gif|ico|css|js)$/)
+  );
+};
+
 // Export the default middleware function
 export async function middleware(request: NextRequestType) {
   const { pathname } = request.nextUrl;
+
+  // Get the token first
+  const token = await getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+  });
+
+  // Skip maintenance check for paths that should bypass it
+  if (shouldBypassMaintenance(pathname, token)) {
+    return NextResponse.next();
+  }
+
+  // Check maintenance mode
+  const isInMaintenance = await checkMaintenanceMode(request, token);
+  
+  console.log('[MIDDLEWARE] Maintenance check:', {
+    path: pathname,
+    isInMaintenance,
+    userRole: token?.role,
+    shouldBypass: shouldBypassMaintenance(pathname, token),
+    timestamp: new Date().toISOString()
+  });
+  
+  if (isInMaintenance) {
+    console.log('[MIDDLEWARE] Redirecting to maintenance page:', {
+      path: pathname,
+      userRole: token?.role,
+      timestamp: new Date().toISOString()
+    });
+    // If in maintenance mode, redirect to maintenance page
+    const maintenanceUrl = new URL('/maintenance', request.url);
+    return NextResponse.redirect(maintenanceUrl);
+  }
 
   // Skip middleware for public paths and static files
   if (isPublicPath(pathname)) {
@@ -78,11 +148,6 @@ export async function middleware(request: NextRequestType) {
 
   if (isProtectedPath) {
     try {
-      const token = await getToken({
-        req: request,
-        secret: process.env.NEXTAUTH_SECRET,
-      });
-
       // For API routes, return 401 instead of redirecting
       if (!token && isApiRoute) {
         return new NextResponse(
