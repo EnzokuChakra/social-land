@@ -17,6 +17,7 @@ import { useState } from "react";
 import { PostWithExtras } from "@/lib/definitions";
 import { useSession } from "next-auth/react";
 import { Input } from "./ui/input";
+import EditPost from "./EditPost";
 
 type Props = {
   post: PostWithExtras;
@@ -30,6 +31,7 @@ function PostOptions({ post, userId, className }: Props) {
   const [isOptionsOpen, setIsOptionsOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const { data: session } = useSession();
   const isPostOwner = post.user_id === userId;
@@ -60,7 +62,7 @@ function PostOptions({ post, userId, className }: Props) {
 
   const handleEditPost = () => {
     setIsOptionsOpen(false);
-    router.push(`/dashboard/p/${post.id}/edit`);
+    setIsEditDialogOpen(true);
   };
 
   const handleReportPost = async () => {
@@ -152,6 +154,17 @@ function PostOptions({ post, userId, className }: Props) {
               Cancel
             </DialogClose>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Post Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[800px] p-0">
+          <EditPost 
+            id={post.id} 
+            post={post} 
+            onClose={() => setIsEditDialogOpen(false)} 
+          />
         </DialogContent>
       </Dialog>
 

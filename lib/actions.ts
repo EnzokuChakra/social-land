@@ -1031,31 +1031,31 @@ export async function deleteComment(formData: FormData) {
 }
 
 export async function updatePost(values: z.infer<typeof UpdatePost>) {
-  const user_id = await getUserId();
-
-  const validatedFields = UpdatePost.safeParse(values);
-
-  if (!validatedFields.success) {
-    return {
-      errors: validatedFields.error.flatten().fieldErrors,
-      message: "Missing Fields. Failed to Update Post.",
-    };
-  }
-
-  const { id, fileUrl, caption } = validatedFields.data;
-
-  const post = await db.post.findUnique({
-    where: {
-      id,
-      user_id,
-    },
-  });
-
-  if (!post) {
-    throw new Error("Post not found");
-  }
-
   try {
+    const user_id = await getUserId();
+
+    const validatedFields = UpdatePost.safeParse(values);
+
+    if (!validatedFields.success) {
+      return {
+        errors: validatedFields.error.flatten().fieldErrors,
+        message: "Missing Fields. Failed to Update Post.",
+      };
+    }
+
+    const { id, fileUrl, caption } = validatedFields.data;
+
+    const post = await db.post.findUnique({
+      where: {
+        id,
+        user_id,
+      },
+    });
+
+    if (!post) {
+      return { message: "Post not found or unauthorized" };
+    }
+
     await db.post.update({
       where: {
         id,
@@ -1065,12 +1065,13 @@ export async function updatePost(values: z.infer<typeof UpdatePost>) {
         caption,
       },
     });
+
+    revalidatePath("/dashboard");
+    return { success: true };
   } catch (error) {
+    console.error("Error in updatePost:", error);
     return { message: "Database Error: Failed to Update Post." };
   }
-
-  revalidatePath("/dashboard");
-  redirect("/dashboard");
 }
 
 export async function updateProfile(values: z.infer<typeof UpdateUser>) {

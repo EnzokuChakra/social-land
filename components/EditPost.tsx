@@ -4,13 +4,6 @@ import Error from "@/components/Error";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import {
   Form,
   FormControl,
   FormField,
@@ -24,16 +17,22 @@ import { updatePost } from "@/lib/actions";
 import { UpdatePost } from "@/lib/schemas";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
-import { Post } from "@prisma/client";
+import { PostWithExtras } from "@/lib/definitions";
 
-function EditPost({ id, post }: { id: string; post: Post }) {
+function EditPost({ 
+  id, 
+  post,
+  onClose
+}: { 
+  id: string; 
+  post: PostWithExtras;
+  onClose: () => void;
+}) {
   const mount = useMount();
-  const pathname = usePathname();
-  const isEditPage = pathname === `/dashboard/p/${id}/edit`;
   const router = useRouter();
   const form = useForm<z.infer<typeof UpdatePost>>({
     resolver: zodResolver(UpdatePost),
@@ -48,63 +47,71 @@ function EditPost({ id, post }: { id: string; post: Post }) {
   if (!mount) return null;
 
   return (
-    <Dialog open={isEditPage} onOpenChange={(open) => !open && router.back()}>
-      <DialogContent aria-describedby="edit-post-description">
-        <DialogTitle className="sr-only">Edit Post</DialogTitle>
-        <DialogDescription id="edit-post-description">
-          Edit your post details
-        </DialogDescription>
+    <div className="p-6">
+      <div className="mb-4">
+        <h2 className="text-xl font-bold">Edit Post</h2>
+        <p className="text-sm text-neutral-500">Edit your post details</p>
+      </div>
 
-        <Form {...form}>
-          <form
-            className="space-y-4"
-            onSubmit={form.handleSubmit(async (values) => {
+      <Form {...form}>
+        <form
+          className="space-y-4"
+          onSubmit={form.handleSubmit(async (values) => {
+            try {
               const res = await updatePost(values);
 
-              if (res) {
-                return toast.error(<Error res={res} />);
+              if (res?.errors || res?.message) {
+                toast.error(res.message || "Failed to update post");
+                return;
               }
-            })}
-          >
-            <div className="h-96 md:h-[450px] overflow-hidden rounded-md">
-              <AspectRatio ratio={1 / 1} className="relative h-full">
-                <Image
-                  src={fileUrl}
-                  alt="Post preview"
-                  fill
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  className="rounded-md object-cover"
-                  priority={true}
-                />
-              </AspectRatio>
-            </div>
 
-            <FormField
-              control={form.control}
-              name="caption"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel htmlFor="caption">Caption</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="caption"
-                      id="caption"
-                      placeholder="Write a caption..."
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              toast.success("Post edited successfully");
+              onClose();
+              router.refresh();
+            } catch (error) {
+              console.error("Error updating post:", error);
+              toast.error("Failed to update post");
+            }
+          })}
+        >
+          <div className="h-96 md:h-[450px] overflow-hidden rounded-md">
+            <AspectRatio ratio={1 / 1} className="relative h-full">
+              <Image
+                src={fileUrl}
+                alt="Post preview"
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                className="rounded-md object-cover"
+                priority={true}
+              />
+            </AspectRatio>
+          </div>
 
-            <Button type="submit" disabled={form.formState.isSubmitting}>
-              Done
-            </Button>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+          <FormField
+            control={form.control}
+            name="caption"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel htmlFor="caption">Caption</FormLabel>
+                <FormControl>
+                  <Input
+                    type="caption"
+                    id="caption"
+                    placeholder="Write a caption..."
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <Button type="submit" disabled={form.formState.isSubmitting}>
+            Done
+          </Button>
+        </form>
+      </Form>
+    </div>
   );
 }
 

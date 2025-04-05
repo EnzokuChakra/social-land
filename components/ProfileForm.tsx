@@ -134,7 +134,7 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
                 </span>
               ) : (
                 <button
-                  onClick={() => router.push("/verify")}
+                  onClick={() => router.push("/dashboard/verify")}
                   className="flex items-center gap-1 px-3 py-1 text-sm font-medium text-blue-600 bg-blue-100 dark:bg-blue-900/30 rounded-full hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
                 >
                   Get Verified
