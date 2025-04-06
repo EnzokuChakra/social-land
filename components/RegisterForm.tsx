@@ -55,6 +55,7 @@ export default function RegisterForm() {
         callbackUrl: "/",
       });
     } catch (error) {
+      console.error(error);
       toast.error("Something went wrong!");
     } finally {
       setIsPending(false);

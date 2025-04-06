@@ -20,20 +20,12 @@ const nextConfig = {
   assetPrefix: process.env.NODE_ENV === 'production' ? 'https://social-land.ro' : '',
   // Disable static exports since we're using server components
   output: 'standalone',
-  // Configure CSS optimization
+  // Enable static optimization
   experimental: {
     optimizeCss: true,
     optimizePackageImports: ['@/components'],
   },
-  // Disable type checking during build
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  // Disable ESLint during build
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  webpack: (config, { isServer }) => {
+  webpack: (config, { dev, isServer }) => {
     // Exclude problematic files from webpack processing
     config.module.noParse = [
       /node_modules\/@mapbox\/node-pre-gyp\/lib\/util\/nw-pre-gyp\/index\.html$/,
@@ -52,15 +44,34 @@ const nextConfig = {
       "aws-sdk": false,
     };
 
+    // Suppress resource preload warnings in production
+    if (!dev) {
+      config.optimization = {
+        ...config.optimization,
+        moduleIds: 'deterministic',
+        splitChunks: {
+          ...config.optimization?.splitChunks,
+          chunks: 'all',
+        },
+      };
+    }
+
     return config;
+  },
+  eslint: {
+    // Disable ESLint during builds to avoid failing the build
+    ignoreDuringBuilds: true,
+  },
+  // Disable type checking during builds
+  typescript: {
+    ignoreBuildErrors: true,
   },
   // Reduce logging
   logging: {
     fetches: {
-      fullUrl: true,
-    },
+      fullUrl: false
+    }
   },
-  // Configure headers
   async headers() {
     return [
       {
@@ -121,9 +132,26 @@ const nextConfig = {
             value: 'text/css'
           }
         ]
+      },
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: 'https://social-land.ro'
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, PUT, DELETE, OPTIONS'
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'X-Requested-With, Content-Type, Authorization'
+          }
+        ]
       }
     ]
   }
-}
+};
 
 module.exports = nextConfig;

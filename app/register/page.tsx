@@ -130,6 +130,7 @@ export default function RegisterPage() {
         router.push("/login");
       }, 2000);
     } catch (error) {
+      console.error("Registration error:", error);
       toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
