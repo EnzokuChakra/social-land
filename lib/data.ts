@@ -661,15 +661,7 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
     const profile = await prisma.user.findUnique({
       where: { id: user.id },
       include: {
-        id: true,
-        username: true,
-        name: true,
-        email: true,
-        image: true,
-        bio: true,
-        verified: true,
-        gender: true,
-        createdAt: true,
+        // Get user's own posts
         posts: {
           orderBy: {
             createdAt: "desc",
@@ -1005,9 +997,6 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
       return null;
     }
 
-    // Remove password from the profile object without affecting types
-    const { password: _, ...profileWithoutPassword } = profile as any;
-
     // Fetch tagged posts separately
     const taggedPosts = await prisma.post.findMany({
       where: {
@@ -1256,7 +1245,7 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
     }
 
     const result = {
-      ...profileWithoutPassword,
+      ...profile,
       posts: profile.posts.map((post: PostWithExtras) => ({
         ...post,
         user: {
