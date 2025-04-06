@@ -23,10 +23,19 @@ function BlockedUsers() {
           throw new Error("Failed to fetch blocked users");
         }
         const data = await response.json();
-        setBlockedUsers(data.users);
+        // Transform the data to match the User type
+        const transformedUsers = data.map((block: any) => ({
+          id: block.blocked.id,
+          username: block.blocked.username,
+          name: block.blocked.name,
+          image: block.blocked.image,
+          verified: block.blocked.verified
+        }));
+        setBlockedUsers(transformedUsers);
       } catch (error) {
         console.error("Error fetching blocked users:", error);
         toast.error("Failed to load blocked users");
+        setBlockedUsers([]);
       } finally {
         setIsLoading(false);
       }
@@ -81,50 +90,48 @@ function BlockedUsers() {
         </div>
 
         {/* Content */}
-        <div className="p-8 sm:p-10">
-          <div className="max-w-3xl mx-auto">
-            {isLoading ? (
-              <div className="flex justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-900 dark:border-white" />
+        <div className="max-w-3xl mx-auto w-full p-4">
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-neutral-900 dark:border-white" />
+            </div>
+          ) : !blockedUsers || blockedUsers.length === 0 ? (
+            <div className="py-12 text-center">
+              <div className="p-6 rounded-2xl bg-neutral-50 dark:bg-black border-2 border-dashed border-neutral-200 dark:border-neutral-800">
+                <p className="text-neutral-600 dark:text-neutral-400 text-lg">
+                  No blocked users
+                </p>
+                <p className="mt-2 text-neutral-500 dark:text-neutral-500 text-sm">
+                  You haven't blocked any users yet
+                </p>
               </div>
-            ) : blockedUsers.length === 0 ? (
-              <div className="py-12 text-center">
-                <div className="p-6 rounded-2xl bg-neutral-50 dark:bg-black border-2 border-dashed border-neutral-200 dark:border-neutral-800">
-                  <p className="text-neutral-600 dark:text-neutral-400 text-lg">
-                    No blocked users
-                  </p>
-                  <p className="mt-2 text-neutral-500 dark:text-neutral-500 text-sm">
-                    You haven't blocked any users yet
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {blockedUsers.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center justify-between p-4 rounded-lg bg-neutral-50 dark:bg-black border border-neutral-200 dark:border-neutral-800"
-                  >
-                    <div className="flex items-center gap-4">
-                      <UserAvatar user={user} />
-                      <div>
-                        <p className="font-semibold">{user.username}</p>
-                        {user.name && (
-                          <p className="text-sm text-neutral-500">{user.name}</p>
-                        )}
-                      </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {blockedUsers.map((user) => (
+                <div
+                  key={user.id}
+                  className="flex items-center justify-between p-4 rounded-lg bg-neutral-50 dark:bg-black border border-neutral-200 dark:border-neutral-800"
+                >
+                  <div className="flex items-center gap-4">
+                    <UserAvatar user={user} />
+                    <div>
+                      <p className="font-semibold">{user.username}</p>
+                      {user.name && (
+                        <p className="text-sm text-neutral-500">{user.name}</p>
+                      )}
                     </div>
-                    <Button
-                      variant="secondary"
-                      onClick={() => handleUnblock(user.id)}
-                    >
-                      Unblock
-                    </Button>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  <Button
+                    variant="secondary"
+                    onClick={() => handleUnblock(user.id)}
+                  >
+                    Unblock
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
