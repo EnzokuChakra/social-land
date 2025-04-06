@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 
-interface ProfileStats {
+export interface ProfileStats {
   posts: number;
   followers: number;
   following: number;
@@ -33,23 +33,18 @@ export function useStats(username: string | null) {
   const router = useRouter();
   const { data: session } = useSession();
 
-  return useQuery({
+  return useQuery<ProfileStats | null, Error>({
     queryKey: ['profileStats', username],
     queryFn: () => (username ? fetchProfileStats(username) : null),
     enabled: !!username && !!session,
     staleTime: 1000 * 60 * 5, // 5 minutes
     gcTime: 1000 * 60 * 30, // 30 minutes
     retry: (failureCount, error) => {
-      if (error instanceof Error && error.message === 'Unauthorized') {
+      if (error.message === 'Unauthorized') {
         router.push('/login');
         return false;
       }
       return failureCount < 2;
-    },
-    onError: (error) => {
-      if (error instanceof Error && error.message === 'Unauthorized') {
-        router.push('/login');
-      }
     }
   });
 } 

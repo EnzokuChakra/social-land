@@ -79,11 +79,9 @@ export default function LoginPage() {
   }
 
   const onSubmit = async (data: LoginInput) => {
-    console.log('[Login] Submit attempt with email:', data.email);
     setLoading(true);
     
     try {
-      console.log('[Login] Calling signIn...');
       const res = await signIn("credentials", {
         email: data.email,
         password: data.password,
@@ -91,11 +89,7 @@ export default function LoginPage() {
         callbackUrl: cleanCallbackUrl,
       });
 
-      console.log('[Login] SignIn response:', res);
-
       if (res?.error) {
-        console.log('[Login] SignIn error:', res.error);
-        
         // Check if the error is due to banned status
         if (res.error.toLowerCase().includes("banned")) {
           window.location.href = `/auth/error?error=${encodeURIComponent(res.error)}`;
@@ -113,13 +107,11 @@ export default function LoginPage() {
       }
 
       // Show success message
-      console.log('[Login] Login successful, redirecting...');
       toast.success("Logged in successfully!");
       
       // Redirect to callback URL
       window.location.href = res?.url || cleanCallbackUrl;
     } catch (error) {
-      console.error('[Login] Error during login:', error);
       toast.error("An error occurred during login. Please try again.");
       setLoading(false);
     }

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { UserWithExtras } from "@/lib/definitions";
 import FollowersModal from "./FollowersModal";
 import FollowingModal from "./FollowingModal";
@@ -8,6 +7,8 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useStats } from "@/lib/hooks/use-stats";
 import { CustomLoader } from "@/components/ui/custom-loader";
+import type { ProfileStats } from "@/lib/hooks/use-stats";
+import { UseQueryResult } from "@tanstack/react-query";
 
 interface Props {
   profile: UserWithExtras;
@@ -18,10 +19,14 @@ interface Props {
 export default function ProfileStats({ profile, isCurrentUser, isFollowing }: Props) {
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
-  const { data: stats, isLoading } = useStats(profile.username || null);
+  const { data: stats, isLoading } = useStats(profile.username || null) as UseQueryResult<ProfileStats | null, Error>;
 
   // Ensure username is not null
   const username = profile.username || '';
+
+  const handleModalClose = () => {
+    window.location.reload();
+  };
 
   const StatItem = ({ count, label, onClick, isButton = false }: { 
     count: number, 
@@ -97,7 +102,10 @@ export default function ProfileStats({ profile, isCurrentUser, isFollowing }: Pr
           username={username}
           isPrivate={profile.isPrivate}
           isFollowing={isFollowing}
-          onClose={() => setShowFollowersModal(false)}
+          onClose={() => {
+            setShowFollowersModal(false);
+            handleModalClose();
+          }}
         />
       )}
 
@@ -107,7 +115,10 @@ export default function ProfileStats({ profile, isCurrentUser, isFollowing }: Pr
           username={username}
           isPrivate={profile.isPrivate}
           isFollowing={isFollowing}
-          onClose={() => setShowFollowingModal(false)}
+          onClose={() => {
+            setShowFollowingModal(false);
+            handleModalClose();
+          }}
         />
       )}
     </>

@@ -12,6 +12,8 @@ import { useFollowStatus } from "@/lib/hooks/use-follow-status";
 import { Skeleton } from "./ui/skeleton";
 import FollowButton from "./FollowButton";
 import Link from "next/link";
+import { useState } from "react";
+import VerifiedBadge from "./VerifiedBadge";
 
 interface ProfileStats {
   posts: number;
@@ -28,6 +30,7 @@ interface Props {
     image: string | null;
     bio: string | null;
     isPrivate?: boolean;
+    verified?: boolean;
   };
   children: React.ReactNode;
   align?: "center" | "start" | "end";
@@ -38,6 +41,7 @@ export default function ProfileHoverCard({ user, children, align = "center" }: P
   const router = useRouter();
   const { data: stats, isLoading: isLoadingStats } = useStats(user.username);
   const { data: followStatus, isLoading: isLoadingFollow } = useFollowStatus(user.id);
+  const [hideButton, setHideButton] = useState(false);
 
   // Don't show hover card for current user
   if (session?.user?.id === user.id) {
@@ -45,6 +49,7 @@ export default function ProfileHoverCard({ user, children, align = "center" }: P
   }
 
   const profileStats = stats as ProfileStats | null;
+  const shouldShowButton = !followStatus?.isFollowing && !hideButton && !followStatus?.hasPendingRequest;
 
   return (
     <HoverCard openDelay={300} closeDelay={100}>
@@ -67,7 +72,10 @@ export default function ProfileHoverCard({ user, children, align = "center" }: P
                 />
               )}
               <div>
-                <p className="text-sm font-semibold">{user.username}</p>
+                <div className="flex items-center gap-1">
+                  <p className="text-sm font-semibold">{user.username}</p>
+                  {user.verified && <VerifiedBadge className="h-4 w-4" />}
+                </div>
                 {user.name && (
                   <p className="text-sm text-neutral-600 dark:text-neutral-400">
                     {user.name}
@@ -76,17 +84,18 @@ export default function ProfileHoverCard({ user, children, align = "center" }: P
               </div>
             </Link>
 
-            {session?.user?.id !== user.id && (
+            {session?.user?.id !== user.id && shouldShowButton && (
               <div className="flex items-center">
                 {isLoadingFollow ? (
                   <Skeleton className="h-8 w-20" />
                 ) : (
                   <FollowButton
                     followingId={user.id}
-                    isFollowing={followStatus?.isFollowing || false}
-                    hasPendingRequest={followStatus?.hasPendingRequest || false}
+                    isFollowing={false}
+                    hasPendingRequest={false}
                     isPrivate={user.isPrivate || false}
                     className="text-xs h-8"
+                    onSuccess={() => setHideButton(true)}
                   />
                 )}
               </div>
