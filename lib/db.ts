@@ -1,21 +1,6 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
-export const db =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: ['error', 'warn'],
-    datasources: {
-      db: {
-        url: process.env.DATABASE_URL,
-      },
-    },
-  });
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+export const db = prisma;
 
 // Add block model to Prisma client
 declare module "@prisma/client" {

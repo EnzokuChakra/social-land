@@ -123,7 +123,7 @@ interface ProfilePageProps {
   reelsEnabled?: boolean; // Make reelsEnabled optional
 }
 
-export default async function ProfilePage({ params }: Props) {
+export default async function ProfilePage({ params }: { params: { username: string } }) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
