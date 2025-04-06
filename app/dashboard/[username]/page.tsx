@@ -39,6 +39,7 @@ import ProfileMenu from "@/components/ProfileMenu";
 import ProfileStats from "@/components/ProfileStats";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import BlockButton from "@/components/BlockButton";
+import { PrismaClient } from "@prisma/client";
 
 interface Props {
   params: {
@@ -245,31 +246,31 @@ export default async function ProfilePage({ params }: Props) {
     ) || false;
 
     // Check if the current user has blocked this user
-    const isBlocked = session?.user?.id 
-      ? await db.blockedUser.findUnique({
+    const isBlocked = session?.user?.id
+      ? await db.BlockedUser.findUnique({
           where: {
             blockerId_blockedId: {
               blockerId: session.user.id,
-              blockedId: profileWithExtras.id
-            }
-          }
+              blockedId: profile.id,
+            },
+          },
         })
       : false;
 
-    // Check if this user has blocked the current user
-    const hasBlockedMe = session?.user?.id
-      ? await db.blockedUser.findUnique({
+    // Check if the current user is blocked by this user
+    const isBlockedBy = session?.user?.id
+      ? await db.BlockedUser.findUnique({
           where: {
             blockerId_blockedId: {
-              blockerId: profileWithExtras.id,
-              blockedId: session.user.id
-            }
-          }
+              blockerId: profile.id,
+              blockedId: session.user.id,
+            },
+          },
         })
       : false;
 
     // If either user has blocked the other, show a message
-    if (isBlocked || hasBlockedMe) {
+    if (isBlocked || isBlockedBy) {
       return (
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
           <h1 className="text-2xl font-bold mb-4">
