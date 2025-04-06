@@ -114,7 +114,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const socket = getSocket();
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
-  const [lastClickTime, setLastClickTime] = useState(0);
+  const [lastDoubleTapTime, setLastDoubleTapTime] = useState(0);
   
   // Initialize currentPost with expanded likes data
   const [currentPost, setCurrentPost] = useState<PostWithExtras>(() => ({
@@ -468,23 +468,28 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const handleImageDoubleClick = async () => {
     if (!user?.id) return;
     
+    // Prevent multiple rapid double-clicks
+    const now = Date.now();
+    if (now - lastDoubleTapTime < 1000) {
+      return;
+    }
+    setLastDoubleTapTime(now);
+    
+    // Show heart animation regardless of like state
     setShowHeartAnimation(true);
     setTimeout(() => setShowHeartAnimation(false), 1000);
 
-    // Only trigger like if the post is not already liked
-    const isLiked = currentPost.likes.some(like => like.user_id === user.id);
-    if (!isLiked) {
-      const result = await likePost({ postId: post.id });
-      if (result && socket) {
-        const eventData = {
-          post: result.post,
-          likedBy: result.likedBy,
-          unlike: result.unlike,
-          action: result.unlike ? "unlike" : "like",
-          user_id: user.id,
-        };
-        socket.emit("like", eventData);
-      }
+    // Toggle like state
+    const result = await likePost({ postId: post.id });
+    if (result && socket) {
+      const eventData = {
+        post: result.post,
+        likedBy: result.likedBy,
+        unlike: result.unlike,
+        action: result.unlike ? "unlike" : "like",
+        user_id: user.id,
+      };
+      socket.emit("like", eventData);
     }
   };
 
