@@ -208,7 +208,7 @@ function MoreDropdown() {
             </DropdownMenuItem>
             <DropdownMenuItem
               className="flex items-center gap-2 p-3 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800/50 text-red-500"
-              onClick={() => signOut({ callbackUrl: '/auth/login' })}
+              onClick={() => signOut()}
             >
               <LogOut size={20} />
               <p>{t("common.logout")}</p>

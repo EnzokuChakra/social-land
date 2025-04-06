@@ -15,16 +15,6 @@ const nextConfig = {
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
-  // Add basePath and assetPrefix for production
-  basePath: process.env.NODE_ENV === 'production' ? '' : '',
-  assetPrefix: process.env.NODE_ENV === 'production' ? 'https://social-land.ro' : '',
-  // Disable static exports since we're using server components
-  output: 'standalone',
-  // Enable static optimization
-  experimental: {
-    optimizeCss: true,
-    optimizePackageImports: ['@/components'],
-  },
   webpack: (config, { dev, isServer }) => {
     // Exclude problematic files from webpack processing
     config.module.noParse = [
@@ -66,6 +56,14 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Enable standalone output for deployments
+  output: 'standalone',
+  // Enable static exports
+  trailingSlash: true,
+  // Configure base path if needed
+  basePath: '',
+  // Configure asset prefix if needed
+  assetPrefix: '',
   // Reduce logging
   logging: {
     fetches: {
@@ -112,24 +110,6 @@ const nextConfig = {
           {
             key: 'Access-Control-Allow-Headers',
             value: 'X-Requested-With, Content-Type, Authorization'
-          }
-        ]
-      },
-      {
-        source: '/styles/:path*',
-        headers: [
-          {
-            key: 'Content-Type',
-            value: 'text/css'
-          }
-        ]
-      },
-      {
-        source: '/_next/static/:path*',
-        headers: [
-          {
-            key: 'Content-Type',
-            value: 'text/css'
           }
         ]
       },
