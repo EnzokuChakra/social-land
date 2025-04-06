@@ -26,6 +26,8 @@ export type User = {
   updatedAt: Date;
   stories?: { id: string }[];
   hasActiveStory?: boolean;
+  blockedBy?: Block[];
+  blockedUsers?: Block[];
 };
 
 export type Post = {
@@ -461,4 +463,11 @@ export type EventUserData = {
   username: string | null;
   image: string | null;
   verified: boolean;
+};
+
+export type Block = {
+  id: string;
+  blockerId: string;
+  blockedId: string;
+  createdAt: Date;
 };

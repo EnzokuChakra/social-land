@@ -261,6 +261,20 @@ model savedpost {
   @@index([user_id], map: "SavedPost_user_id_idx")
 }
 
+model block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker user @relation("BlockedBy", fields: [blockerId], references: [id])
+  blocked user @relation("BlockedUsers", fields: [blockedId], references: [id])
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+}
+
 model session {
   id           String   @id
   sessionToken String   @unique(map: "Session_sessionToken_key")
@@ -367,8 +381,8 @@ model user {
   reportedBy    userReport[] @relation("UserReportReporter")
   reported      userReport[] @relation("UserReportReported")
   storyReports  storyReport[]
-  blockedBy     block[]      @relation("BlockedBy")
-  blockedUsers  block[]      @relation("BlockedUsers")
+  blockedBy     block[] @relation("BlockedBy")
+  blockedUsers  block[] @relation("BlockedUsers")
 
   @@index([email], map: "User_email_idx")
   @@index([username], map: "User_username_idx")
@@ -408,18 +422,4 @@ model userReport {
 
   @@index([reporterId], map: "UserReport_reporterId_idx")
   @@index([reportedId], map: "UserReport_reportedId_idx")
-}
-
-model block {
-  id        String   @id @default(uuid())
-  blockerId String
-  blockedId String
-  createdAt DateTime @default(now())
-
-  blocker user @relation("BlockedBy", fields: [blockerId], references: [id])
-  blocked user @relation("BlockedUsers", fields: [blockedId], references: [id])
-
-  @@unique([blockerId, blockedId])
-  @@index([blockerId], map: "Block_blockerId_idx")
-  @@index([blockedId], map: "Block_blockedId_idx")
 }

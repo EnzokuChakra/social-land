@@ -6,15 +6,33 @@ import { db } from "@/lib/db";
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
+
     if (!session?.user) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const body = await req.json();
-    const { userId } = body;
+    let userId: string;
+    const contentType = req.headers.get("content-type");
+    
+    if (contentType?.includes("application/json")) {
+      const body = await req.json();
+      userId = body.userId;
+    } else {
+      const formData = await req.formData();
+      userId = formData.get("userId") as string;
+    }
 
     if (!userId) {
-      return new NextResponse("Missing required fields", { status: 400 });
+      return new NextResponse("User ID is required", { status: 400 });
+    }
+
+    // Check if user exists
+    const user = await db.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return new NextResponse("User not found", { status: 404 });
     }
 
     // Check if user is already blocked
@@ -26,21 +44,57 @@ export async function POST(req: Request) {
     });
 
     if (existingBlock) {
-      return new NextResponse("User is already blocked", { status: 400 });
+      // Unblock the user
+      await db.block.delete({
+        where: {
+          id: existingBlock.id,
+        },
+      });
+
+      return NextResponse.json({ message: "User unblocked successfully" });
     }
 
-    // Create new block
-    const block = await db.block.create({
+    // Block the user
+    await db.block.create({
       data: {
-        id: crypto.randomUUID(),
         blockerId: session.user.id,
         blockedId: userId,
       },
     });
 
-    return NextResponse.json(block);
+    return NextResponse.json({ message: "User blocked successfully" });
   } catch (error) {
     console.error("[BLOCK_POST]", error);
+    return new NextResponse("Internal Error", { status: 500 });
+  }
+}
+
+export async function GET(req: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get("userId");
+
+    if (!userId) {
+      return new NextResponse("User ID is required", { status: 400 });
+    }
+
+    // Check if user is blocked
+    const isBlocked = await db.block.findFirst({
+      where: {
+        blockerId: session.user.id,
+        blockedId: userId,
+      },
+    });
+
+    return NextResponse.json({ isBlocked: !!isBlocked });
+  } catch (error) {
+    console.error("[BLOCK_GET]", error);
     return new NextResponse("Internal Error", { status: 500 });
   }
 } 

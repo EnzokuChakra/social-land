@@ -8,7 +8,7 @@ import { fetchProfile, fetchUserStories, getReelsEnabled } from "@/lib/data";
 import { Lock, MoreHorizontal, UserX } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { ProfileTabsSkeleton } from "@/components/Skeletons";
 import PostsGrid from "@/components/PostsGrid";
 import VerifiedBadge from "@/components/VerifiedBadge";
@@ -29,7 +29,8 @@ import {
   PostTag,
   Post,
   User,
-  Story
+  Story,
+  StoryView
 } from "@/lib/definitions";
 import { db } from "@/lib/db";
 import { getServerSession } from "next-auth";
@@ -38,6 +39,9 @@ import ProfileHeader from "@/components/ProfileHeader";
 import ProfileMenu from "@/components/ProfileMenu";
 import ProfileStats from "@/components/ProfileStats";
 import MobileBottomNav from "@/components/MobileBottomNav";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { StoryView as PrismaStoryView } from "@prisma/client";
 
 interface Props {
   params: {
@@ -127,121 +131,111 @@ export default async function ProfilePage({ params }: Props) {
       redirect("/login");
     }
 
-    // Await the params before using them
-    const { username } = await params;
-    const decodedUsername = decodeURIComponent(username);
-    const profile = await fetchProfile(decodedUsername);
-    
+    const profile = await fetchProfile(params.username);
     if (!profile) {
       notFound();
     }
 
-    const isCurrentUser = session.user.id === profile.id;
+    const profileWithExtras = {
+      ...profile,
+      followers: profile.followers || [],
+      following: profile.following || [],
+    };
+
+    const isCurrentUser = session.user.id === profileWithExtras.id;
+    const isFollowing = profileWithExtras.followers.some(
+      (follow) => follow.followerId === session.user.id && follow.status === "ACCEPTED"
+    );
+    const hasPendingRequest = profileWithExtras.followers.some(
+      (follow) => follow.followerId === session.user.id && follow.status === "PENDING"
+    );
+    const isFollowedByUser = profileWithExtras.followers.some(
+      (follow) => follow.followingId === session.user.id && follow.status === "ACCEPTED"
+    );
+
+    // Check if user is blocked
+    const isBlocked = await db.block.findFirst({
+      where: {
+        blockerId: session.user.id,
+        blockedId: profileWithExtras.id,
+      },
+    });
 
     // Get user's stories
-    const stories = await fetchUserStories(profile.id);
-    const hasValidStories = stories.length > 0;
+    const stories = await db.story.findMany({
+      where: {
+        user_id: profileWithExtras.id,
+        createdAt: {
+          gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        },
+      },
+      include: {
+        user: true,
+        views: {
+          include: {
+            user: true,
+          },
+        },
+        likes: {
+          include: {
+            user: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
-    // Transform stories
-    const transformedStories = stories.map(story => transformStoryToStoryType(story));
+    // Transform stories to include required fields
+    const transformedStories = stories.map((story) => ({
+      ...story,
+      user: {
+        ...story.user,
+        email: story.user.email || "",
+        password: story.user.password || "",
+        bio: story.user.bio || "",
+        role: story.user.role as UserRole,
+        status: story.user.status as UserStatus,
+        createdAt: story.user.createdAt || new Date(),
+        updatedAt: story.user.updatedAt || new Date(),
+        followers: [],
+        following: [],
+      } as User,
+      views: (story.views || []).map((view) => ({
+        ...view,
+        user: {
+          ...view.user,
+          email: view.user.email || "",
+          password: view.user.password || "",
+          bio: view.user.bio || "",
+          role: view.user.role as UserRole,
+          status: view.user.status as UserStatus,
+          createdAt: view.user.createdAt || new Date(),
+          updatedAt: view.user.updatedAt || new Date(),
+          followers: [],
+          following: [],
+        } as User,
+      })) as (PrismaStoryView & { user: User })[],
+      likes: (story.likes || []).map((like) => ({
+        ...like,
+        user: {
+          ...like.user,
+          email: like.user.email || "",
+          password: like.user.password || "",
+          bio: like.user.bio || "",
+          role: like.user.role as UserRole,
+          status: like.user.status as UserStatus,
+          createdAt: like.user.createdAt || new Date(),
+          updatedAt: like.user.updatedAt || new Date(),
+          followers: [],
+          following: [],
+        } as User,
+      })) as (Like & { user: User })[],
+    })) as StoryWithExtras[];
 
     // Get reels enabled status
     const reelsEnabled = await getReelsEnabled();
-
-    // Transform the profile data to include required fields
-    const profileWithExtras = {
-      ...profile,
-      role: profile.role as UserRole,
-      status: profile.status as UserStatus,
-      following: profile.following?.map(f => ({
-        ...f,
-        status: f.status as "ACCEPTED" | "PENDING",
-        following: {
-          ...f.following,
-          email: "",
-          password: "",
-          bio: "",
-          role: "USER" as UserRole,
-          status: "NORMAL" as UserStatus,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          followers: [],
-          following: [],
-          followedBy: []
-        }
-      })) as FollowingWithExtras[] || [],
-      followers: profile.followers?.map(f => ({
-        ...f,
-        status: f.status as "ACCEPTED" | "PENDING",
-        follower: {
-          ...f.follower,
-          email: "",
-          password: "",
-          bio: "",
-          role: "USER" as UserRole,
-          status: "NORMAL" as UserStatus,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          followers: [],
-          following: [],
-          followedBy: []
-        }
-      })) as FollowerWithExtras[] || [],
-      posts: profile.posts?.map(post => ({
-        ...post,
-        user: {
-          id: profile.id,
-          name: profile.name,
-          email: profile.email,
-          username: profile.username,
-          password: profile.password,
-          image: profile.image,
-          bio: profile.bio,
-          verified: profile.verified,
-          isPrivate: profile.isPrivate || false,
-          role: profile.role as UserRole,
-          status: profile.status as UserStatus,
-          createdAt: profile.createdAt,
-          updatedAt: profile.updatedAt,
-          following: [],
-          followers: []
-        } as User,
-        likes: (post.likes || []).map(like => ({
-          ...like,
-          user: {
-            id: like.user_id,
-            name: null,
-            email: "",
-            username: null,
-            password: null,
-            image: null,
-            bio: null,
-            verified: false,
-            isPrivate: false,
-            role: "USER" as UserRole,
-            status: "NORMAL" as UserStatus,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            following: [],
-            followers: []
-          } as User
-        })) as (Like & { user: User })[]
-      })) as PostWithExtras[] || [],
-      stories: transformedStories
-    } as UserWithExtras;
-
-    // Check follow status after profile transformation
-    const isFollowing = profileWithExtras.followers?.some(
-      (follow) => follow.followerId === session.user.id && follow.status === "ACCEPTED"
-    ) || false;
-
-    const hasPendingRequest = profileWithExtras.followers?.some(
-      (follow) => follow.followerId === session.user.id && follow.status === "PENDING"
-    ) || false;
-
-    const isFollowedByUser = profileWithExtras.following?.some(
-      (follow) => follow.followingId === session.user.id && follow.status === "ACCEPTED"
-    ) || false;
 
     return (
       <div className="flex flex-col min-h-screen">
@@ -354,13 +348,31 @@ export default async function ProfilePage({ params }: Props) {
                   This user has been banned for violating our community guidelines.
                 </p>
               </div>
+            ) : isBlocked ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center border-t border-neutral-200 dark:border-neutral-800" suppressHydrationWarning>
+                <UserX className="w-12 h-12 text-red-500 mb-4" />
+                <h1 className="text-2xl font-semibold mb-2">This User is Blocked</h1>
+                <p className="text-neutral-500 max-w-sm px-4">
+                  You have blocked this user. They cannot see your posts or interact with your profile.
+                </p>
+                <form action="/api/users/block" method="POST">
+                  <input type="hidden" name="userId" value={profileWithExtras.id} />
+                  <Button
+                    variant="secondary"
+                    className="mt-4"
+                    type="submit"
+                  >
+                    Unblock User
+                  </Button>
+                </form>
+              </div>
             ) : (
               <>
                 <Suspense fallback={<ProfileTabsSkeleton />}>
                   <ProfileTabs 
                     profile={profileWithExtras} 
                     isCurrentUser={isCurrentUser}
-                    reelsEnabled={reelsEnabled}
+                    defaultTab="posts"
                   />
                 </Suspense>
               </>
