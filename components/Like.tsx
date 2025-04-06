@@ -96,6 +96,7 @@ function LikeButton({
     <ActionIcon
       onClick={handleLikeClick}
       disabled={isProcessing}
+      data-post-id={post.id}
     >
       <Heart
         className={cn("h-6 w-6", {

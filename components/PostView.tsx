@@ -475,21 +475,18 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     }
     setLastDoubleTapTime(now);
     
-    // Show heart animation regardless of like state
+    // Show heart animation
     setShowHeartAnimation(true);
     setTimeout(() => setShowHeartAnimation(false), 1000);
 
-    // Toggle like state
-    const result = await likePost({ postId: post.id });
-    if (result && socket) {
-      const eventData = {
-        post: result.post,
-        likedBy: result.likedBy,
-        unlike: result.unlike,
-        action: result.unlike ? "unlike" : "like",
-        user_id: user.id,
-      };
-      socket.emit("like", eventData);
+    // Only trigger like if the post is not already liked
+    const isLiked = currentPost.likes.some(like => like.user_id === user.id);
+    if (!isLiked) {
+      // Find and click the heart button instead of creating a new like action
+      const heartButton = document.querySelector(`button[data-post-id="${post.id}"]`);
+      if (heartButton) {
+        (heartButton as HTMLButtonElement).click();
+      }
     }
   };
 
