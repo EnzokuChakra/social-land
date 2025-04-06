@@ -11,7 +11,7 @@ const globalForPrisma = globalThis as unknown as {
 // Only initialize Prisma on the server side
 const prismaClientSingleton = () => {
   if (typeof window !== 'undefined') {
-    return null;
+    return undefined;
   }
 
   if (!process.env.DATABASE_URL) {
@@ -23,9 +23,9 @@ const prismaClientSingleton = () => {
     log: ['error', 'warn'],
     datasources: {
       db: {
-        url: process.env.DATABASE_URL
-      }
-    }
+        url: process.env.DATABASE_URL,
+      },
+    },
   });
 };
 

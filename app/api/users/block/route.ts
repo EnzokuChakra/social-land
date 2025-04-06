@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 
 export async function POST(req: Request) {
   try {
@@ -9,6 +9,10 @@ export async function POST(req: Request) {
 
     if (!session?.user) {
       return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    if (!prisma) {
+      return new NextResponse("Database connection not available", { status: 503 });
     }
 
     let userId: string;
@@ -27,7 +31,7 @@ export async function POST(req: Request) {
     }
 
     // Check if user exists
-    const user = await db.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
     });
 
@@ -37,7 +41,7 @@ export async function POST(req: Request) {
 
     try {
       // Check if user is already blocked
-      const existingBlock = await db.block.findFirst({
+      const existingBlock = await prisma.block.findFirst({
         where: {
           blockerId: session.user.id,
           blockedId: userId,
@@ -46,7 +50,7 @@ export async function POST(req: Request) {
 
       if (existingBlock) {
         // Unblock the user
-        await db.block.delete({
+        await prisma.block.delete({
           where: {
             id: existingBlock.id,
           },
@@ -54,7 +58,7 @@ export async function POST(req: Request) {
         return new NextResponse("User unblocked successfully", { status: 200 });
       } else {
         // Block the user
-        await db.block.create({
+        await prisma.block.create({
           data: {
             blockerId: session.user.id,
             blockedId: userId,
@@ -83,6 +87,10 @@ export async function GET(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
+    if (!prisma) {
+      return NextResponse.json({ isBlocked: false });
+    }
+
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
 
@@ -92,7 +100,7 @@ export async function GET(req: Request) {
 
     try {
       // Check if user is blocked
-      const isBlocked = await db.block.findFirst({
+      const isBlocked = await prisma.block.findFirst({
         where: {
           blockerId: session.user.id,
           blockedId: userId,
