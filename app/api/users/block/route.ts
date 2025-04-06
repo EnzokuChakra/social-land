@@ -35,36 +35,39 @@ export async function POST(req: Request) {
       return new NextResponse("User not found", { status: 404 });
     }
 
-    // Check if block table exists
-    if (!db.block) {
-      return new NextResponse("Block feature is not available yet", { status: 503 });
-    }
-
-    // Check if user is already blocked
-    const existingBlock = await db.block.findFirst({
-      where: {
-        blockerId: session.user.id,
-        blockedId: userId,
-      },
-    });
-
-    if (existingBlock) {
-      // Unblock the user
-      await db.block.delete({
+    try {
+      // Check if user is already blocked
+      const existingBlock = await db.block.findFirst({
         where: {
-          id: existingBlock.id,
-        },
-      });
-      return new NextResponse("User unblocked successfully", { status: 200 });
-    } else {
-      // Block the user
-      await db.block.create({
-        data: {
           blockerId: session.user.id,
           blockedId: userId,
         },
       });
-      return new NextResponse("User blocked successfully", { status: 200 });
+
+      if (existingBlock) {
+        // Unblock the user
+        await db.block.delete({
+          where: {
+            id: existingBlock.id,
+          },
+        });
+        return new NextResponse("User unblocked successfully", { status: 200 });
+      } else {
+        // Block the user
+        await db.block.create({
+          data: {
+            blockerId: session.user.id,
+            blockedId: userId,
+          },
+        });
+        return new NextResponse("User blocked successfully", { status: 200 });
+      }
+    } catch (error) {
+      // If the error is about the block table not existing
+      if (error instanceof Error && error.message.includes("block")) {
+        return new NextResponse("Block feature is not available yet", { status: 503 });
+      }
+      throw error; // Re-throw other errors
     }
   } catch (error) {
     console.error("[BLOCK_POST]", error);
@@ -87,20 +90,23 @@ export async function GET(req: Request) {
       return new NextResponse("User ID is required", { status: 400 });
     }
 
-    // Check if block table exists
-    if (!db.block) {
-      return NextResponse.json({ isBlocked: false });
+    try {
+      // Check if user is blocked
+      const isBlocked = await db.block.findFirst({
+        where: {
+          blockerId: session.user.id,
+          blockedId: userId,
+        },
+      });
+
+      return NextResponse.json({ isBlocked: !!isBlocked });
+    } catch (error) {
+      // If the error is about the block table not existing
+      if (error instanceof Error && error.message.includes("block")) {
+        return NextResponse.json({ isBlocked: false });
+      }
+      throw error; // Re-throw other errors
     }
-
-    // Check if user is blocked
-    const isBlocked = await db.block.findFirst({
-      where: {
-        blockerId: session.user.id,
-        blockedId: userId,
-      },
-    });
-
-    return NextResponse.json({ isBlocked: !!isBlocked });
   } catch (error) {
     console.error("[BLOCK_GET]", error);
     return new NextResponse("Internal Error", { status: 500 });
