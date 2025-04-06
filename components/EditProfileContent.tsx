@@ -9,10 +9,11 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import ProfileForm from "@/components/ProfileForm";
 import BlockedUsers from "@/components/BlockedUsers";
+import PasswordForm from "@/components/PasswordForm";
 import { UserWithExtras } from "@/lib/definitions";
 import { ChevronLeft, CheckCircle2, Clock } from "lucide-react";
 
-type Tab = "profile" | "blocked";
+type Tab = "profile" | "blocked" | "password";
 
 export default function EditProfileContent({ profile }: { profile: UserWithExtras }) {
   const { data: session } = useSession();
@@ -34,37 +35,50 @@ export default function EditProfileContent({ profile }: { profile: UserWithExtra
   return (
     <main className="flex-1 bg-white dark:bg-black">
       <div className="container max-w-4xl mx-auto">
-        <div className="flex flex-col space-y-4 p-4">
-          <div className="flex items-center justify-center space-x-4">
+        <div className="flex flex-col space-y-4 p-4 pt-12">
+          <div className="flex items-center justify-between border-b border-neutral-200 dark:border-neutral-800 pb-4">
             <button
               onClick={() => router.back()}
-              className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+              className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 hover:text-black dark:hover:text-white transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
               Back
             </button>
-            <button
-              onClick={() => setActiveTab("profile")}
-              className={cn(
-                "px-4 py-2 rounded-full text-sm font-medium transition-colors",
-                activeTab === "profile" 
-                  ? "bg-blue-500 text-white" 
-                  : "bg-gray-100 dark:bg-black text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-neutral-900"
-              )}
-            >
-              Profile Info
-            </button>
-            <button
-              onClick={() => setActiveTab("blocked")}
-              className={cn(
-                "px-4 py-2 rounded-full text-sm font-medium transition-colors",
-                activeTab === "blocked" 
-                  ? "bg-blue-500 text-white" 
-                  : "bg-gray-100 dark:bg-black text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-neutral-900"
-              )}
-            >
-              Blocked Users
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setActiveTab("profile")}
+                className={cn(
+                  "px-6 py-2 rounded-full text-sm font-medium transition-colors",
+                  activeTab === "profile" 
+                    ? "bg-blue-500 text-white hover:bg-blue-600" 
+                    : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                )}
+              >
+                Profile Info
+              </button>
+              <button
+                onClick={() => setActiveTab("password")}
+                className={cn(
+                  "px-6 py-2 rounded-full text-sm font-medium transition-colors",
+                  activeTab === "password" 
+                    ? "bg-blue-500 text-white hover:bg-blue-600" 
+                    : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                )}
+              >
+                Password
+              </button>
+              <button
+                onClick={() => setActiveTab("blocked")}
+                className={cn(
+                  "px-6 py-2 rounded-full text-sm font-medium transition-colors",
+                  activeTab === "blocked" 
+                    ? "bg-blue-500 text-white hover:bg-blue-600" 
+                    : "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                )}
+              >
+                Blocked Users
+              </button>
+            </div>
           </div>
 
           <AnimatePresence mode="wait">
@@ -77,6 +91,16 @@ export default function EditProfileContent({ profile }: { profile: UserWithExtra
                 transition={{ duration: 0.2 }}
               >
                 <ProfileForm profile={profile} />
+              </motion.div>
+            ) : activeTab === "password" ? (
+              <motion.div
+                key="password"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+              >
+                <PasswordForm />
               </motion.div>
             ) : (
               <motion.div
