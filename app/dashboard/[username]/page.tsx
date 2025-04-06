@@ -39,7 +39,7 @@ import ProfileMenu from "@/components/ProfileMenu";
 import ProfileStats from "@/components/ProfileStats";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import BlockButton from "@/components/BlockButton";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 
 interface Props {
   params: {
@@ -247,24 +247,20 @@ export default async function ProfilePage({ params }: Props) {
 
     // Check if the current user has blocked this user
     const isBlocked = session?.user?.id
-      ? await db.BlockedUser.findUnique({
+      ? await db.blockedUser.findFirst({
           where: {
-            blockerId_blockedId: {
-              blockerId: session.user.id,
-              blockedId: profile.id,
-            },
+            blockerId: session.user.id,
+            blockedId: profile.id,
           },
         })
       : false;
 
     // Check if the current user is blocked by this user
     const isBlockedBy = session?.user?.id
-      ? await db.BlockedUser.findUnique({
+      ? await db.blockedUser.findFirst({
           where: {
-            blockerId_blockedId: {
-              blockerId: profile.id,
-              blockedId: session.user.id,
-            },
+            blockerId: profile.id,
+            blockedId: session.user.id,
           },
         })
       : false;
