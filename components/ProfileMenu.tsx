@@ -23,39 +23,56 @@ interface ProfileMenuProps {
 export default function ProfileMenu({ userId, username, userStatus }: ProfileMenuProps) {
   const router = useRouter();
   const { data: session } = useSession();
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const isMasterAdmin = session?.user?.role === "MASTER_ADMIN";
   const isBanned = userStatus === "BANNED";
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const handleBanAction = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+
     try {
-      const endpoint = isBanned ? `/api/admin/users/${userId}/unban` : `/api/admin/users/${userId}/ban`;
-      const response = await fetch(endpoint, {
+      const response = await fetch(`/api/admin/users/${userId}/${isBanned ? "unban" : "ban"}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
       });
 
       if (!response.ok) {
-        const error = await response.text();
-        toast.error(error);
-        return;
-      }
-
-      // Check if the response has the ban header
-      const isUserBanned = response.headers.get('X-User-Banned') === 'true';
-      
-      if (isUserBanned && session?.user?.id === userId) {
-        // If the banned user is the current user, force logout
-        await signOut({ callbackUrl: '/' });
+        throw new Error("Failed to perform ban action");
       }
 
       toast.success(isBanned ? "User unbanned successfully" : "User banned successfully");
       router.refresh();
     } catch (error) {
-      console.error("Error managing user ban status:", error);
-      toast.error(isBanned ? "Failed to unban user" : "Failed to ban user");
+      toast.error("Something went wrong");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBlockUser = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/users/block", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to block user");
+      }
+
+      toast.success("User blocked successfully");
+      router.refresh();
+    } catch (error) {
+      toast.error("Something went wrong");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -69,12 +86,20 @@ export default function ProfileMenu({ userId, username, userStatus }: ProfileMen
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {session?.user?.id !== userId && (
-            <DropdownMenuItem
-              className="text-red-500 cursor-pointer"
-              onClick={() => setIsReportModalOpen(true)}
-            >
-              Report User
-            </DropdownMenuItem>
+            <>
+              <DropdownMenuItem
+                className="text-red-500 cursor-pointer"
+                onClick={() => setIsReportModalOpen(true)}
+              >
+                Report User
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-red-500 cursor-pointer"
+                onClick={handleBlockUser}
+              >
+                Block User
+              </DropdownMenuItem>
+            </>
           )}
           {isMasterAdmin && session?.user?.id !== userId && (
             <DropdownMenuItem
