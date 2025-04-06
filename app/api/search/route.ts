@@ -17,6 +17,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ users: [] });
     }
 
+    // Get all users that have blocked the current user
+    const blockedByUsers = await prisma.block.findMany({
+      where: {
+        blockedId: session.user.id,
+      },
+      select: {
+        blockerId: true,
+      },
+    });
+
+    const blockedUserIds = blockedByUsers.map(block => block.blockerId);
+
     const users = await prisma.user.findMany({
       where: {
         OR: [
@@ -36,6 +48,10 @@ export async function GET(request: Request) {
             id: session.user.id,
           },
           status: "NORMAL",
+          // Exclude users who have blocked the current user
+          id: {
+            notIn: blockedUserIds,
+          },
         },
       },
       select: {
@@ -50,7 +66,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ users });
   } catch (error) {
-    console.error("[SEARCH]", error);
+    console.error("[SEARCH_GET]", error);
     return new NextResponse("Internal Error", { status: 500 });
   }
 } 

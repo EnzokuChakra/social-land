@@ -1,8 +1,3 @@
-'use client';
-
-import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { auth } from "@/lib/auth";
 import FollowButton from "@/components/FollowButton";
 import ProfileAvatar from "@/components/ProfileAvatar";
@@ -12,16 +7,41 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { fetchProfile, fetchUserStories, getReelsEnabled } from "@/lib/data";
 import { Lock, MoreHorizontal, UserX } from "lucide-react";
 import Link from "next/link";
-import { Suspense } from "react";
+import { notFound, redirect } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { ProfileTabsSkeleton } from "@/components/Skeletons";
 import PostsGrid from "@/components/PostsGrid";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import { unstable_noStore as noStore } from "next/cache";
+import { 
+  StoryWithExtras, 
+  UserWithExtras, 
+  UserWithFollows, 
+  UserRole, 
+  UserStatus,
+  PostWithExtras,
+  CommentWithExtras,
+  SavedPostWithExtras,
+  FollowerWithExtras,
+  FollowingWithExtras,
+  Like,
+  SavedPost,
+  PostTag,
+  Post,
+  User,
+  Story,
+  StoryView
+} from "@/lib/definitions";
 import { db } from "@/lib/db";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import ProfileHeader from "@/components/ProfileHeader";
 import ProfileMenu from "@/components/ProfileMenu";
 import ProfileStats from "@/components/ProfileStats";
 import MobileBottomNav from "@/components/MobileBottomNav";
-import { storyview as PrismaStoryView } from "@prisma/client";
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { StoryView as PrismaStoryView } from "@prisma/client";
 
 interface Props {
   params: {
@@ -29,71 +49,94 @@ interface Props {
   };
 }
 
-export default function ProfilePage({ params }: Props) {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-  const [profile, setProfile] = useState<any>(null);
-  const [isBlocked, setIsBlocked] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+// Add this interface to match ProfileAvatar's Story type
+interface ProfileAvatarStory {
+  id: string;
+  fileUrl: string;
+  createdAt: Date;
+  scale?: number;
+  user_id: string;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    username: string | null;
+    password: string | null;
+    image: string | null;
+    bio: string | null;
+    verified: boolean;
+    isPrivate: boolean;
+    role: UserRole;
+    status: UserStatus;
+    createdAt: Date;
+    updatedAt: Date;
+    stories?: { id: string }[];
+    hasActiveStory?: boolean;
+  };
+}
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        if (!session?.user) {
-          router.push("/login");
-          return;
-        }
+// Update the transformation helper
+function transformStoryToStoryType(story: StoryWithExtras): {
+  id: string;
+  fileUrl: string;
+  createdAt: Date;
+  scale?: number;
+  user_id: string;
+  user: {
+    id: string;
+    username: string | null;
+    name: string | null;
+    image: string | null;
+    verified: boolean;
+    isPrivate: boolean;
+    role: UserRole;
+    status: UserStatus;
+  };
+  views?: any[];
+  likes?: any[];
+} {
+  return {
+    id: story.id,
+    fileUrl: story.fileUrl,
+    createdAt: story.createdAt,
+    scale: story.scale,
+    user_id: story.user_id,
+    user: {
+      id: story.user.id,
+      username: story.user.username,
+      name: story.user.name,
+      image: story.user.image,
+      verified: story.user.verified,
+      isPrivate: story.user.isPrivate || false,
+      role: story.user.role as UserRole,
+      status: story.user.status as UserStatus
+    },
+    views: story.views || [],
+    likes: story.likes || []
+  };
+}
 
-        const username = params?.username;
-        if (!username) {
-          router.push("/404");
-          return;
-        }
+// Update the ProfilePage component props type
+interface ProfilePageProps {
+  profile: UserWithExtras;
+  isCurrentUser: boolean;
+  reelsEnabled?: boolean; // Make reelsEnabled optional
+}
 
-        const profileData = await fetchProfile(username);
-        if (!profileData) {
-          router.push("/404");
-          return;
-        }
+export default async function ProfilePage({ params }: Props) {
+  const session = await getServerSession(authOptions);
 
-        setProfile(profileData);
-
-        // Check if user is blocked
-        try {
-          if (db.block) {
-            const blockRecord = await db.block.findFirst({
-              where: {
-                blockerId: session.user.id,
-                blockedId: profileData.id,
-              },
-            });
-            setIsBlocked(!!blockRecord);
-          }
-        } catch (error) {
-          console.error("Error checking block status:", error);
-          setIsBlocked(false);
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [session, params.username, router]);
-
-  if (loading) {
-    return <div>Loading...</div>;
+  if (!session?.user) {
+    redirect("/login");
   }
 
-  if (error) {
-    return <div>Error: {error}</div>;
+  if (!params?.username) {
+    notFound();
   }
 
+  const profile = await fetchProfile(params.username);
   if (!profile) {
-    return null;
+    notFound();
   }
 
   const profileWithExtras = {
@@ -102,16 +145,147 @@ export default function ProfilePage({ params }: Props) {
     following: profile.following || [],
   };
 
-  const isCurrentUser = session?.user?.id === profileWithExtras.id;
+  const isCurrentUser = session.user.id === profileWithExtras.id;
   const isFollowing = profileWithExtras.followers.some(
-    (follow: any) => follow.followerId === session?.user?.id && follow.status === "ACCEPTED"
+    (follow) => follow.followerId === session.user.id && follow.status === "ACCEPTED"
   );
   const hasPendingRequest = profileWithExtras.followers.some(
-    (follow: any) => follow.followerId === session?.user?.id && follow.status === "PENDING"
+    (follow) => follow.followerId === session.user.id && follow.status === "PENDING"
   );
   const isFollowedByUser = profileWithExtras.followers.some(
-    (follow: any) => follow.followingId === session?.user?.id && follow.status === "ACCEPTED"
+    (follow) => follow.followingId === session.user.id && follow.status === "ACCEPTED"
   );
+
+  // Check if user is blocked - with error handling
+  let isBlocked = false;
+  try {
+    // Check if block table exists by attempting to query it
+    if (db.block) {
+      const blockRecord = await db.block.findFirst({
+        where: {
+          blockerId: session.user.id,
+          blockedId: profileWithExtras.id,
+        },
+      });
+      isBlocked = !!blockRecord;
+    }
+  } catch (error) {
+    console.error("Error checking block status:", error);
+    isBlocked = false;
+  }
+
+  // Check if user is blocked by the profile owner
+  let isBlockedByUser = false;
+  try {
+    if (db.block) {
+      const blockRecord = await db.block.findFirst({
+        where: {
+          blockerId: profileWithExtras.id,
+          blockedId: session.user.id,
+        },
+      });
+      isBlockedByUser = !!blockRecord;
+    }
+  } catch (error) {
+    console.error("Error checking if blocked by user:", error);
+    isBlockedByUser = false;
+  }
+
+  // If user is blocked by the profile owner, show blocked message
+  if (isBlockedByUser) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <main className="flex-1 pb-[56px] md:pb-0 bg-white dark:bg-black mt-[72px]">
+          <div className="max-w-[935px] mx-auto">
+            <div className="flex flex-col items-center justify-center py-20 text-center border-t border-neutral-200 dark:border-neutral-800">
+              <UserX className="w-12 h-12 text-red-500 mb-4" />
+              <h1 className="text-2xl font-semibold mb-2">This User is Blocked</h1>
+              <p className="text-neutral-500 max-w-sm px-4">
+                This user has blocked you. You cannot see their posts or interact with their profile.
+              </p>
+            </div>
+          </div>
+        </main>
+        <MobileBottomNav />
+      </div>
+    );
+  }
+
+  // Get user's stories
+  const stories = await db.story.findMany({
+    where: {
+      user_id: profileWithExtras.id,
+      createdAt: {
+        gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      },
+    },
+    include: {
+      user: true,
+      views: {
+        include: {
+          user: true,
+        },
+      },
+      likes: {
+        include: {
+          user: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  // Transform stories to include required fields
+  const transformedStories = stories.map((story) => ({
+    ...story,
+    user: {
+      ...story.user,
+      email: story.user.email || "",
+      password: story.user.password || "",
+      bio: story.user.bio || "",
+      role: story.user.role as UserRole,
+      status: story.user.status as UserStatus,
+      createdAt: story.user.createdAt || new Date(),
+      updatedAt: story.user.updatedAt || new Date(),
+      followers: [],
+      following: [],
+    } as User,
+    views: (story.views || []).map((view) => ({
+      ...view,
+      user: {
+        ...view.user,
+        email: view.user.email || "",
+        password: view.user.password || "",
+        bio: view.user.bio || "",
+        role: view.user.role as UserRole,
+        status: view.user.status as UserStatus,
+        createdAt: view.user.createdAt || new Date(),
+        updatedAt: view.user.updatedAt || new Date(),
+        followers: [],
+        following: [],
+      } as User,
+    })) as (PrismaStoryView & { user: User })[],
+    likes: (story.likes || []).map((like) => ({
+      ...like,
+      user: {
+        ...like.user,
+        email: like.user.email || "",
+        password: like.user.password || "",
+        bio: like.user.bio || "",
+        role: like.user.role as UserRole,
+        status: like.user.status as UserStatus,
+        createdAt: like.user.createdAt || new Date(),
+        updatedAt: like.user.updatedAt || new Date(),
+        followers: [],
+        following: [],
+      } as User,
+    })) as (Like & { user: User })[],
+  })) as StoryWithExtras[];
+
+  // Get reels enabled status
+  const reelsEnabled = await getReelsEnabled();
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -119,7 +293,7 @@ export default function ProfilePage({ params }: Props) {
         <div className="max-w-[935px] mx-auto" suppressHydrationWarning>
           <section className="flex flex-col md:flex-row gap-y-4 px-4 pb-6" suppressHydrationWarning>
             <div className="shrink-0 md:w-[290px] md:mr-7 flex justify-center md:justify-center" suppressHydrationWarning>
-              <ProfileAvatar user={profileWithExtras} stories={[]} showModal={true}>
+              <ProfileAvatar user={profileWithExtras} stories={transformedStories} showModal={true}>
                 <UserAvatar
                   user={profileWithExtras}
                   className="w-[86px] h-[86px] md:w-[150px] md:h-[150px] cursor-pointer ring-2 ring-neutral-100 dark:ring-neutral-900"
@@ -157,7 +331,7 @@ export default function ProfilePage({ params }: Props) {
                     <div className="flex items-center gap-x-2 w-full md:w-auto" suppressHydrationWarning>
                       <ProfileMenu 
                         userId={profileWithExtras.id} 
-                        username={profileWithExtras.username || ""}
+                        username={profileWithExtras.username}
                         userStatus={profileWithExtras.status}
                       />
                     </div>
@@ -174,7 +348,7 @@ export default function ProfilePage({ params }: Props) {
                       />
                       <ProfileMenu 
                         userId={profileWithExtras.id} 
-                        username={profileWithExtras.username || ""}
+                        username={profileWithExtras.username}
                         userStatus={profileWithExtras.status}
                       />
                     </div>

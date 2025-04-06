@@ -35,6 +35,11 @@ export async function POST(req: Request) {
       return new NextResponse("User not found", { status: 404 });
     }
 
+    // Check if block table exists
+    if (!db.block) {
+      return new NextResponse("Block feature is not available yet", { status: 503 });
+    }
+
     // Check if user is already blocked
     const existingBlock = await db.block.findFirst({
       where: {
@@ -50,19 +55,17 @@ export async function POST(req: Request) {
           id: existingBlock.id,
         },
       });
-
-      return NextResponse.json({ message: "User unblocked successfully" });
+      return new NextResponse("User unblocked successfully", { status: 200 });
+    } else {
+      // Block the user
+      await db.block.create({
+        data: {
+          blockerId: session.user.id,
+          blockedId: userId,
+        },
+      });
+      return new NextResponse("User blocked successfully", { status: 200 });
     }
-
-    // Block the user
-    await db.block.create({
-      data: {
-        blockerId: session.user.id,
-        blockedId: userId,
-      },
-    });
-
-    return NextResponse.json({ message: "User blocked successfully" });
   } catch (error) {
     console.error("[BLOCK_POST]", error);
     return new NextResponse("Internal Error", { status: 500 });
@@ -82,6 +85,11 @@ export async function GET(req: Request) {
 
     if (!userId) {
       return new NextResponse("User ID is required", { status: 400 });
+    }
+
+    // Check if block table exists
+    if (!db.block) {
+      return NextResponse.json({ isBlocked: false });
     }
 
     // Check if user is blocked
