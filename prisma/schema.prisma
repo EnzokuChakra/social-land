@@ -417,8 +417,8 @@ model BlockedUser {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  blocker     User     @relation("BlockedBy", fields: [blockerId], references: [id], onDelete: Cascade)
-  blocked     User     @relation("BlockedUsers", fields: [blockedId], references: [id], onDelete: Cascade)
+  blocker     user     @relation("BlockedBy", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked     user     @relation("BlockedUsers", fields: [blockedId], references: [id], onDelete: Cascade)
 
   @@unique([blockerId, blockedId])
   @@index([blockerId])

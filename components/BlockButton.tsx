@@ -12,11 +12,11 @@ interface BlockButtonProps {
   className?: string;
 }
 
-export default function BlockButton({
+const BlockButton = ({
   userId,
   isBlocked,
   className
-}: BlockButtonProps) {
+}: BlockButtonProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
@@ -82,4 +82,6 @@ export default function BlockButton({
       )}
     </Button>
   );
-} 
+};
+
+export default BlockButton; 

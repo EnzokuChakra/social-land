@@ -38,7 +38,7 @@ import ProfileHeader from "@/components/ProfileHeader";
 import ProfileMenu from "@/components/ProfileMenu";
 import ProfileStats from "@/components/ProfileStats";
 import MobileBottomNav from "@/components/MobileBottomNav";
-import { BlockButton } from "@/components/BlockButton";
+import BlockButton from "@/components/BlockButton";
 
 interface Props {
   params: {
