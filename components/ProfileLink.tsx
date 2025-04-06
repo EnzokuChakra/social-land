@@ -54,7 +54,7 @@ export default function ProfileLink({ user, className }: ProfileLinkProps) {
         className
       )}
     >
-      <UserAvatar user={user} className="h-8 w-8" />
+      <UserAvatar user={user} className="h-8 w-8" priority={true} />
       {!isCollapsed && (
         <span className="font-medium text-sm truncate">
           {user.username}

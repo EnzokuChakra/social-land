@@ -130,11 +130,14 @@ export default async function ProfilePage({ params }: { params: { username: stri
     redirect("/login");
   }
 
-  if (!params?.username) {
+  // Await the params.username
+  const { username } = await params;
+
+  if (!username) {
     notFound();
   }
 
-  const profile = await fetchProfile(params.username);
+  const profile = await fetchProfile(username);
   if (!profile) {
     notFound();
   }

@@ -23,6 +23,11 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <link
+          rel="preload"
+          href="/_next/static/css/app/layout.css"
+          as="style"
+        />
+        <link
           rel="stylesheet"
           href="/styles/layout.css"
           precedence="high"
