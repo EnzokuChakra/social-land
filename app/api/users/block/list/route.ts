@@ -1,20 +1,23 @@
-import { db } from "@/lib/db";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
 
-export async function GET() {
+const prisma = new PrismaClient();
+
+export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-
     if (!session?.user) {
-      return new NextResponse("Unauthorized", { status: 401 });
+      return new NextResponse(
+        JSON.stringify({ error: "Unauthorized" }), 
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Get all users that the current user has blocked
-    const blockedUsers = await db.block.findMany({
+    const blockedUsers = await prisma.block.findMany({
       where: {
-        blockerId: session.user.id,
+        blockerId: session.user.id
       },
       include: {
         blocked: {
@@ -23,23 +26,21 @@ export async function GET() {
             username: true,
             name: true,
             image: true,
-            verified: true,
-            isPrivate: true,
-            role: true,
-            status: true,
-            createdAt: true,
-            updatedAt: true,
-          },
-        },
-      },
+            verified: true
+          }
+        }
+      }
     });
 
-    // Transform the response to only include the blocked user data
-    const users = blockedUsers.map(block => block.blocked);
-
-    return NextResponse.json({ users });
+    return new NextResponse(
+      JSON.stringify(blockedUsers), 
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
   } catch (error) {
-    console.error("[BLOCK_LIST_GET]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    console.error("[BLOCKED_USERS_LIST]", error);
+    return new NextResponse(
+      JSON.stringify({ error: "Internal Error" }), 
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 } 
