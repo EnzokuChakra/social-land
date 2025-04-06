@@ -24,7 +24,6 @@ import {
   EventWithUserData
 } from "./definitions";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
 
 interface FollowerData {
   follower: {
@@ -2065,20 +2064,5 @@ export async function fetchEventById(id: string) {
   } catch (error) {
     console.error("Database Error:", error);
     throw new Error("Failed to fetch event");
-  }
-}
-
-export async function isUserBlocked(blockerId: string, blockedId: string) {
-  try {
-    const blockedUser = await db.BlockedUser.findFirst({
-      where: {
-        blockerId,
-        blockedId,
-      },
-    });
-    return !!blockedUser;
-  } catch (error) {
-    console.error('Error checking if user is blocked:', error);
-    return false;
   }
 }

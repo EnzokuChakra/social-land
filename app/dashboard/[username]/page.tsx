@@ -4,7 +4,7 @@ import ProfileAvatar from "@/components/ProfileAvatar";
 import ProfileTabs from "@/components/ProfileTabs";
 import UserAvatar from "@/components/UserAvatar";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { fetchProfile, fetchUserStories, getReelsEnabled, isUserBlocked } from "@/lib/data";
+import { fetchProfile, fetchUserStories, getReelsEnabled } from "@/lib/data";
 import { Lock, MoreHorizontal, UserX } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -38,8 +38,6 @@ import ProfileHeader from "@/components/ProfileHeader";
 import ProfileMenu from "@/components/ProfileMenu";
 import ProfileStats from "@/components/ProfileStats";
 import MobileBottomNav from "@/components/MobileBottomNav";
-import BlockButton from "@/components/BlockButton";
-import { PrismaClient, Prisma } from "@prisma/client";
 
 interface Props {
   params: {
@@ -244,34 +242,6 @@ export default async function ProfilePage({ params }: Props) {
     const isFollowedByUser = profileWithExtras.following?.some(
       (follow) => follow.followingId === session.user.id && follow.status === "ACCEPTED"
     ) || false;
-
-    // Check if the current user has blocked this user
-    const isBlocked = session?.user?.id
-      ? await isUserBlocked(session.user.id, profile.id)
-      : false;
-
-    // Check if the current user is blocked by this user
-    const isBlockedBy = session?.user?.id
-      ? await isUserBlocked(profile.id, session.user.id)
-      : false;
-
-    // If either user has blocked the other, show a message
-    if (isBlocked || isBlockedBy) {
-      return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <h1 className="text-2xl font-bold mb-4">
-            {isBlocked ? "You have blocked this user" : "This user has blocked you"}
-          </h1>
-          {isBlocked && (
-            <BlockButton
-              userId={profileWithExtras.id}
-              isBlocked={true}
-              className="mt-4"
-            />
-          )}
-        </div>
-      );
-    }
 
     return (
       <div className="flex flex-col min-h-screen">
