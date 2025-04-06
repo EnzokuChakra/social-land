@@ -4,7 +4,7 @@ import ProfileAvatar from "@/components/ProfileAvatar";
 import ProfileTabs from "@/components/ProfileTabs";
 import UserAvatar from "@/components/UserAvatar";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { fetchProfile, fetchUserStories, getReelsEnabled } from "@/lib/data";
+import { fetchProfile, fetchUserStories, getReelsEnabled, isUserBlocked } from "@/lib/data";
 import { Lock, MoreHorizontal, UserX } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -247,22 +247,12 @@ export default async function ProfilePage({ params }: Props) {
 
     // Check if the current user has blocked this user
     const isBlocked = session?.user?.id
-      ? await db.blockedUser.findFirst({
-          where: {
-            blockerId: session.user.id,
-            blockedId: profile.id,
-          },
-        })
+      ? await isUserBlocked(session.user.id, profile.id)
       : false;
 
     // Check if the current user is blocked by this user
     const isBlockedBy = session?.user?.id
-      ? await db.blockedUser.findFirst({
-          where: {
-            blockerId: profile.id,
-            blockedId: session.user.id,
-          },
-        })
+      ? await isUserBlocked(profile.id, session.user.id)
       : false;
 
     // If either user has blocked the other, show a message
