@@ -8,7 +8,7 @@ import { fetchProfile, fetchUserStories, getReelsEnabled } from "@/lib/data";
 import { Lock, MoreHorizontal, UserX } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 import { ProfileTabsSkeleton } from "@/components/Skeletons";
 import PostsGrid from "@/components/PostsGrid";
 import VerifiedBadge from "@/components/VerifiedBadge";
@@ -39,9 +39,7 @@ import ProfileHeader from "@/components/ProfileHeader";
 import ProfileMenu from "@/components/ProfileMenu";
 import ProfileStats from "@/components/ProfileStats";
 import MobileBottomNav from "@/components/MobileBottomNav";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { StoryView as PrismaStoryView } from "@prisma/client";
+import BlockedUserSection from "@/components/BlockedUserSection";
 
 interface Props {
   params: {
@@ -402,23 +400,7 @@ export default async function ProfilePage({ params }: { params: { username: stri
               </p>
             </div>
           ) : isBlocked ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center border-t border-neutral-200 dark:border-neutral-800" suppressHydrationWarning>
-              <UserX className="w-12 h-12 text-red-500 mb-4" />
-              <h1 className="text-2xl font-semibold mb-2">This User is Blocked</h1>
-              <p className="text-neutral-500 max-w-sm px-4">
-                You have blocked this user. They cannot see your posts or interact with your profile.
-              </p>
-              <form action="/api/users/block" method="POST">
-                <input type="hidden" name="userId" value={profileWithExtras.id} />
-                <Button
-                  variant="secondary"
-                  className="mt-4"
-                  type="submit"
-                >
-                  Unblock User
-                </Button>
-              </form>
-            </div>
+            <BlockedUserSection userId={profileWithExtras.id} />
           ) : (
             <>
               <Suspense fallback={<ProfileTabsSkeleton />}>

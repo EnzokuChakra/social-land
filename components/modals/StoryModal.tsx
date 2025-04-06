@@ -804,14 +804,10 @@ export default function StoryModal() {
   };
 
   const handleReportStory = () => {
-    console.log('Report button clicked');
-    console.log('Current story:', currentStory);
     setStoryToReport(currentStory);
     storyModal.onClose(); // Close the story modal first
-    console.log('Story modal closed, opening report modal');
     // Use setTimeout to ensure the story modal is closed before opening the report modal
     setTimeout(() => {
-      console.log('Setting report modal to open');
       setIsReportModalOpen(true);
     }, 100);
   };
@@ -1015,12 +1011,12 @@ export default function StoryModal() {
 
   // Add effect to log when report modal state changes
   useEffect(() => {
-    console.log('Report modal state changed:', isReportModalOpen);
+    // Removed console.log
   }, [isReportModalOpen]);
 
   // Add effect to log when story modal state changes
   useEffect(() => {
-    console.log('Story modal state changed:', storyModal.isOpen);
+    // Removed console.log
   }, [storyModal.isOpen]);
 
   // Add effect to reset storyToReport when report modal closes

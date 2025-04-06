@@ -24,6 +24,9 @@ import {
   EventWithUserData
 } from "./definitions";
 import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { Post as PrismaPost, User as PrismaUser, Like as PrismaLike, Follows as PrismaFollows } from "@prisma/client";
+import { PostWithExtras, UserWithFollowStatus } from "@/lib/definitions";
 
 interface FollowerData {
   follower: {
@@ -66,7 +69,27 @@ type UserWithFollowStatus = User & {
 export async function fetchPosts(userId?: string) {
   noStore();
   try {
-    const posts = await prisma.post.findMany({
+    // First, get all users that the current user has blocked
+    const blockedUsers = userId ? await db.block.findMany({
+      where: {
+        blockerId: userId,
+      },
+      select: {
+        blockedId: true,
+      },
+    }) : [];
+
+    const blockedUserIds = blockedUsers.map(block => block.blockedId);
+
+    const posts = await db.post.findMany({
+      where: {
+        // Exclude posts from blocked users
+        NOT: {
+          user_id: {
+            in: blockedUserIds,
+          },
+        },
+      },
       include: {
         user: true,
         likes: {
@@ -180,11 +203,11 @@ export async function fetchPosts(userId?: string) {
       const postsWithFollowStatus = await Promise.all(
         posts.map(async (post: PostWithExtras) => {
           const likesWithFollowStatus = await Promise.all(
-            post.likes.map(async (like: Like & { user: UserWithFollowStatus }) => {
+            post.likes.map(async (like: Like & { user: UserWithFollowStatus | null }) => {
               if (!like.user) return like;
 
               // Get follow relationship
-              const follow = await prisma.follows.findFirst({
+              const follow = await db.follows.findFirst({
                 where: {
                   followerId: userId,
                   followingId: like.user.id,
