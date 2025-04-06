@@ -9,6 +9,7 @@ import { useEffect, useState, useRef } from "react";
 import { UserWithExtras } from "@/lib/definitions";
 import { useNavbar } from "@/lib/hooks/use-navbar";
 import { useSocket } from "@/hooks/use-socket";
+import VerifiedBadge from "./VerifiedBadge";
 
 interface ProfileLinkProps {
   user: {
@@ -56,9 +57,14 @@ export default function ProfileLink({ user, className }: ProfileLinkProps) {
     >
       <UserAvatar user={user} className="h-8 w-8" priority={true} />
       {!isCollapsed && (
-        <span className="font-medium text-sm truncate">
-          {user.username}
-        </span>
+        <div className="flex items-center gap-1">
+          <span className="font-medium text-sm truncate">
+            {user.username}
+          </span>
+          {user.verified && (
+            <VerifiedBadge className="h-4 w-4" />
+          )}
+        </div>
       )}
     </Link>
   );
