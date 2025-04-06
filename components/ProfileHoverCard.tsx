@@ -11,6 +11,14 @@ import { useStats } from "@/lib/hooks/use-stats";
 import { useFollowStatus } from "@/lib/hooks/use-follow-status";
 import { Skeleton } from "./ui/skeleton";
 import FollowButton from "./FollowButton";
+import Link from "next/link";
+
+interface ProfileStats {
+  posts: number;
+  followers: number;
+  following: number;
+  reels: number;
+}
 
 interface Props {
   user: {
@@ -36,6 +44,8 @@ export default function ProfileHoverCard({ user, children, align = "center" }: P
     return <>{children}</>;
   }
 
+  const profileStats = stats as ProfileStats | null;
+
   return (
     <HoverCard openDelay={300} closeDelay={100}>
       <HoverCardTrigger asChild>{children}</HoverCardTrigger>
@@ -45,7 +55,10 @@ export default function ProfileHoverCard({ user, children, align = "center" }: P
       >
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <Link 
+              href={`/dashboard/${user.username}`}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            >
               {user.image && (
                 <img
                   src={user.image}
@@ -61,7 +74,7 @@ export default function ProfileHoverCard({ user, children, align = "center" }: P
                   </p>
                 )}
               </div>
-            </div>
+            </Link>
 
             {session?.user?.id !== user.id && (
               <div className="flex items-center">
@@ -89,19 +102,13 @@ export default function ProfileHoverCard({ user, children, align = "center" }: P
               </>
             ) : (
               <>
-                <p className="font-semibold">{stats?.posts || 0} posts</p>
-                <button 
-                  onClick={() => router.push(`/dashboard/${user.username}/followers`)}
-                  className="font-semibold hover:opacity-70 transition"
-                >
-                  {stats?.followers || 0} {stats?.followers === 1 ? 'follower' : 'followers'}
-                </button>
-                <button 
-                  onClick={() => router.push(`/dashboard/${user.username}/following`)}
-                  className="font-semibold hover:opacity-70 transition"
-                >
-                  {stats?.following || 0} following
-                </button>
+                <p className="font-semibold">{profileStats?.posts ?? 0} posts</p>
+                <p className="font-semibold">
+                  {profileStats?.following ?? 0} {profileStats?.following === 1 ? 'follower' : 'followers'}
+                </p>
+                <p className="font-semibold">
+                  {profileStats?.followers ?? 0} following
+                </p>
               </>
             )}
           </div>
@@ -110,7 +117,7 @@ export default function ProfileHoverCard({ user, children, align = "center" }: P
             <p className="text-sm line-clamp-2">{user.bio}</p>
           )}
 
-          {(user.isPrivate && !followStatus?.isFollowing) && (
+          {user.isPrivate && (
             <p className="text-sm text-neutral-500 dark:text-neutral-400">
               This account is private
             </p>

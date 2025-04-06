@@ -660,8 +660,20 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
     // Then get the full profile with followers/following
     const profile = await prisma.user.findUnique({
       where: { id: user.id },
-      include: {
-        // Get user's own posts
+      select: {
+        id: true,
+        username: true,
+        name: true,
+        email: true,
+        image: true,
+        bio: true,
+        verified: true,
+        isPrivate: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        // Include relationships
         posts: {
           orderBy: {
             createdAt: "desc",
@@ -827,7 +839,7 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
                 },
                 comments: {
                   where: {
-                    parentId: null // Only fetch top-level comments
+                    parentId: null
                   },
                   include: {
                     user: {

@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ReportUserModal from "./modals/ReportUserModal";
 
 interface ProfileMenuProps {
@@ -25,8 +25,28 @@ export default function ProfileMenu({ userId, username, userStatus }: ProfileMen
   const { data: session } = useSession();
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
   const isMasterAdmin = session?.user?.role === "MASTER_ADMIN";
   const isBanned = userStatus === "BANNED";
+
+  useEffect(() => {
+    const checkBlockStatus = async () => {
+      try {
+        const response = await fetch(`/api/users/block?userId=${userId}`);
+        if (!response.ok) {
+          throw new Error("Failed to check block status");
+        }
+        const data = await response.json();
+        setIsBlocked(data.isBlocked);
+      } catch (error) {
+        console.error("Error checking block status:", error);
+      }
+    };
+
+    if (session?.user?.id !== userId) {
+      checkBlockStatus();
+    }
+  }, [userId, session?.user?.id]);
 
   const handleBanAction = async () => {
     if (isLoading) return;
@@ -51,16 +71,10 @@ export default function ProfileMenu({ userId, username, userStatus }: ProfileMen
   };
 
   const handleBlockUser = async () => {
-    console.log("[Block User] Starting block process for user:", userId);
-    if (isLoading) {
-      console.log("[Block User] Operation already in progress, returning");
-      return;
-    }
+    if (isLoading) return;
     setIsLoading(true);
-    console.log("[Block User] Loading state set to true");
 
     try {
-      console.log("[Block User] Sending block request to API");
       const response = await fetch("/api/users/block", {
         method: "POST",
         headers: {
@@ -69,48 +83,19 @@ export default function ProfileMenu({ userId, username, userStatus }: ProfileMen
         body: JSON.stringify({ userId }),
       });
 
-      console.log("[Block User] API Response status:", response.status);
-      console.log("[Block User] API Response headers:", Object.fromEntries(response.headers.entries()));
-      
-      // Get the raw response text first
-      const responseText = await response.text();
-      console.log("[Block User] Raw API Response:", responseText);
-      
       if (!response.ok) {
-        console.error("[Block User] API Error:", {
-          status: response.status,
-          statusText: response.statusText,
-          responseText
-        });
-        throw new Error(`Failed to block user: ${response.status} ${response.statusText}`);
+        throw new Error("Failed to perform block action");
       }
 
-      // Try to parse as JSON only if the response is not empty
-      let data;
-      if (responseText) {
-        try {
-          data = JSON.parse(responseText);
-          console.log("[Block User] Parsed response data:", data);
-        } catch (parseError) {
-          console.warn("[Block User] Response is not valid JSON, using raw text");
-          data = responseText;
-        }
-      }
-      
-      // Check if the response indicates unblocking
-      if (responseText.includes("unblocked")) {
-        toast.success("User unblocked successfully");
-      } else {
-        toast.success("User blocked successfully");
-      }
-      
-      console.log("[Block User] Refreshing page");
+      const responseText = await response.text();
+      const newBlockStatus = !responseText.includes("unblocked");
+      setIsBlocked(newBlockStatus);
+      toast.success(newBlockStatus ? "User blocked successfully" : "User unblocked successfully");
       router.refresh();
     } catch (error) {
-      console.error("[Block User] Error caught:", error);
+      console.error("Error in block action:", error);
       toast.error("Something went wrong");
     } finally {
-      console.log("[Block User] Resetting loading state");
       setIsLoading(false);
     }
   };
@@ -136,7 +121,7 @@ export default function ProfileMenu({ userId, username, userStatus }: ProfileMen
                 className="text-red-500 cursor-pointer"
                 onClick={handleBlockUser}
               >
-                Block User
+                {isBlocked ? "Unblock User" : "Block User"}
               </DropdownMenuItem>
             </>
           )}
