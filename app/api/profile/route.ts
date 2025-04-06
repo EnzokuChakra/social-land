@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { fetchProfile } from "@/lib/data";
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { UpdateUser } from "@/lib/schemas";
 import { z } from "zod";
 import { checkUserBanStatus } from "@/lib/utils";
@@ -27,7 +27,10 @@ export async function GET(request: Request) {
       return new NextResponse("Profile not found", { status: 404 });
     }
 
-    return NextResponse.json(profile);
+    // Remove password from the response
+    const { password: _, ...profileWithoutPassword } = profile;
+
+    return NextResponse.json(profileWithoutPassword);
   } catch (error) {
     console.error("[PROFILE_GET] Server error:", {
       error,
@@ -59,7 +62,7 @@ export async function PATCH(request: Request) {
     const { name, image, bio, isPrivate } = validatedFields.data;
 
     // Update the user profile
-    const updatedUser = await db.user.update({
+    const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
       data: {
         name,
