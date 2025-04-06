@@ -44,29 +44,27 @@ export async function POST(req: Request) {
       }
 
       // Check if user is already blocked
-      const existingBlock = await db.block.findFirst({
-        where: {
-          blockerId: session.user.id,
-          blockedId: userId,
-        },
-      });
+      const existingBlock = await db.$queryRaw`
+        SELECT * FROM block 
+        WHERE blockerId = ${session.user.id} 
+        AND blockedId = ${userId}
+        LIMIT 1
+      `;
 
-      if (existingBlock) {
+      if (existingBlock && existingBlock.length > 0) {
         // Unblock the user
-        await db.block.delete({
-          where: {
-            id: existingBlock.id,
-          },
-        });
+        await db.$queryRaw`
+          DELETE FROM block 
+          WHERE blockerId = ${session.user.id} 
+          AND blockedId = ${userId}
+        `;
         return new NextResponse("User unblocked successfully", { status: 200 });
       } else {
         // Block the user
-        await db.block.create({
-          data: {
-            blockerId: session.user.id,
-            blockedId: userId,
-          },
-        });
+        await db.$queryRaw`
+          INSERT INTO block (id, blockerId, blockedId, createdAt, updatedAt)
+          VALUES (UUID(), ${session.user.id}, ${userId}, NOW(), NOW())
+        `;
         return new NextResponse("User blocked successfully", { status: 200 });
       }
     } catch (error) {
@@ -107,14 +105,14 @@ export async function GET(req: Request) {
       }
 
       // Check if user is blocked
-      const isBlocked = await db.block.findFirst({
-        where: {
-          blockerId: session.user.id,
-          blockedId: userId,
-        },
-      });
+      const isBlocked = await db.$queryRaw`
+        SELECT 1 FROM block 
+        WHERE blockerId = ${session.user.id} 
+        AND blockedId = ${userId}
+        LIMIT 1
+      `;
 
-      return NextResponse.json({ isBlocked: !!isBlocked });
+      return NextResponse.json({ isBlocked: isBlocked && isBlocked.length > 0 });
     } catch (error) {
       console.error("[BLOCK_GET]", error);
       // If the error is about the block table not existing
