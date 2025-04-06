@@ -108,10 +108,7 @@ function PostActions({ post, userId, className, inputRef, onBookmarkUpdate }: Pr
     }
   }, [post.id]);
 
-  const handleLikesModalOpen = async () => {
-    console.log('Opening likes modal for post:', currentPost.id);
-    console.log('Raw likes data:', JSON.stringify(currentPost.likes, null, 2));
-    
+  const handleLikesModalOpen = async () => {    
     // Fetch follow status for each user
     const likesWithFollowStatus = await Promise.all(
       currentPost.likes.map(async (like) => {
@@ -120,7 +117,6 @@ function PostActions({ post, userId, className, inputRef, onBookmarkUpdate }: Pr
         try {
           const response = await fetch(`/api/users/follow/status/?userId=${like.user.id}`);
           if (!response.ok) {
-            console.error(`Failed to fetch follow status for user ${like.user.username}`);
             return like;
           }
 
@@ -136,7 +132,6 @@ function PostActions({ post, userId, className, inputRef, onBookmarkUpdate }: Pr
             }
           };
         } catch (error) {
-          console.error(`Error fetching follow status for user ${like.user.username}:`, error);
           return like;
         }
       })

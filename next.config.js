@@ -15,7 +15,7 @@ const nextConfig = {
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config, { dev, isServer }) => {
     // Exclude problematic files from webpack processing
     config.module.noParse = [
       /node_modules\/@mapbox\/node-pre-gyp\/lib\/util\/nw-pre-gyp\/index\.html$/,
@@ -33,6 +33,18 @@ const nextConfig = {
       "mock-aws-s3": false,
       "aws-sdk": false,
     };
+
+    // Suppress resource preload warnings in production
+    if (!dev) {
+      config.optimization = {
+        ...config.optimization,
+        moduleIds: 'deterministic',
+        splitChunks: {
+          ...config.optimization?.splitChunks,
+          chunks: 'all',
+        },
+      };
+    }
 
     return config;
   },
