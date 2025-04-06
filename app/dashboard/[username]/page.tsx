@@ -41,7 +41,7 @@ import ProfileStats from "@/components/ProfileStats";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { StoryView as PrismaStoryView } from "@prisma/client";
+import { storyview as PrismaStoryView } from "@prisma/client";
 
 interface Props {
   params: {
@@ -130,11 +130,12 @@ export default async function ProfilePage({ params }: Props) {
     redirect("/login");
   }
 
-  if (!params?.username) {
+  const username = params?.username;
+  if (!username) {
     notFound();
   }
 
-  const profile = await fetchProfile(params.username);
+  const profile = await fetchProfile(username);
   if (!profile) {
     notFound();
   }
@@ -159,13 +160,16 @@ export default async function ProfilePage({ params }: Props) {
   // Check if user is blocked - with error handling
   let isBlocked = false;
   try {
-    const blockRecord = await db.block.findFirst({
-      where: {
-        blockerId: session.user.id,
-        blockedId: profileWithExtras.id,
-      },
-    });
-    isBlocked = !!blockRecord;
+    // Check if block table exists by attempting to query it
+    if (db.block) {
+      const blockRecord = await db.block.findFirst({
+        where: {
+          blockerId: session.user.id,
+          blockedId: profileWithExtras.id,
+        },
+      });
+      isBlocked = !!blockRecord;
+    }
   } catch (error) {
     console.error("Error checking block status:", error);
     isBlocked = false;
@@ -291,7 +295,7 @@ export default async function ProfilePage({ params }: Props) {
                     <div className="flex items-center gap-x-2 w-full md:w-auto" suppressHydrationWarning>
                       <ProfileMenu 
                         userId={profileWithExtras.id} 
-                        username={profileWithExtras.username}
+                        username={profileWithExtras.username || ""}
                         userStatus={profileWithExtras.status}
                       />
                     </div>
@@ -308,7 +312,7 @@ export default async function ProfilePage({ params }: Props) {
                       />
                       <ProfileMenu 
                         userId={profileWithExtras.id} 
-                        username={profileWithExtras.username}
+                        username={profileWithExtras.username || ""}
                         userStatus={profileWithExtras.status}
                       />
                     </div>
