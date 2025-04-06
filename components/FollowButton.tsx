@@ -147,6 +147,8 @@ export default function FollowButton({
         throw new Error(data.error || "Failed to unfollow user");
       }
 
+      toast.success("Successfully unfollowed user");
+
       if (onSuccess) {
         onSuccess(false);
       }
@@ -247,7 +249,9 @@ export default function FollowButton({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={cn(
-        "relative font-semibold transition-all duration-200 px-6",
+        "relative font-semibold transition-all duration-200",
+        variant === "profile" ? "px-4 h-9" : "px-6 h-10",
+        "min-w-[120px] w-[120px]",
         "hover:scale-[0.98] active:scale-[0.97]",
         "disabled:opacity-50 disabled:cursor-not-allowed",
         followState.isFollowing || followState.hasPendingRequest
@@ -269,7 +273,7 @@ export default function FollowButton({
       )}
     >
       <span className={cn(
-        "flex items-center gap-1",
+        "flex items-center justify-center gap-1 w-full text-sm",
         isLoading && "opacity-0"
       )}>
         {getButtonText()}

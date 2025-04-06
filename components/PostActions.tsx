@@ -253,12 +253,8 @@ function PostActions({ post, userId, className, inputRef, onBookmarkUpdate }: Pr
                           isFollowing={like.user.isFollowing || false}
                           hasPendingRequest={like.user.hasPendingRequest || false}
                           isPrivate={like.user.isPrivate || false}
-                          className={cn(
-                            "text-xs",
-                            like.user.isFollowing
-                              ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-300 hover:bg-red-500/10 hover:text-red-500"
-                              : "bg-blue-500 hover:bg-blue-600 text-white"
-                          )}
+                          className="h-9 min-w-[120px] w-[120px]"
+                          variant="profile"
                         />
                       )}
                     </div>

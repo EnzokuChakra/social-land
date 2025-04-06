@@ -63,7 +63,7 @@ export default function FollowRequestButtons({
       <Button
         onClick={() => handleAction("accept")}
         disabled={isLoading}
-        className="bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+        className="bg-blue-500 hover:bg-blue-600 text-white font-semibold min-w-[104px]"
       >
         Confirm
       </Button>
@@ -71,7 +71,7 @@ export default function FollowRequestButtons({
         onClick={() => handleAction("delete")}
         disabled={isLoading}
         variant="ghost"
-        className="hover:bg-red-500/10 hover:text-red-500"
+        className="hover:bg-red-500/10 hover:text-red-500 min-w-[104px]"
       >
         Delete
       </Button>

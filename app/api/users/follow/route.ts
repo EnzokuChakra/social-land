@@ -9,6 +9,14 @@ const FOLLOW_COOLDOWN_MS = 5000; // 5 seconds cooldown
 
 export async function POST(req: Request) {
   try {
+    if (!prisma) {
+      console.error("[FOLLOW_API] Prisma client not initialized");
+      return new NextResponse(
+        JSON.stringify({ error: "Internal server error" }),
+        { status: 500 }
+      );
+    }
+
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.id) {

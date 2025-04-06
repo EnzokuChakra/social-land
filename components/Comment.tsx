@@ -435,8 +435,8 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
                           isFollowing={false}
                           hasPendingRequest={false}
                           isPrivate={false}
-                          className="ml-auto"
-                          variant="default"
+                          className="h-9 min-w-[120px] w-[120px]"
+                          variant="profile"
                         />
                       )}
                     </div>

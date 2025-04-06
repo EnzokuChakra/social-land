@@ -121,7 +121,8 @@ export default function FollowersModal({
                       hasPendingRequest={user.status === "PENDING"}
                       isPrivate={user.isPrivate}
                       isFollowedByUser={false}
-                      className="h-9"
+                      className="h-9 min-w-[104px]"
+                      variant="profile"
                     />
                   )}
                 </div>
