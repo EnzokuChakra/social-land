@@ -38,6 +38,7 @@ import ProfileHeader from "@/components/ProfileHeader";
 import ProfileMenu from "@/components/ProfileMenu";
 import ProfileStats from "@/components/ProfileStats";
 import MobileBottomNav from "@/components/MobileBottomNav";
+import { BlockButton } from "@/components/BlockButton";
 
 interface Props {
   params: {
@@ -242,6 +243,48 @@ export default async function ProfilePage({ params }: Props) {
     const isFollowedByUser = profileWithExtras.following?.some(
       (follow) => follow.followingId === session.user.id && follow.status === "ACCEPTED"
     ) || false;
+
+    // Check if the current user has blocked this user
+    const isBlocked = session?.user?.id 
+      ? await db.blockedUser.findUnique({
+          where: {
+            blockerId_blockedId: {
+              blockerId: session.user.id,
+              blockedId: profileWithExtras.id
+            }
+          }
+        })
+      : false;
+
+    // Check if this user has blocked the current user
+    const hasBlockedMe = session?.user?.id
+      ? await db.blockedUser.findUnique({
+          where: {
+            blockerId_blockedId: {
+              blockerId: profileWithExtras.id,
+              blockedId: session.user.id
+            }
+          }
+        })
+      : false;
+
+    // If either user has blocked the other, show a message
+    if (isBlocked || hasBlockedMe) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <h1 className="text-2xl font-bold mb-4">
+            {isBlocked ? "You have blocked this user" : "This user has blocked you"}
+          </h1>
+          {isBlocked && (
+            <BlockButton
+              userId={profileWithExtras.id}
+              isBlocked={true}
+              className="mt-4"
+            />
+          )}
+        </div>
+      );
+    }
 
     return (
       <div className="flex flex-col min-h-screen">
