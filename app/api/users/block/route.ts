@@ -36,6 +36,13 @@ export async function POST(req: Request) {
     }
 
     try {
+      // Check if block table exists by attempting to query it
+      const blockTableExists = await db.$queryRaw`SELECT 1 FROM information_schema.tables WHERE table_name = 'block' LIMIT 1`;
+      
+      if (!blockTableExists) {
+        return new NextResponse("Block feature is not available yet", { status: 503 });
+      }
+
       // Check if user is already blocked
       const existingBlock = await db.block.findFirst({
         where: {
@@ -63,11 +70,12 @@ export async function POST(req: Request) {
         return new NextResponse("User blocked successfully", { status: 200 });
       }
     } catch (error) {
+      console.error("[BLOCK_POST]", error);
       // If the error is about the block table not existing
       if (error instanceof Error && error.message.includes("block")) {
         return new NextResponse("Block feature is not available yet", { status: 503 });
       }
-      throw error; // Re-throw other errors
+      return new NextResponse("Internal Error", { status: 500 });
     }
   } catch (error) {
     console.error("[BLOCK_POST]", error);
@@ -91,6 +99,13 @@ export async function GET(req: Request) {
     }
 
     try {
+      // Check if block table exists by attempting to query it
+      const blockTableExists = await db.$queryRaw`SELECT 1 FROM information_schema.tables WHERE table_name = 'block' LIMIT 1`;
+      
+      if (!blockTableExists) {
+        return NextResponse.json({ isBlocked: false });
+      }
+
       // Check if user is blocked
       const isBlocked = await db.block.findFirst({
         where: {
@@ -101,11 +116,12 @@ export async function GET(req: Request) {
 
       return NextResponse.json({ isBlocked: !!isBlocked });
     } catch (error) {
+      console.error("[BLOCK_GET]", error);
       // If the error is about the block table not existing
       if (error instanceof Error && error.message.includes("block")) {
         return NextResponse.json({ isBlocked: false });
       }
-      throw error; // Re-throw other errors
+      return new NextResponse("Internal Error", { status: 500 });
     }
   } catch (error) {
     console.error("[BLOCK_GET]", error);
