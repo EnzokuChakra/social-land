@@ -115,6 +115,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
   const [lastDoubleTapTime, setLastDoubleTapTime] = useState(0);
+  const [showDoubleClickHint, setShowDoubleClickHint] = useState(false);
   
   // Initialize currentPost with expanded likes data
   const [currentPost, setCurrentPost] = useState<PostWithExtras>(() => ({
@@ -132,6 +133,18 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     comments: post.comments || [],
     tags: post.tags || []
   }));
+
+  // Show double-click hint animation on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowDoubleClickHint(true);
+      setTimeout(() => {
+        setShowDoubleClickHint(false);
+      }, 1500);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     setIsOpen(true);
@@ -547,6 +560,11 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                   <Heart className="h-24 w-24 text-red-500 fill-red-500 animate-float-heart" />
                 </div>
               )}
+              {showDoubleClickHint && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                  <Heart className="h-24 w-24 text-white/80 animate-double-click-hint" />
+                </div>
+              )}
             </div>
 
             {/* Content Section */}
@@ -645,7 +663,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                   {comments.map((comment) => (
                     <Comment
                       key={`${comment.id}-${comment.createdAt}`}
-                      comment={comment} 
+                      comment={comment}
                       replies={comment.replies}
                       inputRef={inputRef}
                       postUserId={post.user.id}
@@ -674,7 +692,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                     />
                   ))}
 
-                  {hasMore && (
+                  {comments.length >= 10 && hasMore && (
                     <button
                       onClick={fetchMoreComments}
                       disabled={isLoadingComments}
@@ -722,6 +740,11 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                 {showHeartAnimation && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Heart className="h-24 w-24 text-red-500 fill-red-500 animate-float-heart" />
+                  </div>
+                )}
+                {showDoubleClickHint && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                    <Heart className="h-24 w-24 text-white/80 animate-double-click-hint" />
                   </div>
                 )}
               </div>
@@ -863,7 +886,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                       />
                     ))}
 
-                    {hasMore && (
+                    {comments.length >= 10 && hasMore && (
                       <button
                         onClick={fetchMoreComments}
                         disabled={isLoadingComments}

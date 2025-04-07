@@ -78,13 +78,22 @@ const config: Config = {
           "15%": { transform: "scale(1.5) translateY(0)", opacity: "1" },
           "30%": { transform: "scale(1) translateY(0)", opacity: "1" },
           "100%": { transform: "scale(1) translateY(-100px)", opacity: "0" }
+        },
+        "double-click-hint": {
+          "0%": { transform: "scale(1)", opacity: "0" },
+          "20%": { transform: "scale(1.2)", opacity: "0.5" },
+          "40%": { transform: "scale(0.9)", opacity: "0.3" },
+          "60%": { transform: "scale(1.2)", opacity: "0.5" },
+          "80%": { transform: "scale(0.9)", opacity: "0.3" },
+          "100%": { transform: "scale(1)", opacity: "0" }
         }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "scale-up": "scale-up 1s ease-out forwards",
-        "float-heart": "float-heart 1s cubic-bezier(0.4, 0, 0.2, 1) forwards"
+        "float-heart": "float-heart 1s cubic-bezier(0.4, 0, 0.2, 1) forwards",
+        "double-click-hint": "double-click-hint 2s ease-in-out"
       },
     },
   },

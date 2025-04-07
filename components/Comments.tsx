@@ -148,6 +148,9 @@ function Comments({
 
   // Fetch initial comment count
   const fetchCommentCount = async () => {
+    // Don't fetch if showPreview is false
+    if (!showPreview && !isPostPage) return { comments: [], totalComments: 0, hasMore: false };
+
     try {
       const response = await fetch(`/api/posts/${postId}/comments?page=1&limit=10`, {
         credentials: 'include',
