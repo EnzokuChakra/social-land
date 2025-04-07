@@ -10,6 +10,8 @@ import MobileBottomNav from "@/components/MobileBottomNav";
 import { memo } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from 'next-auth/react';
+import GameFrameScrollFix from "@/components/GameFrameScrollFix";
+import { isInIframe } from "@/lib/api-client";
 
 // Paths where bottom nav should be hidden
 const hiddenPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
@@ -58,9 +60,9 @@ export default function BodyContent({ children }: { children: React.ReactNode })
   useEffect(() => {
     // Debug code for iframe detection
     try {
-      const isInIframe = window !== window.parent;
+      const isFramed = isInIframe();
       console.log('[DEBUG] Page environment check:', {
-        isInIframe,
+        isInIframe: isFramed,
         sessionStatus: status,
         isAuthenticated: !!session,
         userId: session?.user?.id,
@@ -82,7 +84,7 @@ export default function BodyContent({ children }: { children: React.ReactNode })
       };
 
       // Check for access to cookies
-      if (isInIframe) {
+      if (isFramed) {
         console.log('[DEBUG] Running in iframe mode, testing cookie access');
         try {
           document.cookie = "iframe_test=1; path=/; SameSite=None; Secure";
@@ -102,6 +104,7 @@ export default function BodyContent({ children }: { children: React.ReactNode })
 
   return (
     <Suspense fallback={null}>
+      <GameFrameScrollFix />
       <Providers>
         <ThemeProvider
           attribute="class"

@@ -8,6 +8,7 @@
     -moz-user-select: none; /* Firefox */
     -ms-user-select: none; /* IE10+/Edge */
     user-select: none; /* Standard */
+    box-sizing: border-box;
   }
 
   /* Allow text selection in specific elements */
@@ -25,6 +26,15 @@
     -moz-user-drag: none;
     -o-user-drag: none;
     user-drag: none;
+  }
+
+  /* Ensure html and body can scroll properly in iframes */
+  html, body {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
   }
 
   :root {
@@ -235,4 +245,18 @@
 
 .react-calendar--selectRange .react-calendar__tile--hover {
   background: none;
+}
+
+/* Fixed position elements should use viewport units for iframes */
+.fixed {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 50;
+}
+
+/* For elements that need to be scrollable */
+.scrollable {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
