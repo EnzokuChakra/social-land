@@ -1,7 +1,7 @@
 "use client";
 
 import { bookmarkPost } from "@/lib/actions";
-import { PostWithExtras, SavedPost, User } from "@/lib/definitions";
+import { PostWithExtras, SavedPost, User, UserRole } from "@/lib/definitions";
 import { cn } from "@/lib/utils";
 import ActionIcon from "@/components/ActionIcon";
 import { Bookmark } from "lucide-react";
@@ -34,23 +34,13 @@ function BookmarkButton({ post, userId, onBookmarkUpdate }: Props) {
   );
 
   const handleBookmark = useCallback(async () => {
-    // Clear any existing timeout
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
 
-    // If already pending, ignore the click
     if (isPending) {
       return;
     }
-
-    console.log('BookmarkButton - Initial state:', {
-      isBookmarked,
-      savedBy: post.savedBy,
-      optimisticBookmarks,
-      userId,
-      postId: post.id
-    });
 
     if (!userId) {
       toast.error("You must be logged in to bookmark posts");
@@ -61,74 +51,99 @@ function BookmarkButton({ post, userId, onBookmarkUpdate }: Props) {
     const currentState = [...post.savedBy];
     const willBeBookmarked = !isBookmarked;
     
-    console.log('BookmarkButton - Before optimistic update:', {
-      willBeBookmarked,
-      currentState,
-      isBookmarked
-    });
-    
     // Optimistically update the UI within a transition
     startTransition(() => {
-      const newBookmark = { 
+      const newBookmark: SavedPost & { user: User } = { 
         postId: post.id, 
         user_id: userId,
         id: Date.now().toString(),
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        user: {
+          id: userId,
+          username: '',
+          name: '',
+          email: '',
+          password: null,
+          image: '',
+          bio: null,
+          isFollowing: false,
+          hasPendingRequest: false,
+          isPrivate: false,
+          verified: false,
+          role: UserRole.USER,
+          status: 'NORMAL',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          posts: [],
+          saved: [],
+          followers: [],
+          following: [],
+          stories: []
+        }
       };
+      
+      const newBookmarks = willBeBookmarked 
+        ? [...currentState, newBookmark]
+        : currentState.filter(bookmark => bookmark.user_id !== userId);
+      
       addOptimisticBookmark(newBookmark);
       
-      // Call onBookmarkUpdate with the new state
       if (onBookmarkUpdate) {
-        const newBookmarks = isBookmarked 
-          ? currentState.filter(bookmark => bookmark.user_id !== userId)
-          : [...currentState, newBookmark];
         onBookmarkUpdate(newBookmarks);
       }
-    });
-    
-    console.log('BookmarkButton - After optimistic update:', {
-      optimisticBookmarks,
-      isBookmarked
     });
     
     try {
       const formData = new FormData();
       formData.append("postId", post.id);
       await bookmarkPost(formData.get("postId") as string);
-      const isCurrentlyBookmarked = optimisticBookmarks.some(predicate);
-      console.log('BookmarkButton - After successful bookmark:', {
-        willBeBookmarked,
-        isBookmarked,
-        isCurrentlyBookmarked,
-        optimisticBookmarks
-      });
-      // Inverted the messages to match the visual state
-      toast.success(isCurrentlyBookmarked ? "Post unsaved" : "Post saved");
+      toast.success(willBeBookmarked ? "Post saved" : "Post unsaved");
     } catch (error) {
       console.error('BookmarkButton - Error:', error);
       toast.error("Something went wrong");
       // Revert to the original state on error
       startTransition(() => {
-        addOptimisticBookmark(currentState[0] || { 
+        const revertedBookmark: SavedPost & { user: User } = { 
           postId: post.id, 
           user_id: userId,
           id: Date.now().toString(),
           createdAt: new Date(),
-          updatedAt: new Date()
-        });
-        // Revert the bookmark update
+          updatedAt: new Date(),
+          user: {
+            id: userId,
+            username: '',
+            name: '',
+            email: '',
+            password: null,
+            image: '',
+            bio: null,
+            isFollowing: false,
+            hasPendingRequest: false,
+            isPrivate: false,
+            verified: false,
+            role: UserRole.USER,
+            status: 'NORMAL',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            posts: [],
+            saved: [],
+            followers: [],
+            following: [],
+            stories: []
+          }
+        };
+        addOptimisticBookmark(revertedBookmark);
         if (onBookmarkUpdate) {
           onBookmarkUpdate(currentState);
         }
       });
     } finally {
-      // Set a timeout to re-enable the button after 500ms
       timeoutRef.current = setTimeout(() => {
         setIsPending(false);
       }, 500);
     }
-  }, [isBookmarked, post.savedBy, optimisticBookmarks, userId, post.id, isPending, onBookmarkUpdate]);
+  }, [isBookmarked, post.savedBy, userId, post.id, isPending, onBookmarkUpdate]);
 
   return (
     <div className="ml-auto">

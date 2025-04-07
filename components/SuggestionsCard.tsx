@@ -24,7 +24,7 @@ export default function SuggestionsCard({ users }: SuggestionsCardProps) {
   return (
     <>
       <div 
-        className="bg-white/20 dark:bg-black/20 rounded-xl backdrop-blur-sm border border-neutral-200 dark:border-neutral-800 overflow-hidden p-5 transition-all duration-300 ease-in-out hover:bg-white/30 dark:hover:bg-black/30"
+        className="bg-white/20 dark:bg-black/20 rounded-xl /*backdrop-blur-sm*/ border border-neutral-200 dark:border-neutral-800 overflow-hidden p-5 transition-all duration-300 ease-in-out hover:bg-white/30 dark:hover:bg-black/30"
         suppressHydrationWarning
       >
         <div 

@@ -238,20 +238,18 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
 
   // Update currentPost when post prop changes
   useEffect(() => {
-    const newLikes = post.likes.map(like => ({
-      ...like,
-      user: {
-        ...like.user,
-        isFollowing: like.user.isFollowing || false,
-        hasPendingRequest: like.user.hasPendingRequest || false,
-        isPrivate: like.user.isPrivate || false
-      }
-    }));
-
     setCurrentPost(prevPost => ({
       ...prevPost,
       ...post,
-      likes: newLikes,
+      likes: post.likes.map(like => ({
+        ...like,
+        user: {
+          ...like.user,
+          isFollowing: like.user.isFollowing || false,
+          hasPendingRequest: like.user.hasPendingRequest || false,
+          isPrivate: like.user.isPrivate || false
+        }
+      })),
       savedBy: post.savedBy || prevPost.savedBy,
       comments: post.comments || prevPost.comments,
       tags: post.tags || prevPost.tags
@@ -509,10 +507,22 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   };
 
   const handleBookmarkUpdate = useCallback((savedBy: (SavedPost & { user: User })[]) => {
-    setCurrentPost(prev => ({
-      ...prev,
-      savedBy
-    }));
+    setCurrentPost(prev => {
+      const updatedSavedBy = savedBy.map(bookmark => ({
+        ...bookmark,
+        user: {
+          ...bookmark.user,
+          isFollowing: bookmark.user.isFollowing || false,
+          hasPendingRequest: bookmark.user.hasPendingRequest || false,
+          isPrivate: bookmark.user.isPrivate || false
+        }
+      }));
+
+      return {
+        ...prev,
+        savedBy: updatedSavedBy
+      };
+    });
   }, []);
 
   if (!mount) return null;

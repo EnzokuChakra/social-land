@@ -172,7 +172,7 @@ export default function CreateEventButton() {
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-3xl w-[95%] max-h-[90vh] overflow-y-auto p-0 gap-0 dark:bg-[#000000] bg-white dark:border-neutral-800 border-neutral-200">
-        <DialogHeader className="sticky top-0 z-10 dark:bg-black/80 bg-white/80 backdrop-blur-sm px-6 py-4 dark:border-neutral-800 border-neutral-200 border-b">
+        <DialogHeader className="sticky top-0 z-10 dark:bg-black/80 bg-white/80 /*backdrop-blur-sm*/ px-6 py-4 dark:border-neutral-800 border-neutral-200 border-b">
           <DialogTitle className="text-xl font-semibold dark:text-white text-neutral-900">Create Event</DialogTitle>
         </DialogHeader>
         <div className="px-6 py-6 dark:bg-black bg-white">

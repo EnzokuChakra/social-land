@@ -47,7 +47,7 @@ const suggestedReels = [
 
 export default function ReelsSidebar() {
   return (
-    <div className="w-80 border-l border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="w-80 border-l border-border/40 bg-background/95 /*backdrop-blur supports-[backdrop-filter]:bg-background/60*/">
       <ScrollArea className="h-full">
         <div className="p-4 space-y-6">
           {/* Trending Hashtags */}
