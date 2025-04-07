@@ -28,7 +28,6 @@ export default async function RootLayout({
           as="style"
         />
         <script src="/debug-script.js" defer></script>
-        <script src="/ragemp-scroll-fix.js" defer></script>
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <SessionProvider>
