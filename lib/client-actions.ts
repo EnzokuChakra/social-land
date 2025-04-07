@@ -17,6 +17,7 @@ export async function getNotificationsClient(): Promise<NotificationResponse> {
     const data = await apiClient<NotificationResponse>('/api/notifications');
     return data;
   } catch (error) {
+    console.error('[getNotificationsClient] Error:', error);
     return { notifications: [], followRequests: [] };
   }
 } 

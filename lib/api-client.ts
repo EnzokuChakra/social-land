@@ -53,6 +53,16 @@ export async function apiClient<T = any>(url: string, options: ApiOptions = {}):
     }
   };
 
+  // Add special handling for iframe context
+  if (isInIframe()) {
+    // Ensure SameSite=None for iframe contexts
+    if (document.cookie) {
+      console.log('[API Client] Using cookies in iframe context');
+    } else {
+      console.log('[API Client] No cookies available in iframe context');
+    }
+  }
+
   // For POST, PUT, PATCH requests with a body
   if (mergedOptions.body && 
       ['POST', 'PUT', 'PATCH'].includes(mergedOptions.method || '') && 
@@ -61,6 +71,7 @@ export async function apiClient<T = any>(url: string, options: ApiOptions = {}):
   }
 
   try {
+    console.log(`[API Client] ${mergedOptions.method} ${url}`);
     const response = await fetch(url, mergedOptions as RequestInit);
     
     // Handle non-JSON responses
@@ -83,6 +94,7 @@ export async function apiClient<T = any>(url: string, options: ApiOptions = {}):
       return response as unknown as T;
     }
   } catch (error) {
+    console.error(`[API Client] Error fetching ${url}:`, error);
     throw error;
   }
 } 

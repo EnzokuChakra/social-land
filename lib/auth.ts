@@ -136,6 +136,12 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user }) {
+      console.log('[AUTH DEBUG] JWT callback', { 
+        hasUser: !!user, 
+        userId: user?.id || token?.id,
+        tokenBefore: JSON.stringify(token)
+      });
+      
       if (user) {
         // Only include necessary user data in the JWT
         token.id = user.id;
@@ -155,6 +161,12 @@ export const authOptions: NextAuthOptions = {
         } else {
           token.status = user.status || 'NORMAL';
         }
+        
+        console.log('[AUTH DEBUG] JWT updated with user data', { 
+          userId: user.id,
+          role: user.role,
+          status: token.status
+        });
       } else if (token?.id) {
         // Check user status on every token refresh
         if (db) {
@@ -164,10 +176,21 @@ export const authOptions: NextAuthOptions = {
           });
           token.status = user?.status || token.status;
         }
+        
+        console.log('[AUTH DEBUG] JWT refreshed', { 
+          userId: token.id,
+          status: token.status
+        });
       }
       return token;
     },
     async session({ session, token }) {
+      console.log('[AUTH DEBUG] Session callback', { 
+        hasToken: !!token,
+        tokenId: token?.id,
+        sessionBefore: JSON.stringify(session)
+      });
+      
       if (token) {
         // Only include necessary user data in the session
         // @ts-ignore - We know these properties exist in our implementation
@@ -187,10 +210,21 @@ export const authOptions: NextAuthOptions = {
           // @ts-ignore - We know this property exists in our implementation
           session.user.isBanned = true;
         }
+        
+        console.log('[AUTH DEBUG] Session updated with token data', { 
+          userId: token.id,
+          role: token.role, 
+          status: token.status
+        });
       }
       return session;
     },
     async signIn({ user, account }) {
+      console.log('[AUTH DEBUG] SignIn callback', { 
+        userId: user?.id,
+        provider: account?.provider
+      });
+      
       // Check if user is banned before allowing sign in
       if (db && user.id) {
         const userStatus = await db.user.findUnique({
@@ -199,10 +233,12 @@ export const authOptions: NextAuthOptions = {
         });
 
         if (userStatus?.status === "BANNED") {
+          console.log('[AUTH DEBUG] SignIn rejected - user banned', { userId: user.id });
           throw new Error("Your account has been banned for violating our community guidelines.");
         }
       }
 
+      console.log('[AUTH DEBUG] SignIn successful', { userId: user.id });
       return true;
     }
   },
@@ -240,10 +276,10 @@ export const authOptions: NextAuthOptions = {
   },
   events: {
     async signIn({ user }) {
-      // User signed in
+      console.log('[AUTH DEBUG] User signed in event:', { userId: user.id, timestamp: new Date().toISOString() });
     },
     async signOut({ session }) {
-      // User signed out
+      console.log('[AUTH DEBUG] User signed out event:', { userId: session?.user?.id, timestamp: new Date().toISOString() });
     }
   }
 };

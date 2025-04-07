@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getNotifications } from '@/lib/actions';
 import { getToken } from 'next-auth/jwt';
 
 // API route to fetch notifications
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
   try {
     // Check authentication
     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
     // Return the notifications
     return NextResponse.json({ notifications, followRequests });
   } catch (error) {
+    console.error('[API] Notifications fetch error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch notifications' },
       { status: 500 }

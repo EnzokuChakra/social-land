@@ -34,10 +34,24 @@ export default function LoginForm() {
     try {
       setLoading(true);
 
+      console.log('[LOGIN DEBUG] Starting login process', { 
+        email: data.email, 
+        callbackUrl,
+        isIframe: window !== window.parent,
+        userAgent: navigator.userAgent,
+        cookiesEnabled: navigator.cookieEnabled
+      });
+
       const res = await signIn("credentials", {
         redirect: false,
         email: data.email,
         password: data.password,
+      });
+
+      console.log('[LOGIN DEBUG] Sign in response', { 
+        success: !res?.error, 
+        error: res?.error,
+        url: res?.url
       });
 
       if (res?.error) {
@@ -45,9 +59,11 @@ export default function LoginForm() {
         return;
       }
 
+      console.log('[LOGIN DEBUG] Login successful, redirecting to', callbackUrl);
       router.push(callbackUrl);
       router.refresh();
     } catch (error) {
+      console.error('[LOGIN DEBUG] Login error:', error);
       toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(false);

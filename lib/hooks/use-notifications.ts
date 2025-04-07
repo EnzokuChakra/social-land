@@ -86,6 +86,7 @@ export function useNotifications() {
         }
       } catch (err) {
         if (mounted) {
+          console.error('[useNotifications] Error fetching:', err);
           setError(err as Error);
         }
       } finally {
@@ -123,6 +124,7 @@ export function useNotifications() {
       setNotifications(newNotifications);
       setError(null);
     } catch (err) {
+      console.error('[useNotifications] Error refetching:', err);
       setError(err as Error);
     } finally {
       setIsLoading(false);
