@@ -27,7 +27,6 @@ export default async function RootLayout({
           href="/_next/static/css/app/layout.css"
           as="style"
         />
-        <script src="/debug-script.js" defer></script>
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <SessionProvider>

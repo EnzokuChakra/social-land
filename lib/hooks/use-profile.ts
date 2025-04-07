@@ -16,7 +16,6 @@ async function fetchProfile(username: string): Promise<ProfileResponse> {
   try {
     return await apiClient<ProfileResponse>(`/api/profile/${username}`);
   } catch (error) {
-    console.error('Error fetching profile data:', error);
     throw new Error('Failed to fetch profile');
   }
 }
@@ -25,7 +24,6 @@ async function fetchFollowStatus(userId: string): Promise<FollowStatusResponse> 
   try {
     return await apiClient<FollowStatusResponse>(`/api/users/follow/status?userId=${userId}`);
   } catch (error) {
-    console.error('Error fetching follow status:', error);
     throw new Error('Failed to fetch follow status');
   }
 }
