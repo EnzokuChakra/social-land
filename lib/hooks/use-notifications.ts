@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { NotificationWithExtras, NotificationType } from "@/lib/definitions";
-import { getNotifications } from '@/lib/actions';
+import { getNotificationsClient } from '@/lib/client-actions';
 import { JsonValue } from '@prisma/client/runtime/library';
 import { useSessionAuth } from './use-session-auth';
 
@@ -77,7 +77,7 @@ export function useNotifications() {
       }
 
       try {
-        const { notifications: newNotifications, followRequests: newFollowRequests } = await getNotifications();
+        const { notifications: newNotifications, followRequests: newFollowRequests } = await getNotificationsClient();
         
         if (mounted) {
           setFollowRequests(newFollowRequests);
@@ -118,7 +118,7 @@ export function useNotifications() {
 
     setIsLoading(true);
     try {
-      const { notifications: newNotifications, followRequests: newFollowRequests } = await getNotifications();
+      const { notifications: newNotifications, followRequests: newFollowRequests } = await getNotificationsClient();
 
       setFollowRequests(newFollowRequests);
       setNotifications(newNotifications);
