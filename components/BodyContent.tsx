@@ -8,6 +8,10 @@ import EditProfileModal from "@/components/modals/EditProfileModal";
 import { Suspense } from "react";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import { memo } from "react";
+import { usePathname } from "next/navigation";
+
+// Paths where bottom nav should be hidden
+const hiddenPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
 
 // Memoize child components that don't need frequent updates
 const MemoizedToaster = memo(() => (
@@ -21,11 +25,28 @@ const MemoizedToaster = memo(() => (
 ));
 MemoizedToaster.displayName = "MemoizedToaster";
 
+// Separate bottom nav component with proper path checking
+const BottomNavComponent = memo(() => {
+  const pathname = usePathname();
+  
+  // More strict check to handle path variations
+  if (!pathname) return null;
+  
+  // Check if the current path is in hidden paths or starts with any of them
+  const shouldHide = hiddenPaths.some(path => 
+    pathname === path || pathname.startsWith(`${path}/`)
+  );
+  
+  if (shouldHide) return null;
+  
+  return <MobileBottomNav />;
+});
+BottomNavComponent.displayName = "BottomNavComponent";
+
 const MemoizedModals = memo(() => (
   <>
     <StoryModal />
     <EditProfileModal />
-    <MobileBottomNav />
   </>
 ));
 MemoizedModals.displayName = "MemoizedModals";
@@ -47,6 +68,7 @@ export default function BodyContent({ children }: { children: React.ReactNode })
           <MemoizedToaster />
           <Suspense fallback={null}>
             <MemoizedModals />
+            <BottomNavComponent />
           </Suspense>
         </ThemeProvider>
       </Providers>

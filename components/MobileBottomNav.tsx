@@ -50,6 +50,29 @@ const navigation = [
 // Add paths where bottom nav should be hidden
 const hiddenPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
 
+const LinkComponent = ({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) => {
+  const pathname = usePathname();
+  const normalizedPathname = pathname?.endsWith('/') ? pathname.slice(0, -1) : pathname;
+  const isActive = href === "/dashboard" 
+    ? normalizedPathname === "/dashboard" || normalizedPathname === ""
+    : pathname?.startsWith(href);
+  
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "flex items-center justify-center p-2 rounded-lg transition-all",
+        isActive
+          ? "text-black dark:text-white"
+          : "text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white",
+        className
+      )}
+    >
+      {children}
+    </Link>
+  );
+};
+
 export default function MobileBottomNav() {
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -58,16 +81,16 @@ export default function MobileBottomNav() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
+  // More strict check to handle path variations
+  if (!pathname) return null;
+  
+  // Check if the current path is in hidden paths or starts with any of them
+  const shouldHide = hiddenPaths.some(path => 
+    pathname === path || pathname.startsWith(`${path}/`)
+  );
+  
   // Hide on non-mobile devices and auth pages
-  if (!isMobile || hiddenPaths.includes(pathname)) return null;
-
-  const isActive = (href: string) => {
-    // Special case for home page
-    if (href === "/dashboard") {
-      return pathname === "/dashboard" || pathname === "/";
-    }
-    return pathname.startsWith(href);
-  };
+  if (!isMobile || shouldHide) return null;
 
   const handleNavigationClick = (e: React.MouseEvent, item: typeof navigation[0]) => {
     if (item.name === "Search") {
@@ -87,40 +110,41 @@ export default function MobileBottomNav() {
     <>
       <nav className="fixed bottom-0 left-0 right-0 z-[200] flex h-14 items-center justify-around border-t border-neutral-200 bg-white dark:border-neutral-800 dark:bg-black md:hidden">
         {navigation.map((item) => {
-          const active = isActive(item.href);
+          const normalizedPathname = pathname?.endsWith('/') ? pathname.slice(0, -1) : pathname;
+          const active = item.href === "/dashboard"
+            ? normalizedPathname === "/dashboard" || normalizedPathname === ""
+            : pathname?.startsWith(item.href);
           const isSearch = item.name === "Search";
           const isNotifications = item.name === "Notifications";
 
           return (
-            <Link
+            <LinkComponent
               key={item.name}
               href={item.href}
-              onClick={(e) => handleNavigationClick(e, item)}
               className={cn(
                 "flex items-center justify-center p-2 rounded-lg transition-all",
                 active
                   ? "text-black dark:text-white"
                   : "text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white"
               )}
-              aria-current={active ? "page" : undefined}
             >
               <item.icon className={cn("h-6 w-6", active && "scale-110")} />
-            </Link>
+            </LinkComponent>
           );
         })}
         
         {session?.user && (
-          <Link
+          <LinkComponent
             href={`/dashboard/${session.user.username}`}
             className={cn(
               "flex items-center justify-center p-2 rounded-lg transition-all",
-              isActive(`/dashboard/${session.user.username}`)
+              pathname === `/dashboard/${session.user.username}`
                 ? "text-black dark:text-white"
                 : "text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white"
             )}
           >
-            <UserIcon className={cn("h-6 w-6", isActive(`/dashboard/${session.user.username}`) && "scale-110")} />
-          </Link>
+            <UserIcon className={cn("h-6 w-6", pathname === `/dashboard/${session.user.username}` && "scale-110")} />
+          </LinkComponent>
         )}
       </nav>
 

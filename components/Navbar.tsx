@@ -433,7 +433,8 @@ export default function Navbar() {
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex h-full w-[240px] flex-col bg-white dark:bg-black border-r border-neutral-200 dark:border-neutral-800 transition-all duration-300 ease-in-out",
           isCollapsed && "w-[72px]",
-          isMobile ? "hidden" : "flex" // Show on desktop, hide on mobile
+          "max-md:hidden", // Hide on mobile using CSS, not relying on JS
+          isMobile ? "hidden" : "flex" // Additional JS-based toggle for client-side
         )}
       >
         {/* Collapse Toggle Button */}
@@ -475,7 +476,9 @@ export default function Navbar() {
                 "w-full flex items-center gap-4 py-3",
                 "transition-all duration-200",
                 "hover:bg-neutral-100 dark:hover:bg-neutral-800/50",
-                pathname === route.href && "bg-neutral-100 dark:bg-neutral-800/50 font-medium",
+                ((route.href === "/dashboard" && (pathname === "/dashboard" || pathname === "/")) || 
+                (route.href !== "/dashboard" && pathname?.startsWith(route.href))) && 
+                "bg-neutral-100 dark:bg-neutral-800/50 font-medium",
                 isCollapsed ? "justify-center px-3" : "justify-start px-4"
               )}
             >

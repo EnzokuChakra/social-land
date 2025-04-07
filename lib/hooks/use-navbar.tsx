@@ -13,7 +13,7 @@ const NavbarContext = createContext<NavbarContextType | null>(null);
 
 export function NavbarProvider({ children }: { children: React.ReactNode }) {
   const isMobile = useMediaQuery("(max-width: 768px)");
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export function NavbarProvider({ children }: { children: React.ReactNode }) {
     setIsCollapsed(isMobile);
   }, [isMobile]);
 
-  const navbarWidth = mounted ? (isMobile ? "0px" : isCollapsed ? "88px" : "245px") : "245px";
+  const navbarWidth = mounted ? (isMobile ? "0px" : isCollapsed ? "88px" : "245px") : "0px";
 
   return (
     <NavbarContext.Provider value={{ isCollapsed, setIsCollapsed, navbarWidth }}>

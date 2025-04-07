@@ -5,8 +5,22 @@ import { usePathname } from "next/navigation";
 import { Home, Search, PlusSquare, Heart, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// Add paths where bottom nav should be hidden
+const hiddenPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
+
 export default function MobileNavbar() {
   const pathname = usePathname();
+  
+  // More strict check to handle path variations
+  if (!pathname) return null;
+  
+  // Check if the current path is in hidden paths or starts with any of them
+  const shouldHide = hiddenPaths.some(path => 
+    pathname === path || pathname.startsWith(`${path}/`)
+  );
+  
+  // Hide on auth pages
+  if (shouldHide) return null;
   
   const isActive = (path: string) => {
     if (path === "/" && pathname !== "/") return false;
