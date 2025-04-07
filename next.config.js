@@ -100,7 +100,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "frame-ancestors 'self' https: http: ws: wss:; default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; connect-src 'self' ws: wss: localhost:5002 ws://localhost:5002 wss://localhost:5002;"
+            value: "frame-ancestors 'self' https://social-land.ro http://social-land.ro https://*.social-land.ro http://*.social-land.ro *; default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; connect-src 'self' ws: wss: localhost:5002 ws://localhost:5002 wss://localhost:5002;"
           },
           {
             key: 'Access-Control-Allow-Origin',
