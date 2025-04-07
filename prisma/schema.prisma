@@ -342,35 +342,36 @@ model storyReport {
 }
 
 model user {
-  id        String   @id
-  name      String?
-  email     String   @unique(map: "User_email_key")
-  emailVerified DateTime?
-  image     String?
-  username  String?  @unique(map: "User_username_key")
-  bio       String?  @db.Text
-  verified  Boolean  @default(false)
-  isPrivate Boolean  @default(false)
-  role      String   @default("USER")
-  status    String   @default("NORMAL")
-  password  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime
+  id              String    @id @default(cuid())
+  name            String?
+  username        String?   @unique
+  bio             String?
+  email           String?   @unique
+  emailVerified   DateTime?
+  image           String?
+  password        String?
+  accounts        account[]
+  sessions        session[]
+  posts           post[]
+  savedPosts      savedpost[]
+  likes           like[]
+  comments        comment[]
+  stories         story[]
+  reels            reel[]
+  followers       follows[] @relation("following")
+  following       follows[] @relation("follower")
+  notifications   notification[]
+  verified        Boolean   @default(false)
+  isPrivate       Boolean   @default(false)
+  role            String    @default("USER")
+  status          String    @default("NORMAL")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  resetToken      String?
+  resetTokenExpiry DateTime?
   lastUsernameChange DateTime?
 
   // Relations
-  accounts      account[]
-  sessions      session[]
-  posts         post[]
-  savedPosts    savedpost[]
-  likes         like[]
-  comments      comment[]
-  stories       story[]
-  reels         reel[]
-  followers     follows[]  @relation("Following")
-  following     follows[]  @relation("Followers")
-  notifications notification[] @relation("UserNotifications")
-  sentNotifications notification[] @relation("SentNotifications")
   postTags      posttag[]
   recentSearches recentsearch[]
   reports       report[]

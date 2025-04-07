@@ -170,6 +170,14 @@ export default function LoginPage() {
                       />
                     </FormControl>
                     <FormMessage />
+                    <div className="text-sm">
+                      <Link
+                        href="/reset-password"
+                        className="text-sky-500 hover:text-sky-400 font-medium"
+                      >
+                        Forgot password? Reset now
+                      </Link>
+                    </div>
                   </FormItem>
                 )}
               />
