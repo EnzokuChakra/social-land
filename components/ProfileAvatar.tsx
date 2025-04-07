@@ -283,6 +283,11 @@ function ProfileAvatar({
     return isUnviewed;
   });
 
+  // Show story ring only if:
+  // 1. It's the current user's profile, or
+  // 2. The profile is public and has stories
+  const shouldShowStoryRing = isCurrentUser || (!user.isPrivate && hasStories);
+
   // Update local stories when prop changes
   useEffect(() => {
     setStories(initialStories);
@@ -380,15 +385,15 @@ function ProfileAvatar({
       <div 
         className={cn(
           "relative cursor-pointer",
-          hasStories && !hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-neutral-300 dark:before:bg-neutral-700 before:p-[0.5px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-0.5 before:-top-0.5",
-          hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[0.5px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-0.5 before:-top-0.5"
+          shouldShowStoryRing && hasStories && !hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-neutral-300 dark:before:bg-neutral-700 before:p-[0.5px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-0.5 before:-top-0.5",
+          shouldShowStoryRing && hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[0.5px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-0.5 before:-top-0.5"
         )}
         onClick={handleProfileClick}
         suppressHydrationWarning
       >
         <div className={cn(
           "relative rounded-full overflow-hidden",
-          hasStories && "p-1"
+          shouldShowStoryRing && hasStories && "p-1"
         )}>
           {children}
         </div>
