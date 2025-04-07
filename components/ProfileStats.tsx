@@ -9,6 +9,7 @@ import { useStats } from "@/lib/hooks/use-stats";
 import { CustomLoader } from "@/components/ui/custom-loader";
 import type { ProfileStats } from "@/lib/hooks/use-stats";
 import { UseQueryResult } from "@tanstack/react-query";
+import { useQueryClient } from '@tanstack/react-query';
 
 interface Props {
   profile: UserWithExtras;
@@ -20,12 +21,14 @@ export default function ProfileStats({ profile, isCurrentUser, isFollowing }: Pr
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const { data: stats, isLoading } = useStats(profile.username || null) as UseQueryResult<ProfileStats | null, Error>;
+  const queryClient = useQueryClient();
 
   // Ensure username is not null
   const username = profile.username || '';
 
   const handleModalClose = () => {
-    window.location.reload();
+    // Invalidate the stats query to trigger a refetch
+    queryClient.invalidateQueries({ queryKey: ['profileStats'] });
   };
 
   const StatItem = ({ count, label, onClick, isButton = false }: { 

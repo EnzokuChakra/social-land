@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { useFollowStatus } from "@/lib/hooks/use-follow-status";
 import { CustomLoader } from "@/components/ui/custom-loader";
+import { useQueryClient } from '@tanstack/react-query';
 
 interface FollowButtonProps {
   followingId: string;
@@ -33,6 +34,7 @@ export default function FollowButton({
   onSuccess
 }: FollowButtonProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const { data: session } = useSession();
@@ -65,6 +67,13 @@ export default function FollowButton({
 
     setIsLoading(true);
     try {
+      // Optimistically update the UI
+      setFollowState(prev => ({
+        ...prev,
+        isFollowing: true,
+        hasPendingRequest: false
+      }));
+
       const response = await fetch("/api/users/follow", {
         method: "POST",
         headers: {
@@ -72,39 +81,33 @@ export default function FollowButton({
         },
         body: JSON.stringify({
           followingId,
-          action: followState.isFollowing ? "unfollow" : "follow"
+          action: "follow"
         })
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        // If it's already pending, don't show an error, just update the UI
-        if (data.status === "PENDING") {
-          setFollowState(prev => ({
-            ...prev,
-            isFollowing: false,
-            hasPendingRequest: true
-          }));
-          toast.success("Follow request sent");
-          return;
-        }
+        // Revert optimistic update on error
+        setFollowState(prev => ({
+          ...prev,
+          isFollowing: false,
+          hasPendingRequest: false
+        }));
         throw new Error(data.error || "Failed to follow user");
       }
 
       toast.success(data.status === "ACCEPTED" ? "Following user" : "Follow request sent");
 
-      setFollowState(prev => ({
-        ...prev,
-        isFollowing: data.status === "ACCEPTED",
-        hasPendingRequest: data.status === "PENDING"
-      }));
+      // Invalidate both follow status and profile stats queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['followStatus', followingId] }),
+        queryClient.invalidateQueries({ queryKey: ['profileStats'] })
+      ]);
 
       if (onSuccess) {
         onSuccess(true);
       }
-
-      router.refresh();
     } catch (error) {
       toast.error("Something went wrong");
     } finally {
@@ -139,6 +142,7 @@ export default function FollowButton({
       const data = await response.json();
 
       if (!response.ok) {
+        // Revert optimistic update on error
         setFollowState(prev => ({
           ...prev,
           isFollowing: true,
@@ -149,11 +153,15 @@ export default function FollowButton({
 
       toast.success("Successfully unfollowed user");
 
+      // Invalidate both follow status and profile stats queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['followStatus', followingId] }),
+        queryClient.invalidateQueries({ queryKey: ['profileStats'] })
+      ]);
+
       if (onSuccess) {
         onSuccess(false);
       }
-
-      router.refresh();
     } catch (error) {
       toast.error("Failed to unfollow user");
     } finally {
@@ -197,9 +205,14 @@ export default function FollowButton({
         throw new Error(data.error || "Failed to cancel follow request");
       }
 
+      // Invalidate both follow status and profile stats queries
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['followStatus', followingId] }),
+        queryClient.invalidateQueries({ queryKey: ['profileStats'] })
+      ]);
+
       onSuccess?.(true);
       toast.success("Follow request cancelled");
-      router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to cancel follow request");
       onSuccess?.(false);
