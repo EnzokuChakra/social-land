@@ -204,8 +204,8 @@ export async function middleware(request: NextRequestType) {
 
       // Clone the request to add the session token
       const requestHeaders = new Headers(request.headers);
-      requestHeaders.set('x-auth-token', token?.accessToken || '');
-      requestHeaders.set('x-user-role', token?.role || '');
+      requestHeaders.set('x-auth-token', String(token?.accessToken || ''));
+      requestHeaders.set('x-user-role', String(token?.role || ''));
 
       // Create a new request with the updated headers
       const newRequest = new Request(request.url, {

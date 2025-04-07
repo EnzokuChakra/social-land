@@ -79,6 +79,14 @@ const nextConfig = {
             value: 'on'
           },
           {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload'
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block'
+          },
+          {
             key: 'X-Frame-Options',
             value: 'ALLOWALL'
           },
@@ -89,6 +97,14 @@ const nextConfig = {
           {
             key: 'Referrer-Policy',
             value: 'origin-when-cross-origin'
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors *; default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:;"
+          },
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*'
           },
           {
             key: 'Access-Control-Allow-Methods',
