@@ -137,6 +137,7 @@ function Comments({
   const [hasMore, setHasMore] = useState(false);
   const [totalComments, setTotalComments] = useState(initialComments.length);
   const [comments, setComments] = useState<CommentWithExtras[]>(initialComments);
+  const [replyingTo, setReplyingTo] = useState<{ username: string; commentId: string } | null>(null);
   const commentRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cooldownTime, setCooldownTime] = useState(0);
@@ -565,15 +566,20 @@ function Comments({
         throw new Error(response?.message || "Failed to create comment");
       }
 
-      // Add optimistic comment
-      addOptimisticComment({
-        type: 'add',
-        comment: response.comment
+      // Wrap optimistic update in startTransition
+      startTransition(() => {
+        // Add optimistic comment
+        addOptimisticComment({
+          type: 'add',
+          comment: response.comment
+        });
       });
 
       // Reset form state after success
       form.reset();
-      setReplyingTo(null);
+      if (typeof setReplyingTo === 'function') {
+        setReplyingTo(null);
+      }
 
       // Set cooldown timer for non-verified users
       if (!user.verified) {

@@ -115,7 +115,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
   const [lastDoubleTapTime, setLastDoubleTapTime] = useState(0);
-  const [showDoubleClickHint, setShowDoubleClickHint] = useState(false);
   
   // Initialize currentPost with expanded likes data
   const [currentPost, setCurrentPost] = useState<PostWithExtras>(() => ({
@@ -133,18 +132,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     comments: post.comments || [],
     tags: post.tags || []
   }));
-
-  // Show double-click hint animation on mount
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowDoubleClickHint(true);
-      setTimeout(() => {
-        setShowDoubleClickHint(false);
-      }, 1500);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     setIsOpen(true);
@@ -488,17 +475,23 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     }
     setLastDoubleTapTime(now);
     
-    // Show heart animation
-    setShowHeartAnimation(true);
-    setTimeout(() => setShowHeartAnimation(false), 1000);
+    // Add a small delay to ensure we have the latest like status
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Check if the current user has already liked the post using both currentPost and DOM state
+    const hasUserLiked = currentPost.likes.some(like => like.user_id === user.id);
+    const likeButton = document.querySelector(`button[data-post-id="${currentPost.id}"]`);
+    const isLikedFromDOM = likeButton?.querySelector('.text-red-500.fill-red-500');
+    
+    // Only show heart animation and trigger like if the post is not already liked
+    if (!hasUserLiked && !isLikedFromDOM) {
+      // Show heart animation
+      setShowHeartAnimation(true);
+      setTimeout(() => setShowHeartAnimation(false), 1000);
 
-    // Only trigger like if the post is not already liked
-    const isLiked = currentPost.likes.some(like => like.user_id === user.id);
-    if (!isLiked) {
-      // Find and click the heart button instead of creating a new like action
-      const heartButton = document.querySelector(`button[data-post-id="${post.id}"]`);
-      if (heartButton) {
-        (heartButton as HTMLButtonElement).click();
+      // Find and click the heart button if it's not in a processing state
+      if (likeButton && !likeButton.hasAttribute('disabled')) {
+        (likeButton as HTMLButtonElement).click();
       }
     }
   };
@@ -558,11 +551,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
               {showHeartAnimation && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Heart className="h-24 w-24 text-red-500 fill-red-500 animate-float-heart" />
-                </div>
-              )}
-              {showDoubleClickHint && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                  <Heart className="h-24 w-24 text-white/80 animate-double-click-hint" />
                 </div>
               )}
             </div>
@@ -740,11 +728,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                 {showHeartAnimation && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Heart className="h-24 w-24 text-red-500 fill-red-500 animate-float-heart" />
-                  </div>
-                )}
-                {showDoubleClickHint && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                    <Heart className="h-24 w-24 text-white/80 animate-double-click-hint" />
                   </div>
                 )}
               </div>

@@ -13,7 +13,7 @@ import {
   CompassIcon,
 } from "lucide-react";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import SearchSidebar from "./SearchSidebar";
 import NotificationSidebar from "./NotificationSidebar";
 import { useNotifications } from "@/lib/hooks/use-notifications";
@@ -86,6 +86,12 @@ export default function MobileBottomNav() {
   const { notifications, followRequests } = useNotifications();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Add useEffect to handle mounting state
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // More strict check to handle path variations
   if (!pathname) return null;
@@ -114,7 +120,7 @@ export default function MobileBottomNav() {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 right-0 z-[200] flex h-14 items-center justify-around border-t border-neutral-200 bg-white dark:border-neutral-800 dark:bg-black md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-[200] flex h-14 items-center justify-around border-t border-neutral-200 bg-white dark:border-neutral-800 dark:bg-black md:hidden" suppressHydrationWarning>
         {navigation.map((item) => {
           const normalizedPathname = pathname?.endsWith('/') ? pathname.slice(0, -1) : pathname;
           const active = item.href === "/dashboard"
@@ -140,7 +146,7 @@ export default function MobileBottomNav() {
           );
         })}
         
-        {session?.user && (
+        {mounted && session?.user && (
           <LinkComponent
             href={`/dashboard/${session.user.username}`}
             className={cn(
