@@ -417,7 +417,7 @@ export default function CreateEventButton() {
                 </div>
               </div>
 
-              <div className="sticky bottom-0 z-10 dark:bg-black/80 bg-white/80 backdrop-blur-sm pt-4 pb-4 -mx-6 px-6 dark:border-neutral-800 border-neutral-200 border-t">
+              <div className="sticky bottom-0 z-10 dark:bg-black/80 bg-white/80 /*backdrop-blur-sm*/ pt-4 pb-4 -mx-6 px-6 dark:border-neutral-800 border-neutral-200 border-t">
                 <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Create Event

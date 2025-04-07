@@ -132,7 +132,7 @@ export default function VerifyPage() {
           className="flex flex-col items-center justify-center space-y-6 md:space-y-8 text-center mb-6 md:mb-10"
         >
           <div className="relative">
-            <div className="absolute -inset-4 rounded-full bg-green-500/20 blur-lg"></div>
+            <div className="absolute -inset-4 rounded-full bg-green-500/20 /*blur-lg*/"></div>
             <BadgeCheckIcon className="h-16 w-16 md:h-24 md:w-24 text-green-500 relative" />
           </div>
           <div className="space-y-3 md:space-y-4">
@@ -203,7 +203,7 @@ export default function VerifyPage() {
           className="flex flex-col items-center justify-center space-y-6 md:space-y-8 text-center mb-6 md:mb-10"
         >
           <div className="relative">
-            <div className="absolute -inset-4 rounded-full bg-yellow-500/20 blur-lg"></div>
+            <div className="absolute -inset-4 rounded-full bg-yellow-500/20 /*blur-lg*/"></div>
             <Clock className="h-16 w-16 md:h-24 md:w-24 text-yellow-500 relative" />
           </div>
           <div className="space-y-3 md:space-y-4">
@@ -254,7 +254,7 @@ export default function VerifyPage() {
           className="flex flex-col items-center justify-center space-y-6 md:space-y-8 text-center mb-6 md:mb-10"
         >
           <div className="relative">
-            <div className="absolute -inset-4 rounded-full bg-blue-500/20 blur-lg"></div>
+            <div className="absolute -inset-4 rounded-full bg-blue-500/20 /*blur-lg*/"></div>
             <BadgeCheckIcon className="h-16 w-16 md:h-24 md:w-24 text-blue-500 relative" />
           </div>
           <div className="space-y-3 md:space-y-4">

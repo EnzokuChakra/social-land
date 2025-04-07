@@ -18,7 +18,7 @@ export default function ProfileCard({ profile }: { profile?: UserWithExtras }) {
   // Show loading skeleton while not mounted or no profile
   if (!isMounted || !profile) {
     return (
-      <div className="flex items-center justify-between mb-8 bg-white/20 dark:bg-black/20 rounded-xl backdrop-blur-sm border border-neutral-200 dark:border-neutral-800 p-4">
+      <div className="flex items-center justify-between mb-8 bg-white/20 dark:bg-black/20 rounded-xl /*backdrop-blur-sm*/ border border-neutral-200 dark:border-neutral-800 p-4">
         <div className="flex items-center gap-x-3">
           <div className="h-10 w-10 rounded-full bg-neutral-200 dark:bg-neutral-800 animate-pulse" />
           <div className="flex flex-col gap-y-1">
@@ -32,7 +32,7 @@ export default function ProfileCard({ profile }: { profile?: UserWithExtras }) {
   }
 
   return (
-    <div className="flex items-center justify-between mb-8 bg-white/20 dark:bg-black/20 rounded-xl backdrop-blur-sm border border-neutral-200 dark:border-neutral-800 p-4">
+    <div className="flex items-center justify-between mb-8 bg-white/20 dark:bg-black/20 rounded-xl /*backdrop-blur-sm*/ border border-neutral-200 dark:border-neutral-800 p-4">
       <Link href={`/dashboard/${profile.username}`} className="flex items-center gap-x-3">
         <UserAvatar user={profile} />
         <div className="flex flex-col">

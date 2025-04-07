@@ -29,7 +29,7 @@ function MaintenancePageContent() {
       <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black">
         <div className="flex flex-col items-center gap-4">
           <div className="relative">
-            <div className="absolute inset-0 rounded-full blur-xl bg-blue-500/20" />
+            <div className="absolute inset-0 rounded-full /*blur-xl*/ bg-blue-500/20" />
             <div className="relative animate-spin h-12 w-12 rounded-full border-4 border-blue-500 border-t-transparent" />
           </div>
           <p className="text-sm text-neutral-600 dark:text-neutral-400 animate-pulse">
@@ -49,7 +49,7 @@ function MaintenancePageContent() {
         transition={{ duration: 0.5 }}
       >
         <div className="relative mb-8">
-          <div className="absolute inset-0 rounded-full blur-2xl bg-blue-500/10" />
+          <div className="absolute inset-0 rounded-full /*blur-2xl*/ bg-blue-500/10" />
           <h1 className="relative text-4xl font-bold mb-4">Under Maintenance</h1>
         </div>
         

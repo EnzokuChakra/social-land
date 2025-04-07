@@ -663,9 +663,7 @@ export default function CreateModal({ children }: { children: React.ReactNode })
                             variant="outline"
                             size="icon"
                             className="absolute top-3 left-3 h-9 w-9 rounded-full bg-white/90 dark:bg-black/90 /*backdrop-blur-sm*/ hover:bg-white dark:hover:bg-black border border-neutral-200 dark:border-neutral-800"
-                            onClick={() => {
-                              setState(prev => ({ ...prev, preview: null, file: null }));
-                            }}
+                            onClick={() => setState(prev => ({ ...prev, preview: null, file: null }))}
                           >
                             <X className="h-4 w-4" />
                           </Button>
