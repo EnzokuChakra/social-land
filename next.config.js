@@ -78,14 +78,14 @@ const nextConfig = {
             key: 'X-DNS-Prefetch-Control',
             value: 'on'
           },
-          // {
-          //   key: 'Strict-Transport-Security',
-          //   value: 'max-age=63072000; includeSubDomains; preload'
-          // },
-          // {
-          //   key: 'X-XSS-Protection',
-          //   value: '1; mode=block'
-          // },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload'
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block'
+          },
           {
             key: 'X-Frame-Options',
             value: 'ALLOWALL'
@@ -99,9 +99,13 @@ const nextConfig = {
             value: 'origin-when-cross-origin'
           },
           // {
-          //   key: 'Access-Control-Allow-Origin',
-          //   value: '*'
+          //   key: 'Content-Security-Policy',
+          //   value: "frame-ancestors * http: https:; default-src 'self' 'unsafe-inline' 'unsafe-eval' http: https: data: blob:;"
           // },
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*'
+          },
           {
             key: 'Access-Control-Allow-Methods',
             value: 'GET, POST, PUT, DELETE, OPTIONS'
