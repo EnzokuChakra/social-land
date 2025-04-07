@@ -98,10 +98,10 @@ const nextConfig = {
             key: 'Referrer-Policy',
             value: 'origin-when-cross-origin'
           },
-          {
-            key: 'Content-Security-Policy',
-            value: "frame-ancestors * http: https:; default-src 'self' 'unsafe-inline' 'unsafe-eval' http: https: data: blob:;"
-          },
+          // {
+          //   key: 'Content-Security-Policy',
+          //   value: "frame-ancestors * http: https:; default-src 'self' 'unsafe-inline' 'unsafe-eval' http: https: data: blob:;"
+          // },
           {
             key: 'Access-Control-Allow-Origin',
             value: '*'
