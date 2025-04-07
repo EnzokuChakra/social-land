@@ -115,6 +115,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
   const [lastDoubleTapTime, setLastDoubleTapTime] = useState(0);
+  const [showDoubleClickHint, setShowDoubleClickHint] = useState(false);
   
   // Initialize currentPost with expanded likes data
   const [currentPost, setCurrentPost] = useState<PostWithExtras>(() => ({
@@ -338,6 +339,17 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     };
   }, [isPostModal, mount, id]);
 
+  // Show double-click hint when post is first opened and not liked
+  useEffect(() => {
+    if (user?.id && !currentPost.likes.some(like => like.user_id === user.id)) {
+      setShowDoubleClickHint(true);
+      const timer = setTimeout(() => {
+        setShowDoubleClickHint(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [user?.id, currentPost.likes]);
+
   // Transform comments to include all required fields
   const transformedComments = post.comments.map(comment => ({
     ...comment,
@@ -475,24 +487,24 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     }
     setLastDoubleTapTime(now);
     
-    // Add a small delay to ensure we have the latest like status
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Always show heart animation on double-click
+    setShowHeartAnimation(true);
+    setTimeout(() => setShowHeartAnimation(false), 1000);
     
-    // Check if the current user has already liked the post using both currentPost and DOM state
-    const hasUserLiked = currentPost.likes.some(like => like.user_id === user.id);
-    const likeButton = document.querySelector(`button[data-post-id="${currentPost.id}"]`);
-    const isLikedFromDOM = likeButton?.querySelector('.text-red-500.fill-red-500');
-    
-    // Only show heart animation and trigger like if the post is not already liked
-    if (!hasUserLiked && !isLikedFromDOM) {
-      // Show heart animation
-      setShowHeartAnimation(true);
-      setTimeout(() => setShowHeartAnimation(false), 1000);
+    // Check if post is already liked by the user
+    const isAlreadyLiked = currentPost.likes.some(like => like.user_id === user.id);
+    if (isAlreadyLiked) {
+      return;
+    }
 
-      // Find and click the heart button if it's not in a processing state
+    try {
+      // Find the like button and click it
+      const likeButton = document.querySelector(`button[data-post-id="${currentPost.id}"]`);
       if (likeButton && !likeButton.hasAttribute('disabled')) {
         (likeButton as HTMLButtonElement).click();
       }
+    } catch (error) {
+      // Silently handle error
     }
   };
 
@@ -551,6 +563,18 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
               {showHeartAnimation && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Heart className="h-24 w-24 text-red-500 fill-red-500 animate-float-heart" />
+                </div>
+              )}
+              {showDoubleClickHint && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="relative">
+                      <Heart className="h-16 w-16 text-white/80 animate-pulse" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="h-20 w-20 rounded-full bg-white/10 animate-ping" />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -728,6 +752,18 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                 {showHeartAnimation && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Heart className="h-24 w-24 text-red-500 fill-red-500 animate-float-heart" />
+                  </div>
+                )}
+                {showDoubleClickHint && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="relative">
+                        <Heart className="h-16 w-16 text-white/80 animate-pulse" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="h-20 w-20 rounded-full bg-white/10 animate-ping" />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
