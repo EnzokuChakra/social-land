@@ -86,19 +86,17 @@ model event {
 }
 
 model follows {
-  id          String   @id @default(cuid())
   followerId  String
   followingId String
   status      String   @default("PENDING")
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
-  follower    user @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
-  following   user @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+  follower  user @relation("Following", fields: [followerId], references: [id])
+  following user @relation("Followers", fields: [followingId], references: [id])
 
-  @@unique([followerId, followingId])
-  @@index([followerId])
-  @@index([followingId])
+  @@id([followerId, followingId])
+  @@index([followerId], map: "Follows_followerId_idx")
+  @@index([followingId], map: "Follows_followingId_idx")
 }
 
 model like {
@@ -122,22 +120,28 @@ model like {
 }
 
 model notification {
-  id        String   @id @default(cuid())
+  id        String   @id
+  createdAt DateTime @default(now())
+  type      String
   userId    String
   sender_id String
-  type      String
   postId    String?
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  reelId    String?
+  storyId   String?
+  isRead    Boolean  @default(false)
+  metadata  String?  @db.LongText
 
-  user      user     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
-  sender    user     @relation("SentNotifications", fields: [sender_id], references: [id], onDelete: Cascade)
-  post      post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      user     @relation("UserNotifications", fields: [userId], references: [id])
+  sender    user     @relation("SentNotifications", fields: [sender_id], references: [id])
+  post      post?    @relation(fields: [postId], references: [id])
+  reel      reel?    @relation(fields: [reelId], references: [id])
+  story     story?   @relation(fields: [storyId], references: [id])
 
-  @@index([userId])
-  @@index([sender_id])
-  @@index([postId])
+  @@index([postId], map: "Notification_postId_idx")
+  @@index([reelId], map: "Notification_reelId_idx")
+  @@index([sender_id], map: "Notification_sender_id_idx")
+  @@index([storyId], map: "Notification_storyId_idx")
+  @@index([userId], map: "Notification_userId_idx")
 }
 
 model post {
@@ -338,53 +342,51 @@ model storyReport {
 }
 
 model user {
-  id              String    @id @default(cuid())
-  name            String?
-  username        String?   @unique
-  bio             String?
-  email           String?   @unique
-  emailVerified   DateTime?
-  image           String?
-  password        String?
-  verified        Boolean   @default(false)
-  isPrivate       Boolean   @default(false)
-  role            String    @default("USER")
-  status          String    @default("NORMAL")
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  resetToken      String?
-  resetTokenExpiry DateTime?
+  id        String   @id
+  name      String?
+  email     String   @unique(map: "User_email_key")
+  emailVerified DateTime?
+  image     String?
+  username  String?  @unique(map: "User_username_key")
+  bio       String?  @db.Text
+  verified  Boolean  @default(false)
+  isPrivate Boolean  @default(false)
+  role      String   @default("USER")
+  status    String   @default("NORMAL")
+  password  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime
   lastUsernameChange DateTime?
 
   // Relations
-  accounts        account[]
-  sessions        session[]
-  posts           post[]
-  savedPosts      savedpost[]
-  likes           like[]
-  comments        comment[]
-  stories         story[]
-  reels            reel[]
-  followers       follows[] @relation("Following")
-  following       follows[] @relation("Follower")
-  receivedNotifications notification[] @relation("UserNotifications")
+  accounts      account[]
+  sessions      session[]
+  posts         post[]
+  savedPosts    savedpost[]
+  likes         like[]
+  comments      comment[]
+  stories       story[]
+  reels         reel[]
+  followers     follows[]  @relation("Following")
+  following     follows[]  @relation("Followers")
+  notifications notification[] @relation("UserNotifications")
   sentNotifications notification[] @relation("SentNotifications")
-  postTags        posttag[]
-  recentSearches  recentsearch[]
-  reports         report[]
-  events          event[]
-  reelViews       reelview[]
-  storyViews      storyview[]
-  commentLikes    commentlike[]
+  postTags      posttag[]
+  recentSearches recentsearch[]
+  reports       report[]
+  events        event[]
+  reelViews     reelview[]
+  storyViews    storyview[]
+  commentLikes  commentlike[]
   verificationRequests verificationRequest[]
-  reportedBy      userReport[] @relation("UserReportReporter")
-  reported        userReport[] @relation("UserReportReported")
-  storyReports    storyReport[]
-  blockedBy       block[] @relation("BlockedBy")
-  blockedUsers    block[] @relation("Blocked")
+  reportedBy    userReport[] @relation("UserReportReporter")
+  reported      userReport[] @relation("UserReportReported")
+  storyReports  storyReport[]
+  blockedBy     block[] @relation("BlockedBy")
+  blockedUsers  block[] @relation("Blocked")
 
-  @@index([email])
-  @@index([username])
+  @@index([email], map: "User_email_idx")
+  @@index([username], map: "User_username_idx")
 }
 
 model verificationRequest {
