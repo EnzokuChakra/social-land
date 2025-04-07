@@ -13,7 +13,6 @@ const nextConfig = {
     minimumCacheTTL: 31536000, // Cache for 1 year
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
-    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   webpack: (config, { dev, isServer }) => {
     // Exclude problematic files from webpack processing
@@ -100,8 +99,12 @@ const nextConfig = {
             value: 'origin-when-cross-origin'
           },
           {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors *; default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:;"
+          },
+          {
             key: 'Access-Control-Allow-Origin',
-            value: 'https://social-land.ro'
+            value: '*'
           },
           {
             key: 'Access-Control-Allow-Methods',
@@ -118,7 +121,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
-            value: 'https://social-land.ro'
+            value: '*'
           },
           {
             key: 'Access-Control-Allow-Methods',
