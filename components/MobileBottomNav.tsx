@@ -50,7 +50,12 @@ const navigation = [
 // Add paths where bottom nav should be hidden
 const hiddenPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
 
-const LinkComponent = ({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) => {
+const LinkComponent = ({ href, children, className, onClick }: { 
+  href: string; 
+  children: React.ReactNode; 
+  className?: string;
+  onClick?: (e: React.MouseEvent) => void;
+}) => {
   const pathname = usePathname();
   const normalizedPathname = pathname?.endsWith('/') ? pathname.slice(0, -1) : pathname;
   const isActive = href === "/dashboard" 
@@ -60,6 +65,7 @@ const LinkComponent = ({ href, children, className }: { href: string; children: 
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={cn(
         "flex items-center justify-center p-2 rounded-lg transition-all",
         isActive
@@ -121,6 +127,7 @@ export default function MobileBottomNav() {
             <LinkComponent
               key={item.name}
               href={item.href}
+              onClick={(e) => handleNavigationClick(e, item)}
               className={cn(
                 "flex items-center justify-center p-2 rounded-lg transition-all",
                 active
