@@ -100,7 +100,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "frame-ancestors *; default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:;"
+            value: "frame-ancestors * http: https:; default-src 'self' 'unsafe-inline' 'unsafe-eval' http: https: data: blob:;"
           },
           {
             key: 'Access-Control-Allow-Origin',
