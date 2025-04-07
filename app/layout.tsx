@@ -32,6 +32,7 @@ export default async function RootLayout({
           href="/styles/layout.css"
           precedence="high"
         />
+        <script src="/debug-script.js" defer></script>
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <SessionProvider>

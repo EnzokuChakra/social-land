@@ -19,34 +19,45 @@ const getBaseUrl = () => {
 };
 
 // Extend the built-in session types
+// @ts-ignore - Type declaration inconsistencies between next-auth and our implementation
 declare module "next-auth" {
   interface Session {
     user: {
       id: string;
       name: string | null;
       image: string | null;
-      username: string;
-      role: UserRole;
-      verified: boolean;
-      status: string;
+      email: string | null;
+      username?: string | null;
+      role?: UserRole;
+      verified?: boolean;
+      status?: string;
       isBanned?: boolean;
     }
+  }
+
+  interface User {
+    id: string;
+    username?: string | null;
+    role?: UserRole;
+    verified?: boolean;
+    status?: string;
   }
 }
 
 // Extend the built-in JWT types
+// @ts-ignore - Type declaration inconsistencies between next-auth/jwt and our implementation
 declare module "next-auth/jwt" {
   interface JWT {
     id: string;
-    username: string;
-    role: UserRole;
-    verified: boolean;
-    status: string;
+    username?: string | null;
+    role?: UserRole;
+    verified?: boolean;
+    status?: string;
   }
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: prisma ? PrismaAdapter(prisma) : undefined,
   secret: process.env.NEXTAUTH_SECRET,
   session: {
     strategy: "jwt",
@@ -65,9 +76,13 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Invalid credentials");
+        }
+
+        if (!prisma) {
+          throw new Error("Database connection error");
         }
 
         const user = await prisma.user.findUnique({
@@ -94,19 +109,25 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Your account has been banned for violating our community guidelines.");
         }
 
+        // Make sure password exists before comparing
+        if (typeof user.password !== 'string') {
+          throw new Error("Invalid account configuration");
+        }
+
         const isPasswordValid = await compare(credentials.password, user.password);
 
         if (!isPasswordValid) {
           throw new Error("Invalid password");
         }
 
-        // Only return necessary user data
+        // Return user with correct typing
         return {
           id: user.id,
           name: user.name,
+          email: user.email,
           image: user.image,
           username: user.username,
-          role: user.role,
+          role: user.role as UserRole,
           verified: user.verified,
           status: user.status
         };
@@ -115,38 +136,69 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user }) {
+      console.log('[AUTH DEBUG] JWT callback', { 
+        hasUser: !!user, 
+        userId: user?.id || token?.id,
+        tokenBefore: JSON.stringify(token)
+      });
+      
       if (user) {
         // Only include necessary user data in the JWT
         token.id = user.id;
         token.name = user.name;
         token.image = user.image;
         token.username = user.username;
-        token.role = user.role;
+        token.role = user.role as UserRole;
         token.verified = user.verified;
         
         // Get the user's current status
-        const currentUser = await db.user.findUnique({
-          where: { id: user.id },
-          select: { status: true }
+        if (db) {
+          const currentUser = await db.user.findUnique({
+            where: { id: user.id },
+            select: { status: true }
+          });
+          token.status = currentUser?.status || 'NORMAL';
+        } else {
+          token.status = user.status || 'NORMAL';
+        }
+        
+        console.log('[AUTH DEBUG] JWT updated with user data', { 
+          userId: user.id,
+          role: user.role,
+          status: token.status
         });
-        token.status = currentUser?.status || 'NORMAL';
       } else if (token?.id) {
         // Check user status on every token refresh
-        const user = await db.user.findUnique({
-          where: { id: token.id },
-          select: { status: true }
+        if (db) {
+          const user = await db.user.findUnique({
+            where: { id: token.id },
+            select: { status: true }
+          });
+          token.status = user?.status || token.status;
+        }
+        
+        console.log('[AUTH DEBUG] JWT refreshed', { 
+          userId: token.id,
+          status: token.status
         });
-        token.status = user?.status || token.status;
       }
       return token;
     },
     async session({ session, token }) {
+      console.log('[AUTH DEBUG] Session callback', { 
+        hasToken: !!token,
+        tokenId: token?.id,
+        sessionBefore: JSON.stringify(session)
+      });
+      
       if (token) {
         // Only include necessary user data in the session
+        // @ts-ignore - We know these properties exist in our implementation
         session.user = {
           id: token.id,
           name: token.name,
           image: token.image,
+          email: session.user.email,
           username: token.username,
           role: token.role,
           verified: token.verified,
@@ -155,22 +207,38 @@ export const authOptions: NextAuthOptions = {
 
         // If user is banned, add a flag to indicate this
         if (token.status === "BANNED") {
+          // @ts-ignore - We know this property exists in our implementation
           session.user.isBanned = true;
         }
+        
+        console.log('[AUTH DEBUG] Session updated with token data', { 
+          userId: token.id,
+          role: token.role, 
+          status: token.status
+        });
       }
       return session;
     },
     async signIn({ user, account }) {
-      // Check if user is banned before allowing sign in
-      const userStatus = await db.user.findUnique({
-        where: { id: user.id },
-        select: { status: true }
+      console.log('[AUTH DEBUG] SignIn callback', { 
+        userId: user?.id,
+        provider: account?.provider
       });
+      
+      // Check if user is banned before allowing sign in
+      if (db && user.id) {
+        const userStatus = await db.user.findUnique({
+          where: { id: user.id },
+          select: { status: true }
+        });
 
-      if (userStatus?.status === "BANNED") {
-        throw new Error("Your account has been banned for violating our community guidelines.");
+        if (userStatus?.status === "BANNED") {
+          console.log('[AUTH DEBUG] SignIn rejected - user banned', { userId: user.id });
+          throw new Error("Your account has been banned for violating our community guidelines.");
+        }
       }
 
+      console.log('[AUTH DEBUG] SignIn successful', { userId: user.id });
       return true;
     }
   },
@@ -208,10 +276,10 @@ export const authOptions: NextAuthOptions = {
   },
   events: {
     async signIn({ user }) {
-      console.log('[Auth] User signed in:', user.id);
+      console.log('[AUTH DEBUG] User signed in event:', { userId: user.id, timestamp: new Date().toISOString() });
     },
     async signOut({ session }) {
-      console.log('[Auth] User signed out:', session?.user?.id);
+      console.log('[AUTH DEBUG] User signed out event:', { userId: session?.user?.id, timestamp: new Date().toISOString() });
     }
   }
 };

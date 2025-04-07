@@ -5,10 +5,11 @@ import { Toaster } from "sonner";
 import Providers from "@/app/providers";
 import StoryModal from "@/components/modals/StoryModal";
 import EditProfileModal from "@/components/modals/EditProfileModal";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import { memo } from "react";
 import { usePathname } from "next/navigation";
+import { useSession } from 'next-auth/react';
 
 // Paths where bottom nav should be hidden
 const hiddenPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
@@ -52,6 +53,53 @@ const MemoizedModals = memo(() => (
 MemoizedModals.displayName = "MemoizedModals";
 
 export default function BodyContent({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession();
+
+  useEffect(() => {
+    // Debug code for iframe detection
+    try {
+      const isInIframe = window !== window.parent;
+      console.log('[DEBUG] Page environment check:', {
+        isInIframe,
+        sessionStatus: status,
+        isAuthenticated: !!session,
+        userId: session?.user?.id,
+        url: window.location.href,
+        referrer: document.referrer,
+        cookies: document.cookie ? 'Available' : 'Not available',
+        userAgent: navigator.userAgent,
+        timestamp: new Date().toISOString()
+      });
+
+      // Listen for auth-related errors
+      const origError = console.error;
+      console.error = (...args) => {
+        if (args[0] && typeof args[0] === 'string' && 
+            (args[0].includes('auth') || args[0].includes('session'))) {
+          console.log('[DEBUG] Auth error detected:', ...args);
+        }
+        return origError.apply(console, args);
+      };
+
+      // Check for access to cookies
+      if (isInIframe) {
+        console.log('[DEBUG] Running in iframe mode, testing cookie access');
+        try {
+          document.cookie = "iframe_test=1; path=/; SameSite=None; Secure";
+          const hasCookie = document.cookie.includes('iframe_test');
+          console.log('[DEBUG] Cookie test result:', { 
+            cookieAccess: hasCookie ? 'Success' : 'Failed',
+            cookieValue: document.cookie
+          });
+        } catch (e) {
+          console.log('[DEBUG] Cookie access error:', e);
+        }
+      }
+    } catch (error) {
+      console.log('[DEBUG] Environment detection error:', error);
+    }
+  }, [session, status]);
+
   return (
     <Suspense fallback={null}>
       <Providers>
