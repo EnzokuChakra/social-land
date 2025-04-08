@@ -7,143 +7,26 @@ export interface InputProps
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, ...props }, ref) => {
-    const inputRef = React.useRef<HTMLInputElement>(null);
-    const caretRef = React.useRef<HTMLDivElement>(null);
-    const [caretPosition, setCaretPosition] = React.useState<number>(0);
-    const [isFocused, setIsFocused] = React.useState(false);
-
-    const updateCaretPosition = (target: HTMLInputElement) => {
-      try {
-        const position = target.selectionStart || 0;
-        const textBeforeCaret = target.value.substring(0, position);
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        
-        console.log('Debug - Text info:', JSON.stringify({
-          fullText: target.value,
-          beforeCaret: textBeforeCaret,
-          position: position
-        }));
-
-        if (context && caretRef.current) {
-          const computedStyle = window.getComputedStyle(target);
-          context.font = computedStyle.font;
-          const textWidth = context.measureText(textBeforeCaret).width;
-          
-          console.log('Debug - Measurements:', JSON.stringify({
-            font: computedStyle.font,
-            textWidth: textWidth,
-            inputPadding: computedStyle.paddingLeft
-          }));
-
-          // Position the caret
-          const padding = parseInt(computedStyle.paddingLeft || '0');
-          caretRef.current.style.left = `${padding + textWidth}px`;
-          caretRef.current.style.top = '50%';
-          caretRef.current.style.transform = 'translateY(-50%)';
-          
-          // Force caret visibility
-          caretRef.current.style.visibility = 'visible';
-          caretRef.current.style.opacity = '1';
-          
-          console.log('Debug - Caret element:', JSON.stringify({
-            left: caretRef.current.style.left,
-            top: caretRef.current.style.top,
-            visibility: caretRef.current.style.visibility,
-            opacity: caretRef.current.style.opacity
-          }));
-        }
-      } catch (error) {
-        console.error('Debug - Error updating caret:', error);
-      }
-    };
-
-    const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
-      const target = e.target as HTMLInputElement;
-      setIsFocused(true); // Force focused state on input
-      updateCaretPosition(target);
-      props.onInput?.(e);
-    };
-
     const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-      console.log('Debug - Focus event:', JSON.stringify({
-        type: e.type,
-        value: e.target.value
-      }));
-      setIsFocused(true);
-      updateCaretPosition(e.target);
+      // Ensure the input gets proper focus in iframe
+      e.target.focus();
+      // Force cursor visibility
+      e.target.style.caretColor = 'auto';
+      // Call the original onFocus if provided
       props.onFocus?.(e);
     };
 
-    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-      // Don't set isFocused to false in RAGEMP environment
-      props.onBlur?.(e);
-    };
-
-    const handleKeyUp = (e: React.KeyboardEvent<HTMLInputElement>) => {
-      console.log('Debug - KeyUp event:', JSON.stringify({
-        key: e.key,
-        value: e.currentTarget.value
-      }));
-      setIsFocused(true); // Force focused state on key events
-      updateCaretPosition(e.currentTarget);
-      props.onKeyUp?.(e);
-    };
-
-    const handleClick = (e: React.MouseEvent<HTMLInputElement>) => {
-      console.log('Debug - Click event:', JSON.stringify({
-        x: e.clientX,
-        y: e.clientY,
-        value: e.currentTarget.value
-      }));
-      setIsFocused(true); // Force focused state on click
-      updateCaretPosition(e.currentTarget);
-      props.onClick?.(e);
-    };
-
-    React.useEffect(() => {
-      if (inputRef.current) {
-        console.log('Debug - Input mounted:', JSON.stringify({
-          type: inputRef.current.type,
-          className: inputRef.current.className
-        }));
-        // Force initial focus state in RAGEMP
-        setIsFocused(true);
-      }
-    }, []);
-
-    React.useImperativeHandle(ref, () => inputRef.current!);
-
     return (
-      <div className="relative">
-        <input
-          type={type}
-          className={cn(
-            "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-            className
-          )}
-          ref={inputRef}
-          onInput={handleInput}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          onKeyUp={handleKeyUp}
-          onClick={handleClick}
-          {...props}
-        />
-        <div
-          ref={caretRef}
-          className={cn(
-            "absolute w-[2px] h-[1.2em] bg-black dark:bg-white pointer-events-none transition-opacity",
-            "animate-blink"
-          )}
-          style={{
-            position: 'absolute',
-            visibility: 'visible',
-            opacity: '1',
-            zIndex: 9999
-          }}
-        />
-      </div>
+      <input
+        type={type}
+        className={cn(
+          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          className
+        )}
+        ref={ref}
+        onFocus={handleFocus}
+        {...props}
+      />
     )
   }
 )

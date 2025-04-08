@@ -2,15 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
-}
-
-.animate-blink {
-  animation: blink 1s step-end infinite;
-}
-
 @layer base {
   * {
     -webkit-user-select: none; /* Safari */
@@ -19,19 +10,67 @@
     user-select: none; /* Standard */
   }
 
-  /* Allow text selection and ensure caret visibility in input fields */
-  input, textarea, [contenteditable] {
-    @apply input-base;
+  /* Enhanced input field styles for iframe environment */
+  input, 
+  textarea, 
+  [contenteditable],
+  .comment-input,
+  [type="text"],
+  [type="password"],
+  [type="email"],
+  [type="search"] {
     -webkit-user-select: text !important;
     -moz-user-select: text !important;
     -ms-user-select: text !important;
     user-select: text !important;
-    position: relative !important;
+    caret-color: black !important;
+    -webkit-caret-color: black !important;
+    -webkit-text-fill-color: currentColor !important;
+    cursor: text !important;
   }
 
-  /* Force caret visibility in iframe environment */
-  input:focus, textarea:focus, [contenteditable]:focus {
-    @apply input-base;
+  /* Dark mode caret color */
+  .dark input,
+  .dark textarea,
+  .dark [contenteditable],
+  .dark .comment-input,
+  .dark [type="text"],
+  .dark [type="password"],
+  .dark [type="email"],
+  .dark [type="search"] {
+    caret-color: white !important;
+    -webkit-caret-color: white !important;
+  }
+
+  /* Force focus styles and caret in iframe */
+  input:focus,
+  textarea:focus,
+  [contenteditable]:focus,
+  .comment-input:focus,
+  [type="text"]:focus,
+  [type="password"]:focus,
+  [type="email"]:focus,
+  [type="search"]:focus {
+    caret-color: #2563eb !important;
+    -webkit-caret-color: #2563eb !important;
+    outline: 2px solid #2563eb !important;
+    outline-offset: -1px !important;
+    border-color: #2563eb !important;
+  }
+
+  /* Dark mode focus styles */
+  .dark input:focus,
+  .dark textarea:focus,
+  .dark [contenteditable]:focus,
+  .dark .comment-input:focus,
+  .dark [type="text"]:focus,
+  .dark [type="password"]:focus,
+  .dark [type="email"]:focus,
+  .dark [type="search"]:focus {
+    caret-color: #60a5fa !important;
+    -webkit-caret-color: #60a5fa !important;
+    outline-color: #60a5fa !important;
+    border-color: #60a5fa !important;
   }
 
   /* Prevent image dragging */
@@ -121,33 +160,6 @@
 }
 
 @layer components {
-  .custom-caret {
-    position: relative !important;
-  }
-
-  .custom-caret::after {
-    content: '';
-    position: absolute;
-    right: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 2px;
-    height: 1.2em;
-    background-color: #000;
-    animation: blink 1s step-end infinite;
-    pointer-events: none;
-  }
-
-  .dark .custom-caret::after {
-    background-color: #fff;
-  }
-
-  /* Hide the default caret */
-  .custom-caret {
-    caret-color: transparent !important;
-    -webkit-caret-color: transparent !important;
-  }
-
   .navLink {
     @apply md:!justify-start space-x-2 md:!my-1.5 !px-3 w-full;
   }
@@ -162,18 +174,6 @@
 
   .dialogContent {
     @apply bg-white dark:bg-black !p-0 overflow-hidden !gap-0;
-  }
-
-  .input-base {
-    caret-color: black !important;
-    -webkit-caret-color: black !important;
-    -webkit-text-fill-color: currentColor !important;
-    color-scheme: normal !important;
-  }
-
-  .dark .input-base {
-    caret-color: white !important;
-    -webkit-caret-color: white !important;
   }
 }
 
