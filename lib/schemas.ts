@@ -50,7 +50,7 @@ export const UpdateUser = z.object({
   id: z.string().optional(),
   name: z.string().min(1, "Name is required").max(50, "Name is too long").optional(),
   bio: z.string().max(160, "Bio is too long").optional(),
-  image: z.string().optional(),
+  image: z.string().nullable().optional(),
   isPrivate: z.boolean().optional(),
 }).partial().refine(data => {
   // Ensure at least one field is being updated

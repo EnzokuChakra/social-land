@@ -256,31 +256,35 @@ function ProfileAvatar({
     const isOwnStory = story.user.id === session?.user?.id;
     if (isOwnStory) {
       // Get the last viewed timestamp from localStorage
-      const lastViewedKey = `last_viewed_own_stories_${session?.user?.id}`;
-      const lastViewed = localStorage.getItem(lastViewedKey);
-      const lastViewedDate = lastViewed ? new Date(lastViewed) : null;
-      
-      // If the story is newer than the last viewed timestamp, it's unviewed
-      const isUnviewed = !lastViewedDate || storyDate > lastViewedDate;
-      
-      // If the story is unviewed, clear any existing viewed state
-      if (isUnviewed) {
-        const storageKey = `viewed_stories_${story.user.id}_${session?.user?.id}`;
-        localStorage.removeItem(storageKey);
+      if (typeof window !== 'undefined') {
+        const lastViewedKey = `last_viewed_own_stories_${session?.user?.id}`;
+        const lastViewed = localStorage.getItem(lastViewedKey);
+        const lastViewedDate = lastViewed ? new Date(lastViewed) : null;
+        
+        // If the story is newer than the last viewed timestamp, it's unviewed
+        const isUnviewed = !lastViewedDate || storyDate > lastViewedDate;
+        
+        // If the story is unviewed, clear any existing viewed state
+        if (isUnviewed) {
+          const storageKey = `viewed_stories_${story.user.id}_${session?.user?.id}`;
+          localStorage.removeItem(storageKey);
+        }
+        
+        return isUnviewed;
       }
-      
-      return isUnviewed;
+      return true; // During SSR, assume stories are unviewed
     }
     
     // For others' stories, check if this story has been viewed in localStorage
-    const storageKey = `viewed_stories_${story.user.id}_${session?.user?.id}`;
-    const storedViewedStories = localStorage.getItem(storageKey);
-    const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
-    
-    // If the story is not in viewedStories, it's unviewed
-    const isUnviewed = !viewedStories[story.id];
-    
-    return isUnviewed;
+    if (typeof window !== 'undefined') {
+      const storageKey = `viewed_stories_${story.user.id}_${session?.user?.id}`;
+      const storedViewedStories = localStorage.getItem(storageKey);
+      const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
+      
+      // If the story is not in viewedStories, it's unviewed
+      return !viewedStories[story.id];
+    }
+    return true; // During SSR, assume stories are unviewed
   });
 
   // Show story ring only if:
@@ -294,7 +298,7 @@ function ProfileAvatar({
   }, [initialStories]);
 
   const handleProfileClick = () => {
-    if (hasStories) {
+    if (hasStories && (isCurrentUser || !user.isPrivate)) {
       const activeStories = stories.filter(story => {
         if (!story?.fileUrl) return false;
         const storyDate = new Date(story.createdAt);

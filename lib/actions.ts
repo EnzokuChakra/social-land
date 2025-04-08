@@ -35,6 +35,20 @@ const FOLLOW_COOLDOWN_MS = 5000; // 5 seconds cooldown
 // Initialize Prisma client
 const prismaClient = new PrismaClient();
 
+function ensureDb() {
+  if (!db) {
+    throw new Error("Database connection not available");
+  }
+  return db;
+}
+
+function ensurePrisma() {
+  if (!prisma) {
+    throw new Error("Prisma connection not available");
+  }
+  return prisma;
+}
+
 export async function createPost(values: z.infer<typeof CreatePost>) {
   const session = await auth();
 
@@ -42,6 +56,7 @@ export async function createPost(values: z.infer<typeof CreatePost>) {
     throw new Error("Not authenticated");
   }
 
+  const db = ensureDb();
   const post = await db.post.create({
     data: {
       id: crypto.randomUUID(),
@@ -87,6 +102,7 @@ export async function deletePost(postId: string) {
   }
 
   try {
+    const db = ensureDb();
     // First check if the user owns the post and get the file URL
     const post = await db.post.findUnique({
       where: { id: postId },
@@ -124,7 +140,7 @@ export async function deletePost(postId: string) {
     }
 
     // Delete all related records in a transaction
-    await db.$transaction(async (tx: typeof db) => {
+    await db.$transaction(async (tx) => {
       // Delete all saved posts
       await tx.savedpost.deleteMany({
         where: { postId }
@@ -230,6 +246,7 @@ async function createNotification({
   }
 
   try {
+    const prisma = ensurePrisma();
     if (type === "LIKE" && postId) {
       // Find any existing like notification for this post
       const existingNotification = await prisma.notification.findFirst({
@@ -419,6 +436,7 @@ export async function likePost(value: z.infer<typeof LikeSchema>) {
 
   const { postId } = validatedFields.data;
   try {
+    const db = ensureDb();
     const existingLike = await db.like.findUnique({
       where: {
         postId_user_id: {
@@ -563,6 +581,10 @@ export async function likePost(value: z.infer<typeof LikeSchema>) {
           },
         },
       });
+
+      if (!updatedPost) {
+        throw new Error("Post not found after unlike");
+      }
 
       console.log("[likePost] Post unliked successfully:", {
         postId,
@@ -733,6 +755,10 @@ export async function likePost(value: z.infer<typeof LikeSchema>) {
       },
     });
 
+    if (!updatedPost) {
+      throw new Error("Post not found after like");
+    }
+
     const likedBy = await db.user.findUnique({
       where: {
         id: user_id,
@@ -780,6 +806,7 @@ export async function bookmarkPost(value: FormDataEntryValue | null) {
 
   const { postId } = validatedFields.data;
 
+  const db = ensureDb();
   const post = await db.post.findUnique({
     where: {
       id: postId,
@@ -858,7 +885,11 @@ export async function createComment(values: z.infer<typeof CreateComment>) {
   try {
     const { postId, body, parentId } = values;
 
+    const db = ensureDb();
     // Verify the post exists
+    if (!postId) {
+      throw new Error("Post ID is required");
+    }
     const post = await db.post.findUnique({
       where: { id: postId },
       select: { id: true, user_id: true }
@@ -964,6 +995,7 @@ export async function deleteComment(formData: FormData) {
   }
 
   try {
+    const prisma = ensurePrisma();
     // First verify the comment exists and get post ownership info
     const comment = await prisma.comment.findFirst({
       where: { id },
@@ -979,6 +1011,10 @@ export async function deleteComment(formData: FormData) {
 
     if (!comment) {
       throw new Error("Comment not found");
+    }
+
+    if (!comment.post) {
+      throw new Error("Post not found for comment");
     }
 
     // Check if user is either comment owner or post owner
@@ -1045,6 +1081,7 @@ export async function updatePost(values: z.infer<typeof UpdatePost>) {
 
     const { id, fileUrl, caption } = validatedFields.data;
 
+    const db = ensureDb();
     const post = await db.post.findUnique({
       where: {
         id,
@@ -1092,9 +1129,7 @@ export async function updateProfile(values: z.infer<typeof UpdateUser>) {
   const { name, image, bio, isPrivate } = validatedFields.data;
 
   try {
-    if (!prisma) {
-      throw new Error("Database connection not available");
-    }
+    const prisma = ensurePrisma();
 
     // Get current user data to check for existing image and privacy status
     const currentUser = await prisma.user.findUnique({
@@ -1173,9 +1208,9 @@ export async function updateProfile(values: z.infer<typeof UpdateUser>) {
     }
 
     // Prepare update data
-    const updateData: Prisma.UserUpdateInput = {
+    const updateData = {
       ...(name !== undefined && { name }),
-      ...(image !== undefined && { image }),
+      ...(image !== undefined && { image: image || undefined }),
       ...(bio !== undefined && { bio }),
       ...(isPrivate !== undefined && { isPrivate })
     };
@@ -1226,6 +1261,7 @@ export async function followUser({
     }
 
     const followerId = session.user.id;
+    const prisma = ensurePrisma();
 
     // Check if there's an existing follow relationship
     const existingFollow = await prisma.follows.findUnique({
@@ -1517,6 +1553,7 @@ export async function createStory(data: { fileUrl: string; scale: number }) {
       return { error: "No file URL provided" };
     }
 
+    const db = ensureDb();
     const story = await db.story.create({
       data: {
         id: crypto.randomUUID(),
@@ -1574,6 +1611,7 @@ export async function getNotifications() {
       return { notifications: [], followRequests: [] };
     }
 
+    const db = ensureDb();
     // First, get all notifications
     const notifications = await db.notification.findMany({
       where: {
@@ -1623,6 +1661,7 @@ export async function getNotifications() {
       },
     });
 
+    const prisma = ensurePrisma();
     // Get pending follow requests
     const pendingFollowRequests = await prisma.follows.findMany({
       where: {
@@ -1711,6 +1750,7 @@ export async function likeComment(commentId: string) {
   }
 
   try {
+    const db = ensureDb();
     // Check if the like already exists
     const existingLike = await db.commentlike.findUnique({
       where: {
@@ -1786,6 +1826,7 @@ export async function unlikeComment(commentId: string) {
   }
 
   try {
+    const db = ensureDb();
     // Check if the like exists
     const existingLike = await db.commentlike.findUnique({
       where: {
@@ -1848,6 +1889,7 @@ export async function createEvent(formData: FormData) {
   const prizesJson = formData.get("prizes") as string;
   const prizes = prizesJson ? JSON.parse(prizesJson) : [];
 
+  const db = ensureDb();
   // Create event in database
   const event = await db.event.create({
     data: {
@@ -1870,6 +1912,7 @@ export async function createEvent(formData: FormData) {
 
 export async function fetchEvents() {
   try {
+    const db = ensureDb();
     const events = await db.event.findMany({
       orderBy: {
         createdAt: "desc",
@@ -1888,6 +1931,7 @@ export async function fetchEvents() {
 
 export async function fetchEventById(id: string) {
   try {
+    const prisma = ensurePrisma();
     const event = await prisma.event.findUnique({
       where: { id },
       include: {

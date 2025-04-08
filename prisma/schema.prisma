@@ -49,6 +49,7 @@ model comment {
 
   @@index([parentId], map: "Comment_parentId_idx")
   @@index([user_id], map: "Comment_user_id_idx")
+  reports commentReport[] @relation("CommentReports")
 }
 
 model commentlike {
@@ -63,6 +64,21 @@ model commentlike {
 
   @@unique([commentId, user_id], map: "CommentLike_commentId_user_id_key")
   @@index([user_id], map: "CommentLike_user_id_idx")
+}
+
+model commentReport {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  reporterId String
+  commentId  String
+  reason     String
+  status     String   @default("PENDING")
+
+  reporter   user     @relation("UserCommentReports", fields: [reporterId], references: [id])
+  comment    comment  @relation("CommentReports", fields: [commentId], references: [id])
+
+  @@index([reporterId], map: "CommentReport_reporterId_idx")
+  @@index([commentId], map: "CommentReport_commentId_idx")
 }
 
 model event {
@@ -357,6 +373,7 @@ model user {
   createdAt DateTime @default(now())
   updatedAt DateTime
   lastUsernameChange DateTime?
+  
 
   // Relations
   accounts      account[]
@@ -387,6 +404,7 @@ model user {
 
   @@index([email], map: "User_email_idx")
   @@index([username], map: "User_username_idx")
+  commentReports commentReport[] @relation("UserCommentReports")
 }
 
 model verificationRequest {

@@ -10,7 +10,6 @@ import {
   DialogHeader,
 } from "@/components/ui/dialog";
 import SubmitButton from "@/components/SubmitButton";
-import { Comment } from "@prisma/client";
 import { CommentWithExtras } from "@/lib/definitions";
 import { MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
@@ -45,8 +44,33 @@ function CommentOptions({ comment, postUserId }: Props) {
     }
   }, [comment.user_id, currentUserId, postUserId, isCommentOwner, isPostOwner, canDelete]);
 
-  const handleReport = () => {
-    toast.success("Comment reported successfully");
+  const handleReport = async () => {
+    try {
+      const response = await fetch('/api/reports/comment', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          commentId: comment.id,
+          reason: 'Inappropriate content', // Example reason
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (errorData.error === 'Comment already reported') {
+          toast.error('Comment already reported');
+        } else {
+          throw new Error('Failed to report comment');
+        }
+      } else {
+        toast.success('Comment reported successfully');
+        setIsOpen(false); // Close the modal
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to report comment');
+    }
   };
 
   const handleDelete = async () => {
