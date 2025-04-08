@@ -16,6 +16,15 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { useState } from "react";
 import { Input } from "./ui/input";
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+
+async function fetchFollowers(username: string): Promise<FollowerWithExtras[]> {
+  const response = await fetch(`/api/users/followers?username=${username}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch followers');
+  }
+  return response.json();
+}
 
 export default function FollowersModal({
   followers,
@@ -33,13 +42,22 @@ export default function FollowersModal({
   const mount = useMount();
   const { data: session } = useSession();
   const [searchQuery, setSearchQuery] = useState("");
+  const queryClient = useQueryClient();
+
+  // Use the followers query
+  const { data: currentFollowers = followers } = useQuery<FollowerWithExtras[]>({
+    queryKey: ['followers', username],
+    queryFn: () => fetchFollowers(username),
+    initialData: followers,
+    staleTime: 0
+  });
 
   console.log("[FOLLOWERS_MODAL] Props:", {
     username,
     isPrivate,
     isFollowing,
-    followersCount: followers?.length,
-    followers: followers?.map(f => ({
+    followersCount: currentFollowers?.length,
+    followers: currentFollowers?.map(f => ({
       id: f.id,
       username: f.username,
       followerId: f.followerId
@@ -61,7 +79,7 @@ export default function FollowersModal({
     );
   }
 
-  const filteredFollowers = followers.filter(user => 
+  const filteredFollowers = currentFollowers.filter(user => 
     user.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );

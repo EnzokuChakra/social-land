@@ -108,6 +108,57 @@ function PostActions({ post, userId, className, inputRef, onBookmarkUpdate }: Pr
     }
   }, [post.id]);
 
+  const handleBookmarkUpdate = useCallback((data: { postId: string; userId: string; action: 'bookmark' | 'unbookmark' }) => {
+    if (data.postId === post.id) {
+      setCurrentPost((prevPost: PostWithExtras) => {
+        let updatedSavedBy = [...prevPost.savedBy];
+
+        if (data.action === "unbookmark") {
+          updatedSavedBy = updatedSavedBy.filter((save) => save.user_id !== data.userId);
+        } else {
+          const saveExists = updatedSavedBy.some((save) => save.user_id === data.userId);
+          if (!saveExists) {
+            const newSave = {
+              id: crypto.randomUUID(),
+              user_id: data.userId,
+              postId: data.postId,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              user: {
+                id: data.userId,
+                username: '',
+                name: '',
+                email: '',
+                password: null,
+                image: '',
+                bio: null,
+                isFollowing: false,
+                hasPendingRequest: false,
+                isPrivate: false,
+                verified: false,
+                role: 'USER',
+                status: 'NORMAL',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                posts: [],
+                saved: [],
+                followers: [],
+                following: [],
+                stories: []
+              }
+            };
+            updatedSavedBy.push(newSave);
+          }
+        }
+
+        return {
+          ...prevPost,
+          savedBy: updatedSavedBy
+        };
+      });
+    }
+  }, [post.id]);
+
   const handleLikesModalOpen = async () => {    
     // Fetch follow status for each user
     const likesWithFollowStatus = await Promise.all(
@@ -150,11 +201,13 @@ function PostActions({ post, userId, className, inputRef, onBookmarkUpdate }: Pr
   useEffect(() => {
     if (!socket) return;
     socket.on("likeUpdate", handleLikeUpdate);
+    socket.on("bookmarkUpdate", handleBookmarkUpdate);
 
     return () => {
       socket.off("likeUpdate", handleLikeUpdate);
+      socket.off("bookmarkUpdate", handleBookmarkUpdate);
     };
-  }, [socket, handleLikeUpdate]);
+  }, [socket, handleLikeUpdate, handleBookmarkUpdate]);
 
   const handleCommentClick = () => {
     if (inputRef?.current) {
@@ -213,48 +266,62 @@ function PostActions({ post, userId, className, inputRef, onBookmarkUpdate }: Pr
           <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
               {currentPost.likes && currentPost.likes.length > 0 ? (
-                currentPost.likes.map((like) => {
-                  if (!like.user) return null;
-                  
-                  return (
-                    <div
-                      key={like.id}
-                      className="flex items-center justify-between p-4"
-                    >
-                      <div className="flex items-center gap-x-2">
-                        <Link href={`/dashboard/${like.user.username}`}>
-                          <UserAvatar user={like.user} />
-                        </Link>
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-x-1">
-                            <Link href={`/dashboard/${like.user.username}`}>
-                              <p className="font-semibold text-sm hover:underline">
-                                {like.user.username}
-                              </p>
-                            </Link>
-                            {like.user.verified && (
-                              <VerifiedBadge className="h-4 w-4" />
-                            )}
+                // Sort likes: current user first, then followed users, then others
+                [...currentPost.likes]
+                  .sort((a, b) => {
+                    // Current user first
+                    if (a.user.id === session?.user?.id) return -1;
+                    if (b.user.id === session?.user?.id) return 1;
+                    
+                    // Then followed users
+                    if (a.user.isFollowing && !b.user.isFollowing) return -1;
+                    if (!a.user.isFollowing && b.user.isFollowing) return 1;
+                    
+                    // Then sort by username
+                    return (a.user.username || '').localeCompare(b.user.username || '');
+                  })
+                  .map((like) => {
+                    if (!like.user) return null;
+                    
+                    return (
+                      <div
+                        key={like.id}
+                        className="flex items-center justify-between p-4"
+                      >
+                        <div className="flex items-center gap-x-2">
+                          <Link href={`/dashboard/${like.user.username}`}>
+                            <UserAvatar user={like.user} />
+                          </Link>
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-x-1">
+                              <Link href={`/dashboard/${like.user.username}`}>
+                                <p className="font-semibold text-sm hover:underline">
+                                  {like.user.username}
+                                </p>
+                              </Link>
+                              {like.user.verified && (
+                                <VerifiedBadge className="h-4 w-4" />
+                              )}
+                            </div>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                              {like.user.name}
+                            </p>
                           </div>
-                          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                            {like.user.name}
-                          </p>
                         </div>
-                      </div>
 
-                      {session?.user?.id !== like.user.id && (
-                        <FollowButton
-                          followingId={like.user.id}
-                          isFollowing={like.user.isFollowing || false}
-                          hasPendingRequest={like.user.hasPendingRequest || false}
-                          isPrivate={like.user.isPrivate || false}
-                          className="h-9 min-w-[120px] w-[120px]"
-                          variant="profile"
-                        />
-                      )}
-                    </div>
-                  );
-                })
+                        {session?.user?.id !== like.user.id && (
+                          <FollowButton
+                            followingId={like.user.id}
+                            isFollowing={like.user.isFollowing || false}
+                            hasPendingRequest={like.user.hasPendingRequest || false}
+                            isPrivate={like.user.isPrivate || false}
+                            className="h-9 min-w-[120px] w-[120px]"
+                            variant="profile"
+                          />
+                        )}
+                      </div>
+                    );
+                  })
               ) : (
                 <div className="flex items-center justify-center flex-1 p-4">
                   <p className="text-sm text-neutral-500 dark:text-neutral-400">

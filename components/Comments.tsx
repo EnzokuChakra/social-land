@@ -81,53 +81,22 @@ function Comments({
       case 'add':
         return [action.comment, ...state];
       case 'delete':
-        if (action.parentId) {
-          return state.map(comment => {
-            if (comment.id === action.parentId) {
-              return {
-                ...comment,
-                replies: (comment.replies || []).filter(reply => reply.id !== action.commentId)
-              };
-            }
-            return comment;
-          });
-        }
-        return state.filter(comment => comment.id !== action.commentId);
-      case 'like':
-        if (action.parentId) {
-          return state.map(comment => {
-            if (comment.id === action.parentId) {
-              return {
-                ...comment,
-                replies: (comment.replies || []).map(reply => {
-                  if (reply.id === action.commentId) {
-                    const hasLiked = reply.likes.some(like => like.user_id === action.userId);
-                    return {
-                      ...reply,
-                      likes: hasLiked
-                        ? reply.likes.filter(like => like.user_id !== action.userId)
-                        : [...reply.likes, { user_id: action.userId, comment_id: action.commentId }]
-                    };
-                  }
-                  return reply;
-                })
-              };
-            }
-            return comment;
-          });
-        }
-        return state.map(comment => {
-          if (comment.id === action.commentId) {
-            const hasLiked = comment.likes.some(like => like.user_id === action.userId);
+        // First filter out the deleted comment
+        const filteredState = state.filter(comment => comment.id !== action.commentId);
+        // Then filter out any replies to the deleted comment
+        return filteredState.map(comment => {
+          if (comment.replies) {
             return {
               ...comment,
-              likes: hasLiked
-                ? comment.likes.filter(like => like.user_id !== action.userId)
-                : [...comment.likes, { user_id: action.userId, comment_id: action.commentId }]
+              replies: comment.replies.filter(reply => 
+                reply.id !== action.commentId && reply.parentId !== action.commentId
+              )
             };
           }
           return comment;
         });
+      case 'like':
+        return state;
     }
   });
 
@@ -141,7 +110,7 @@ function Comments({
   const commentRef = useRef<HTMLInputElement>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cooldownTime, setCooldownTime] = useState(0);
-  const [deletedCommentIds] = useState(new Set<string>());
+  const [deletedCommentIds, setDeletedCommentIds] = useState(new Set<string>());
   const router = useRouter();
   const pathname = usePathname();
   const isPostPage = pathname?.includes("/p/");
@@ -446,13 +415,45 @@ function Comments({
     };
   }, [addOptimisticComment, postId, optimisticComments]);
 
+  // Add effect to handle comment deletion events
+  useEffect(() => {
+    const handleCommentDelete = (event: CustomEvent) => {
+      const { commentId, parentId } = event.detail;
+      setDeletedCommentIds(prev => {
+        const newSet = new Set(prev);
+        newSet.add(commentId);
+        return newSet;
+      });
+      addOptimisticComment({ type: 'delete', commentId, parentId });
+    };
+
+    window.addEventListener('commentDelete', handleCommentDelete as EventListener);
+    return () => {
+      window.removeEventListener('commentDelete', handleCommentDelete as EventListener);
+    };
+  }, [addOptimisticComment]);
+
   const isDisabled = isSubmitting || (!user?.verified && cooldownTime > 0);
   
-  // Filter comments to remove deleted ones
-  const filteredComments = optimisticComments.filter(comment => 
-    !deletedCommentIds.has(comment.id) && 
-    !(comment.parentId && deletedCommentIds.has(comment.parentId))
-  );
+  // Update the filtered comments logic
+  const filteredComments = useMemo(() => {
+    return optimisticComments.filter(comment => {
+      // Remove deleted comments
+      if (deletedCommentIds.has(comment.id)) return false;
+      // Remove comments whose parent was deleted
+      if (comment.parentId && deletedCommentIds.has(comment.parentId)) return false;
+      
+      // Filter replies of each comment
+      if (comment.replies) {
+        comment.replies = comment.replies.filter(reply => 
+          !deletedCommentIds.has(reply.id) && 
+          !deletedCommentIds.has(reply.parentId!)
+        );
+      }
+      
+      return true;
+    });
+  }, [optimisticComments, deletedCommentIds]);
 
   // Get user comments (for optimistic updates)
   const userComments = filteredComments.filter(comment => 

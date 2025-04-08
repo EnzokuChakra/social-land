@@ -7,6 +7,7 @@ import ActionIcon from "@/components/ActionIcon";
 import { Bookmark } from "lucide-react";
 import { useOptimistic, useState, useCallback, useRef, startTransition } from "react";
 import { toast } from "sonner";
+import { getSocket } from "@/lib/socket";
 
 type Props = {
   post: PostWithExtras;
@@ -17,6 +18,7 @@ type Props = {
 function BookmarkButton({ post, userId, onBookmarkUpdate }: Props) {
   const [isPending, setIsPending] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout>();
+  const socket = getSocket();
   const predicate = (bookmark: SavedPost & { user: User }) =>
     bookmark.user_id === userId && bookmark.postId === post.id;
     
@@ -99,6 +101,15 @@ function BookmarkButton({ post, userId, onBookmarkUpdate }: Props) {
       formData.append("postId", post.id);
       await bookmarkPost(formData.get("postId") as string);
       toast.success(willBeBookmarked ? "Post saved" : "Post unsaved");
+
+      // Emit socket event for real-time updates
+      if (socket) {
+        socket.emit("bookmarkUpdate", {
+          postId: post.id,
+          userId: userId,
+          action: willBeBookmarked ? "bookmark" : "unbookmark"
+        });
+      }
     } catch (error) {
       console.error('BookmarkButton - Error:', error);
       toast.error("Something went wrong");
@@ -143,7 +154,7 @@ function BookmarkButton({ post, userId, onBookmarkUpdate }: Props) {
         setIsPending(false);
       }, 500);
     }
-  }, [isBookmarked, post.savedBy, userId, post.id, isPending, onBookmarkUpdate]);
+  }, [isBookmarked, post.savedBy, userId, post.id, isPending, onBookmarkUpdate, socket]);
 
   return (
     <div className="ml-auto">

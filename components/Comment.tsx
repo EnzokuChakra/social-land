@@ -6,10 +6,8 @@ import UserAvatar from "@/components/UserAvatar";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Timestamp from "./Timestamp";
-import { RefObject } from "react";
+import { RefObject, useMemo, useEffect, useState } from "react";
 import VerifiedBadge from "./VerifiedBadge";
-import { useEffect, useState } from "react";
-import ProfileHoverCard from "./ProfileHoverCard";
 import { Heart, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { likeComment, unlikeComment } from "@/lib/actions";
@@ -18,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import FollowButton from "./FollowButton";
 import { useRouter } from "next/navigation";
 import { getSocket } from "@/lib/socket";
+import ProfileHoverCard from "./ProfileHoverCard";
 
 type Props = {
   comment: CommentWithExtras;
@@ -44,6 +43,7 @@ type CommentLikeState = {
 
 function Comment({ comment: initialComment, replies, inputRef, postUserId, onReply, initialShowReplies = false, hasStoryRing, onAvatarClick }: Props) {
   const [comment, setComment] = useState<CommentWithExtras | null>(initialComment);
+  const [deletedReplyIds] = useState(new Set<string>());
   const [likesCount, setLikesCount] = useState(initialComment.likes?.length || 0);
   const [likes, setLikes] = useState<CommentLikeState[]>(initialComment.likes?.map(like => ({
     id: like.id,
@@ -58,27 +58,47 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
   })) || []);
   const [isLiked, setIsLiked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [showReplies, setShowReplies] = useState(false);
+  const [showReplies, setShowReplies] = useState(initialShowReplies);
   const [showLikesModal, setShowLikesModal] = useState(false);
   const { data: session, status } = useSession();
   const [showOptions, setShowOptions] = useState(false);
   const router = useRouter();
   const socket = getSocket();
 
+  // Filter replies to remove deleted ones
+  const filteredReplies = useMemo(() => {
+    if (!comment?.replies) return [];
+    return comment.replies.filter(reply => !deletedReplyIds.has(reply.id));
+  }, [comment?.replies, deletedReplyIds]);
+
   // Handle comment deletion event
   useEffect(() => {
     const handleCommentDelete = (event: CustomEvent) => {
+      const { commentId, parentId } = event.detail;
+      
       if (!comment) return;
 
-      if (event.detail.commentId === comment.id) {
+      if (commentId === comment.id) {
         // If this is the deleted comment, remove it from the UI
         setComment(null);
       } else if (comment.replies) {
-        // If this is a parent comment, remove the deleted reply
-        setComment({
-          ...comment,
-          replies: comment.replies.filter(reply => reply.id !== event.detail.commentId)
-        });
+        // Add the deleted reply ID to our Set
+        deletedReplyIds.add(commentId);
+        
+        // If this is a parent comment, remove the deleted reply and update replies count
+        const filteredReplies = comment.replies.filter(reply => 
+          reply.id !== commentId && reply.parentId !== commentId && !deletedReplyIds.has(reply.id)
+        );
+        
+        setComment(prev => prev ? {
+          ...prev,
+          replies: filteredReplies
+        } : null);
+
+        // If no replies left, hide the replies section
+        if (filteredReplies.length === 0) {
+          setShowReplies(false);
+        }
       }
     };
 
@@ -86,7 +106,18 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
     return () => {
       window.removeEventListener('commentDelete', handleCommentDelete as EventListener);
     };
-  }, [comment]);
+  }, [comment, deletedReplyIds]);
+
+  // Update replies when parent comment changes
+  useEffect(() => {
+    if (comment && replies) {
+      const validReplies = replies.filter(reply => !deletedReplyIds.has(reply.id));
+      setComment(prev => prev ? {
+        ...prev,
+        replies: validReplies
+      } : null);
+    }
+  }, [replies, deletedReplyIds]);
 
   // Auto-expand comments with new replies
   useEffect(() => {
@@ -175,10 +206,8 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
     }
   }, [initialShowReplies]);
 
-  // If comment was deleted, don't render anything
   if (!comment) return null;
 
-  // Ensure we have a valid user object, even for deleted users
   const user = comment.user || {
     id: 'deleted',
     username: 'deleted',
@@ -197,8 +226,8 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
   const username = user.username || "deleted";
   const href = username === "deleted" ? "#" : `/dashboard/${username}`;
   
-  // Check if comment has replies
-  const hasReplies = replies && replies.length > 0;
+  // Update the hasReplies check to use filteredReplies
+  const hasReplies = filteredReplies.length > 0;
   
   const handleLikeClick = async () => {
     if (!session?.user?.id || !comment) return;
@@ -369,7 +398,7 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
                 ) : (
                   <ChevronDown className="h-3 w-3 mr-1" />
                 )}
-                {showReplies ? "Hide replies" : `View ${replies?.length} ${replies?.length === 1 ? 'reply' : 'replies'}`}
+                {showReplies ? "Hide replies" : `View ${filteredReplies.length} ${filteredReplies.length === 1 ? 'reply' : 'replies'}`}
               </div>
             </button>
           )}
@@ -377,10 +406,11 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
           {/* Replies section */}
           {hasReplies && showReplies && (
             <div className="mt-2 ml-2 pl-3 border-l border-neutral-200 dark:border-neutral-700">
-              {replies?.map((reply) => (
+              {filteredReplies.map((reply) => (
                 <Comment
                   key={`${reply.id}-${reply.createdAt}`}
                   comment={reply}
+                  replies={[]}
                   inputRef={inputRef}
                   postUserId={postUserId}
                   onReply={onReply}
@@ -402,46 +432,44 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
           <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
               {likes && likes.length > 0 ? (
-                likes.map((like) => {
-                  return (
-                    <div
-                      key={like.id}
-                      className="flex items-center justify-between p-4"
-                    >
-                      <div className="flex items-center gap-x-2">
-                        <Link href={`/dashboard/${like.user.username}`}>
-                          <UserAvatar user={like.user} />
-                        </Link>
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-x-1">
-                            <Link href={`/dashboard/${like.user.username}`}>
-                              <p className="font-semibold text-sm hover:underline">
-                                {like.user.username}
-                              </p>
-                            </Link>
-                            {like.user.verified && (
-                              <VerifiedBadge className="h-4 w-4" />
-                            )}
-                          </div>
-                          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                            {like.user.name}
-                          </p>
+                likes.map((like) => (
+                  <div
+                    key={like.id}
+                    className="flex items-center justify-between p-4"
+                  >
+                    <div className="flex items-center gap-x-2">
+                      <Link href={`/dashboard/${like.user.username}`}>
+                        <UserAvatar user={like.user} />
+                      </Link>
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-x-1">
+                          <Link href={`/dashboard/${like.user.username}`}>
+                            <p className="font-semibold text-sm hover:underline">
+                              {like.user.username}
+                            </p>
+                          </Link>
+                          {like.user.verified && (
+                            <VerifiedBadge className="h-4 w-4" />
+                          )}
                         </div>
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                          {like.user.name}
+                        </p>
                       </div>
-
-                      {session?.user?.id !== like.user.id && (
-                        <FollowButton
-                          followingId={like.user.id}
-                          isFollowing={false}
-                          hasPendingRequest={false}
-                          isPrivate={false}
-                          className="h-9 min-w-[120px] w-[120px]"
-                          variant="profile"
-                        />
-                      )}
                     </div>
-                  );
-                })
+
+                    {session?.user?.id !== like.user.id && (
+                      <FollowButton
+                        followingId={like.user.id}
+                        isFollowing={false}
+                        hasPendingRequest={false}
+                        isPrivate={false}
+                        className="h-9 min-w-[120px] w-[120px]"
+                        variant="profile"
+                      />
+                    )}
+                  </div>
+                ))
               ) : (
                 <div className="flex items-center justify-center flex-1 p-4">
                   <p className="text-sm text-neutral-500 dark:text-neutral-400">

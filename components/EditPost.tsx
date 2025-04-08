@@ -50,7 +50,7 @@ function EditPost({
     <div className="p-6">
       <div className="mb-4">
         <h2 className="text-xl font-bold">Edit Post</h2>
-        <p className="text-sm text-neutral-500">Edit your post details</p>
+        <p className="text-sm text-neutral-500">Edit your post caption</p>
       </div>
 
       <Form {...form}>
@@ -74,19 +74,6 @@ function EditPost({
             }
           })}
         >
-          <div className="h-96 md:h-[450px] overflow-hidden rounded-md">
-            <AspectRatio ratio={1 / 1} className="relative h-full">
-              <Image
-                src={fileUrl}
-                alt="Post preview"
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                className="rounded-md object-cover"
-                priority={true}
-              />
-            </AspectRatio>
-          </div>
-
           <FormField
             control={form.control}
             name="caption"
@@ -106,7 +93,7 @@ function EditPost({
             )}
           />
 
-          <Button type="submit" disabled={form.formState.isSubmitting}>
+          <Button type="submit" className="w-full bg-neutral-900 text-white hover:bg-neutral-800">
             Done
           </Button>
         </form>

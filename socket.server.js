@@ -90,6 +90,8 @@ io.on("connection", (socket) => {
 
   socket.on("commentLikeUpdate", (data) => { io.emit("commentLikeUpdate", data); });
 
+  socket.on("bookmarkUpdate", (data) => { io.emit("bookmarkUpdate", data); });
+
   socket.on("profileUpdate", (data) => {
     io.emit("profileUpdate", data);
   });

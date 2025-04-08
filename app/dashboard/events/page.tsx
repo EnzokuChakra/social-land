@@ -263,7 +263,7 @@ export default function EventsPage() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="container mx-auto max-w-7xl px-4 py-12 space-y-10 mt-16"
+      className="container mx-auto max-w-7xl px-4 py-12 space-y-10 pt-20"
       suppressHydrationWarning
     >
       {/* Header */}

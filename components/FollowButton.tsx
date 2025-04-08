@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { useFollowStatus } from "@/lib/hooks/use-follow-status";
@@ -39,6 +39,7 @@ export default function FollowButton({
   const [isHovered, setIsHovered] = useState(false);
   const { data: session } = useSession();
   const isOwnProfile = session?.user?.id === followingId;
+  const lastActionTime = useRef<number>(0);
   
   // Use the follow status hook to get real-time status
   const { data: followStatus, isLoading: isLoadingStatus } = useFollowStatus(followingId);
@@ -62,8 +63,23 @@ export default function FollowButton({
     }
   }, [followStatus]);
 
+  const canPerformAction = () => {
+    const now = Date.now();
+    const timeSinceLastAction = now - lastActionTime.current;
+    const cooldownPeriod = 5000; // 5 seconds in milliseconds
+
+    if (timeSinceLastAction < cooldownPeriod) {
+      const remainingTime = Math.ceil((cooldownPeriod - timeSinceLastAction) / 1000);
+      toast.error(`Please wait ${remainingTime} seconds before trying again`);
+      return false;
+    }
+
+    lastActionTime.current = now;
+    return true;
+  };
+
   const handleFollow = async () => {
-    if (isLoading) return;
+    if (isLoading || !canPerformAction()) return;
 
     setIsLoading(true);
     try {
@@ -102,7 +118,8 @@ export default function FollowButton({
       // Invalidate both follow status and profile stats queries
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['followStatus', followingId] }),
-        queryClient.invalidateQueries({ queryKey: ['profileStats'] })
+        queryClient.invalidateQueries({ queryKey: ['profileStats'] }),
+        queryClient.invalidateQueries({ queryKey: ['followers'] })
       ]);
 
       if (onSuccess) {
@@ -116,7 +133,7 @@ export default function FollowButton({
   };
 
   const handleUnfollow = async () => {
-    if (isLoading) return;
+    if (isLoading || !canPerformAction()) return;
 
     try {
       setIsLoading(true);
@@ -156,7 +173,8 @@ export default function FollowButton({
       // Invalidate both follow status and profile stats queries
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['followStatus', followingId] }),
-        queryClient.invalidateQueries({ queryKey: ['profileStats'] })
+        queryClient.invalidateQueries({ queryKey: ['profileStats'] }),
+        queryClient.invalidateQueries({ queryKey: ['followers'] })
       ]);
 
       if (onSuccess) {
@@ -170,7 +188,7 @@ export default function FollowButton({
   };
 
   const handleCancelRequest = async () => {
-    if (isLoading) return;
+    if (isLoading || !canPerformAction()) return;
 
     try {
       setIsLoading(true);
@@ -208,7 +226,8 @@ export default function FollowButton({
       // Invalidate both follow status and profile stats queries
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['followStatus', followingId] }),
-        queryClient.invalidateQueries({ queryKey: ['profileStats'] })
+        queryClient.invalidateQueries({ queryKey: ['profileStats'] }),
+        queryClient.invalidateQueries({ queryKey: ['followers'] })
       ]);
 
       onSuccess?.(true);
