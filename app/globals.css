@@ -10,7 +10,7 @@
     user-select: none; /* Standard */
   }
 
-  /* Enhanced input field styles for iframe environment */
+  /* CEF non-accelerated input styles */
   input, 
   textarea, 
   [contenteditable],
@@ -23,26 +23,22 @@
     -moz-user-select: text !important;
     -ms-user-select: text !important;
     user-select: text !important;
-    caret-color: black !important;
-    -webkit-caret-color: black !important;
-    -webkit-text-fill-color: currentColor !important;
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    background-color: transparent !important;
+    /* Force hardware acceleration for inputs */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000;
+    /* CEF specific cursor handling */
     cursor: text !important;
+    /* Force caret display for CEF */
+    -webkit-text-fill-color: currentColor !important;
+    caret-color: currentColor !important;
+    -webkit-caret-color: currentColor !important;
   }
 
-  /* Dark mode caret color */
-  .dark input,
-  .dark textarea,
-  .dark [contenteditable],
-  .dark .comment-input,
-  .dark [type="text"],
-  .dark [type="password"],
-  .dark [type="email"],
-  .dark [type="search"] {
-    caret-color: white !important;
-    -webkit-caret-color: white !important;
-  }
-
-  /* Force focus styles and caret in iframe */
+  /* CEF focus state handling */
   input:focus,
   textarea:focus,
   [contenteditable]:focus,
@@ -51,14 +47,27 @@
   [type="password"]:focus,
   [type="email"]:focus,
   [type="search"]:focus {
+    /* Use inset box-shadow instead of outline for CEF */
+    box-shadow: inset 0 0 0 2px #2563eb !important;
+    border-color: #2563eb !important;
+    /* Force caret in focused state */
     caret-color: #2563eb !important;
     -webkit-caret-color: #2563eb !important;
-    outline: 2px solid #2563eb !important;
-    outline-offset: -1px !important;
-    border-color: #2563eb !important;
   }
 
-  /* Dark mode focus styles */
+  /* CEF dark mode handling */
+  .dark input,
+  .dark textarea,
+  .dark [contenteditable],
+  .dark .comment-input,
+  .dark [type="text"],
+  .dark [type="password"],
+  .dark [type="email"],
+  .dark [type="search"] {
+    caret-color: #60a5fa !important;
+    -webkit-caret-color: #60a5fa !important;
+  }
+
   .dark input:focus,
   .dark textarea:focus,
   .dark [contenteditable]:focus,
@@ -67,9 +76,7 @@
   .dark [type="password"]:focus,
   .dark [type="email"]:focus,
   .dark [type="search"]:focus {
-    caret-color: #60a5fa !important;
-    -webkit-caret-color: #60a5fa !important;
-    outline-color: #60a5fa !important;
+    box-shadow: inset 0 0 0 2px #60a5fa !important;
     border-color: #60a5fa !important;
   }
 
