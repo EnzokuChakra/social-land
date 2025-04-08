@@ -13,6 +13,29 @@ import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 
+// Define the type for comment reports based on the fetched data
+interface CommentReportWithDetails {
+  id: string;
+  createdAt: Date;
+  reason: string | null;
+  reporter: {
+    id: string;
+    username: string | null;
+    image: string | null;
+    name: string | null;
+  };
+  comment: {
+    id: string;
+    body: string;
+    user: {
+      id: string;
+      username: string | null;
+      image: string | null;
+      name: string | null;
+    }
+  };
+}
+
 interface RecentActivityTabsProps {
   newUsers: Array<{
     id: string;
@@ -53,9 +76,10 @@ interface RecentActivityTabsProps {
       name: string | null;
     };
   }>;
+  commentReports: CommentReportWithDetails[];
 }
 
-export function RecentActivityTabs({ newUsers, recentReports, userReports }: RecentActivityTabsProps) {
+export function RecentActivityTabs({ newUsers, recentReports, userReports, commentReports }: RecentActivityTabsProps) {
   const { data: session } = useSession();
   const userRole = session?.user?.role;
   const isAdmin = userRole === "ADMIN" || userRole === "MASTER_ADMIN";
@@ -64,7 +88,7 @@ export function RecentActivityTabs({ newUsers, recentReports, userReports }: Rec
     <Tabs defaultValue="new-users" className="w-full">
       <TabsList className={cn(
         "w-full h-auto p-2 bg-neutral-100 dark:bg-neutral-900",
-        isAdmin ? "grid grid-cols-3" : "grid grid-cols-1",
+        isAdmin ? "grid grid-cols-4" : "grid grid-cols-1",
         "gap-2 rounded-lg"
       )}>
         <TabsTrigger 
@@ -107,6 +131,19 @@ export function RecentActivityTabs({ newUsers, recentReports, userReports }: Rec
               )}
             >
               User Reports
+            </TabsTrigger>
+            <TabsTrigger 
+              value="comment-reports" 
+              className={cn(
+                "data-[state=active]:bg-white dark:data-[state=active]:bg-black",
+                "data-[state=active]:text-primary",
+                "data-[state=active]:shadow-sm",
+                "rounded-md transition-all duration-200",
+                "hover:bg-white/50 dark:hover:bg-neutral-800/50",
+                "py-2"
+              )}
+            >
+              Comment Reports
             </TabsTrigger>
           </>
         )}
@@ -235,6 +272,44 @@ export function RecentActivityTabs({ newUsers, recentReports, userReports }: Rec
                             Review
                           </Button>
                         </Link>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          <TabsContent value="comment-reports">
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Comment Reports</CardTitle>
+                <CardDescription>Recently reported comments that need review</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[400px] pr-4">
+                  <div className="space-y-4">
+                    {commentReports.map((report) => (
+                      <div key={report.id} className="flex items-start justify-between gap-4">
+                        <div className="flex items-start space-x-4">
+                          <Avatar>
+                            <AvatarImage src={report.reporter?.image || undefined} />
+                            <AvatarFallback>
+                              {report.reporter?.name?.[0] || report.reporter?.username?.[0] || "?"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium leading-none">
+                              <Link href={`/dashboard/${report.reporter.username}`} className="hover:underline">
+                                {report.reporter.username || "Unknown User"}
+                              </Link> reported:
+                            </p>
+                            <blockquote className="mt-1 border-l-2 pl-3 italic text-sm text-muted-foreground">{report.comment.body}</blockquote>
+                            <p className="text-sm text-muted-foreground mt-1"><span className="font-medium">Reason:</span> {report.reason || "No reason provided"}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(report.createdAt), { addSuffix: true })}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>

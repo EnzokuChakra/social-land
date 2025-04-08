@@ -16,6 +16,8 @@ import { toast } from "sonner";
 import { deleteComment } from "@/lib/actions";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 type Props = {
   comment: CommentWithExtras;
@@ -29,6 +31,8 @@ function CommentOptions({ comment, postUserId }: Props) {
   const isPostOwner = postUserId === currentUserId;
   const canDelete = isCommentOwner || isPostOwner;
   const [isOpen, setIsOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [isReporting, setIsReporting] = useState(false);
 
   // Debug logging
   useEffect(() => {
@@ -45,6 +49,11 @@ function CommentOptions({ comment, postUserId }: Props) {
   }, [comment.user_id, currentUserId, postUserId, isCommentOwner, isPostOwner, canDelete]);
 
   const handleReport = async () => {
+    if (!reason.trim()) {
+      toast.error("Please provide a reason for reporting.");
+      return;
+    }
+    setIsReporting(true);
     try {
       const response = await fetch('/api/reports/comment', {
         method: 'POST',
@@ -53,7 +62,7 @@ function CommentOptions({ comment, postUserId }: Props) {
         },
         body: JSON.stringify({
           commentId: comment.id,
-          reason: 'Inappropriate content', // Example reason
+          reason: reason,
         }),
       });
 
@@ -66,10 +75,12 @@ function CommentOptions({ comment, postUserId }: Props) {
         }
       } else {
         toast.success('Comment reported successfully');
-        setIsOpen(false); // Close the modal
+        setIsOpen(false);
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to report comment');
+    } finally {
+      setIsReporting(false);
     }
   };
 
@@ -143,11 +154,16 @@ function CommentOptions({ comment, postUserId }: Props) {
               </DialogHeader>
 
               <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="reason">Reason</Label>
+                  <Textarea id="reason" placeholder="Please provide a reason for reporting this comment..." value={reason} onChange={(e) => setReason(e.target.value)} rows={3} className="resize-none" />
+                </div>
                 <button
                   onClick={handleReport}
-                  className="w-full bg-red-500 hover:bg-red-600 text-white rounded-md p-2.5 text-sm font-semibold"
+                  disabled={isReporting || !reason.trim()}
+                  className="w-full bg-red-500 hover:bg-red-600 text-white rounded-md p-2.5 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Report
+                  {isReporting ? 'Reporting...' : 'Report'}
                 </button>
                 <DialogClose className="w-full border rounded-md p-2.5 text-sm font-semibold">
                   Cancel

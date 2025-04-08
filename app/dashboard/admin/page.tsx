@@ -22,7 +22,7 @@ export default async function AdminDashboard() {
     redirect("/dashboard");
   }
 
-  const [newUsers, recentReports, userReports] = await Promise.all([
+  const [newUsers, recentReports, userReports, commentReports] = await Promise.all([
     db.user.findMany({
       select: {
         id: true,
@@ -88,6 +88,39 @@ export default async function AdminDashboard() {
       },
       take: 5,
     }),
+    db.commentReport.findMany({
+      select: {
+        id: true,
+        createdAt: true,
+        reason: true,
+        reporter: {
+          select: {
+            id: true,
+            username: true,
+            image: true,
+            name: true,
+          },
+        },
+        comment: {
+          select: {
+            id: true,
+            body: true,
+            user: {
+              select: {
+                id: true,
+                username: true,
+                image: true,
+                name: true,
+              }
+            }
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: 5,
+    }),
   ]);
 
   return (
@@ -98,6 +131,7 @@ export default async function AdminDashboard() {
         newUsers={newUsers}
         recentReports={recentReports}
         userReports={userReports}
+        commentReports={commentReports}
       />
     </div>
   );

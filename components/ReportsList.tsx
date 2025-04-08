@@ -40,10 +40,24 @@ interface StoryReport {
   };
 }
 
+interface CommentReport {
+  id: string;
+  createdAt: string;
+  reason: string | null;
+  status: string;
+  reporter: ReportUser;
+  comment: {
+    id: string;
+    body: string;
+    user: ReportUser;
+  };
+}
+
 export function ReportsList() {
   const [reports, setReports] = useState<ReportWithUser[]>([]);
   const [userReports, setUserReports] = useState<UserReport[]>([]);
   const [storyReports, setStoryReports] = useState<StoryReport[]>([]);
+  const [commentReports, setCommentReports] = useState<CommentReport[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -52,23 +66,26 @@ export function ReportsList() {
 
   async function fetchReports() {
     try {
-      const [postsResponse, usersResponse, storiesResponse] = await Promise.all([
+      const [postsResponse, usersResponse, storiesResponse, commentsResponse] = await Promise.all([
         fetch("/api/admin/reports"),
         fetch("/api/admin/user-reports"),
-        fetch("/api/admin/story-reports")
+        fetch("/api/admin/story-reports"),
+        fetch("/api/admin/comment-reports")
       ]);
 
-      if (!postsResponse.ok || !usersResponse.ok || !storiesResponse.ok) {
+      if (!postsResponse.ok || !usersResponse.ok || !storiesResponse.ok || !commentsResponse.ok) {
         throw new Error("Failed to fetch reports");
       }
 
       const postsData = await postsResponse.json();
       const usersData = await usersResponse.json();
       const storiesData = await storiesResponse.json();
+      const commentsData = await commentsResponse.json();
 
       setReports(postsData.reports || []);
       setUserReports(usersData.reports || []);
       setStoryReports(storiesData.reports || []);
+      setCommentReports(commentsData.reports || []);
     } catch (error) {
       console.error("Error fetching reports:", error);
       toast.error("Failed to load reports");
@@ -77,13 +94,23 @@ export function ReportsList() {
     }
   }
 
-  async function handleUpdateStatus(reportId: string, status: "REVIEWED" | "DISMISSED", type: "post" | "user" | "story") {
+  async function handleUpdateStatus(reportId: string, status: "REVIEWED" | "DISMISSED", type: "post" | "user" | "story" | "comment") {
     try {
-      const endpoint = type === "post" 
-        ? `/api/admin/reports/${reportId}`
-        : type === "user"
-        ? `/api/admin/user-reports/${reportId}`
-        : `/api/admin/story-reports/${reportId}`;
+      let endpoint = '';
+      switch (type) {
+        case "post":
+          endpoint = `/api/admin/reports/${reportId}`;
+          break;
+        case "user":
+          endpoint = `/api/admin/user-reports/${reportId}`;
+          break;
+        case "story":
+          endpoint = `/api/admin/story-reports/${reportId}`;
+          break;
+        case "comment":
+          endpoint = `/api/admin/comment-reports/${reportId}`;
+          break;
+      }
         
       const response = await fetch(endpoint, {
         method: "PATCH",
@@ -119,7 +146,7 @@ export function ReportsList() {
     return <div className="text-center py-4">Loading reports...</div>;
   }
 
-  if (!reports?.length && !userReports?.length && !storyReports?.length) {
+  if (!reports?.length && !userReports?.length && !storyReports?.length && !commentReports?.length) {
     return <div className="text-center py-4">No reports found.</div>;
   }
 
@@ -366,6 +393,97 @@ export function ReportsList() {
                           </Button>
                           <Button
                             onClick={() => handleUpdateStatus(report.id, "DISMISSED", "story")}
+                            variant="outline"
+                            size="sm"
+                          >
+                            Dismiss
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center space-x-1">
+                            <span className="text-sm text-neutral-500 dark:text-neutral-400 capitalize">
+                              {report.status.toLowerCase()}
+                            </span>
+                            {reviewInfo && (
+                              <>
+                                <span className="text-sm text-neutral-500 dark:text-neutral-400">by</span>
+                                <Link
+                                  href={`/dashboard/${reviewInfo.username}`}
+                                  className="text-sm font-medium hover:underline text-neutral-900 dark:text-neutral-100"
+                                >
+                                  @{reviewInfo.username}
+                                </Link>
+                              </>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Comment Reports */}
+      {commentReports.length > 0 && (
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Comment Reports</h2>
+          <div className="space-y-6">
+            {commentReports.map((report) => {
+              const reviewInfo = parseReviewInfo(report.reason);
+              const originalReason = report.reason?.split('\n\nReviewed by')[0];
+              
+              return (
+                <div
+                  key={report.id}
+                  className="bg-white dark:bg-neutral-950 rounded-lg shadow p-4 border border-neutral-200 dark:border-neutral-800"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-3">
+                      <UserAvatar user={report.reporter} />
+                      <div>
+                        <div className="flex items-center space-x-2 flex-wrap">
+                          <Link
+                            href={`/dashboard/${report.reporter.username}`}
+                            className="font-semibold hover:underline"
+                          >
+                            {report.reporter.username}
+                          </Link>
+                          <span className="text-neutral-500 dark:text-neutral-400 text-sm">
+                            reported a comment by
+                          </span>
+                          <Link
+                            href={`/dashboard/${report.comment.user.username}`}
+                            className="font-semibold hover:underline"
+                          >
+                            {report.comment.user.username}
+                          </Link>
+                        </div>
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                          {formatTimeToNow(new Date(report.createdAt))}
+                        </p>
+                        <blockquote className="mt-2 text-sm border-l-2 pl-3 italic">{report.comment.body}</blockquote>
+                        {originalReason && (
+                          <p className="mt-2 text-sm"><span className="font-semibold">Reason:</span> {originalReason}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end space-y-2">
+                      {report.status === "PENDING" ? (
+                        <>
+                          <Button
+                            onClick={() => handleUpdateStatus(report.id, "REVIEWED", "comment")}
+                            variant="default"
+                            size="sm"
+                          >
+                            Review
+                          </Button>
+                          <Button
+                            onClick={() => handleUpdateStatus(report.id, "DISMISSED", "comment")}
                             variant="outline"
                             size="sm"
                           >
