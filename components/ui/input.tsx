@@ -7,6 +7,15 @@ export interface InputProps
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, ...props }, ref) => {
+    const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+      // Ensure the input gets proper focus in iframe
+      e.target.focus();
+      // Force cursor visibility
+      e.target.style.caretColor = 'auto';
+      // Call the original onFocus if provided
+      props.onFocus?.(e);
+    };
+
     return (
       <input
         type={type}
@@ -15,6 +24,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           className
         )}
         ref={ref}
+        onFocus={handleFocus}
         {...props}
       />
     )
