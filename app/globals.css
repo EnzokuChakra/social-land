@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 @layer base {
   * {
     -webkit-user-select: none; /* Safari */
@@ -17,6 +22,7 @@
     -moz-user-select: text !important;
     -ms-user-select: text !important;
     user-select: text !important;
+    position: relative !important;
   }
 
   /* Force caret visibility in iframe environment */
@@ -111,6 +117,33 @@
 }
 
 @layer components {
+  .custom-caret {
+    position: relative !important;
+  }
+
+  .custom-caret::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2px;
+    height: 1.2em;
+    background-color: #000;
+    animation: blink 1s step-end infinite;
+    pointer-events: none;
+  }
+
+  .dark .custom-caret::after {
+    background-color: #fff;
+  }
+
+  /* Hide the default caret */
+  .custom-caret {
+    caret-color: transparent !important;
+    -webkit-caret-color: transparent !important;
+  }
+
   .navLink {
     @apply md:!justify-start space-x-2 md:!my-1.5 !px-3 w-full;
   }
