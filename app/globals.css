@@ -10,6 +10,44 @@
     user-select: none; /* Standard */
   }
 
+  /* Elegant Scrollbar Styles */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #c2c2c2;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: #404040;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: #525252;
+  }
+
+  /* Firefox Scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #c2c2c2 transparent;
+  }
+
+  .dark * {
+    scrollbar-color: #404040 transparent;
+  }
+
   /* CEF non-accelerated input styles */
   input, 
   textarea, 
