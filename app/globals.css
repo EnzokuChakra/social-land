@@ -12,20 +12,16 @@
 
   /* Allow text selection and ensure caret visibility in input fields */
   input, textarea, [contenteditable] {
+    @apply input-base;
     -webkit-user-select: text !important;
     -moz-user-select: text !important;
     -ms-user-select: text !important;
     user-select: text !important;
-    caret-color: currentColor !important;
-    -webkit-caret-color: currentColor !important;
-    -webkit-text-fill-color: currentColor !important;
   }
 
   /* Force caret visibility in iframe environment */
   input:focus, textarea:focus, [contenteditable]:focus {
-    caret-color: currentColor !important;
-    -webkit-caret-color: currentColor !important;
-    outline: none !important;
+    @apply input-base;
   }
 
   /* Prevent image dragging */
@@ -129,6 +125,18 @@
 
   .dialogContent {
     @apply bg-white dark:bg-black !p-0 overflow-hidden !gap-0;
+  }
+
+  .input-base {
+    caret-color: black !important;
+    -webkit-caret-color: black !important;
+    -webkit-text-fill-color: currentColor !important;
+    color-scheme: normal !important;
+  }
+
+  .dark .input-base {
+    caret-color: white !important;
+    -webkit-caret-color: white !important;
   }
 }
 
