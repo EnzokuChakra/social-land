@@ -42,10 +42,15 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           caretRef.current.style.top = '50%';
           caretRef.current.style.transform = 'translateY(-50%)';
           
+          // Force caret visibility
+          caretRef.current.style.visibility = 'visible';
+          caretRef.current.style.opacity = '1';
+          
           console.log('Debug - Caret element:', JSON.stringify({
             left: caretRef.current.style.left,
             top: caretRef.current.style.top,
-            visibility: caretRef.current.style.visibility
+            visibility: caretRef.current.style.visibility,
+            opacity: caretRef.current.style.opacity
           }));
         }
       } catch (error) {
@@ -55,6 +60,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
     const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
       const target = e.target as HTMLInputElement;
+      setIsFocused(true); // Force focused state on input
       updateCaretPosition(target);
       props.onInput?.(e);
     };
@@ -70,7 +76,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     };
 
     const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-      setIsFocused(false);
+      // Don't set isFocused to false in RAGEMP environment
       props.onBlur?.(e);
     };
 
@@ -79,6 +85,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         key: e.key,
         value: e.currentTarget.value
       }));
+      setIsFocused(true); // Force focused state on key events
       updateCaretPosition(e.currentTarget);
       props.onKeyUp?.(e);
     };
@@ -89,6 +96,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         y: e.clientY,
         value: e.currentTarget.value
       }));
+      setIsFocused(true); // Force focused state on click
       updateCaretPosition(e.currentTarget);
       props.onClick?.(e);
     };
@@ -99,6 +107,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           type: inputRef.current.type,
           className: inputRef.current.className
         }));
+        // Force initial focus state in RAGEMP
+        setIsFocused(true);
       }
     }, []);
 
@@ -124,11 +134,13 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           ref={caretRef}
           className={cn(
             "absolute w-[2px] h-[1.2em] bg-black dark:bg-white pointer-events-none transition-opacity",
-            isFocused ? "animate-blink" : "opacity-0"
+            "animate-blink"
           )}
           style={{
             position: 'absolute',
-            visibility: isFocused ? 'visible' : 'hidden'
+            visibility: 'visible',
+            opacity: '1',
+            zIndex: 9999
           }}
         />
       </div>
