@@ -229,7 +229,7 @@ export default function CreateStory({ open, onClose }: Props) {
                       className="mt-2"
                       disabled={loading}
                     >
-                      Select from computer
+                      Select from gallery
                     </Button>
                   </div>
                 </motion.div>

@@ -586,7 +586,7 @@ export default function CreateModal({ children }: { children: React.ReactNode })
                               className="mt-2"
                               disabled={state.isUploading}
                             >
-                              Select from computer
+                              Select from gallery
                             </Button>
                           </div>
                         </motion.div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { User } from "@/lib/definitions";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
@@ -27,12 +27,14 @@ interface CreatePostProps {
 export default function CreatePost({ isOpen, onClose }: CreatePostProps) {
   const [location, setLocation] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>("");
   const [caption, setCaption] = useState("");
   const [aspectRatio, setAspectRatio] = useState(1);
   const [taggedUsers, setTaggedUsers] = useState<{ userId: string; username: string }[]>([]);
   const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -166,12 +168,14 @@ export default function CreatePost({ isOpen, onClose }: CreatePostProps) {
           {!file ? (
             <div className="h-96 flex flex-col items-center justify-center gap-4 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
               <ImageIcon className="h-16 w-16 text-gray-400" />
-              <Label
-                htmlFor="file"
-                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg cursor-pointer"
+              <Button
+                onClick={() => inputRef.current?.click()}
+                variant="default"
+                className="mt-2"
+                disabled={isUploading}
               >
-                Select from computer
-              </Label>
+                Select from gallery
+              </Button>
               <input
                 id="file"
                 type="file"
