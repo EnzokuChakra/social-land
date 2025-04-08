@@ -98,6 +98,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const user = session?.user;
   const inputRef = useRef<HTMLInputElement>(null);
   const commentFormRef = useRef<CommentFormHandle>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const username = post.user.username;
   const href = `/dashboard/${username}`;
   const mount = useMount();
@@ -133,6 +134,41 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     comments: post.comments || [],
     tags: post.tags || []
   }));
+
+  // Save previous focus when opening modal
+  useEffect(() => {
+    if (isOpen) {
+      previousFocusRef.current = document.activeElement as HTMLElement;
+    }
+  }, [isOpen]);
+
+  // Handle focus restoration and cleanup
+  useEffect(() => {
+    return () => {
+      if (previousFocusRef.current && typeof previousFocusRef.current.focus === 'function') {
+        // Small delay to ensure proper focus restoration in CEF
+        setTimeout(() => {
+          previousFocusRef.current?.focus();
+        }, 0);
+      }
+    };
+  }, []);
+
+  // Handle modal close
+  const handleModalClose = useCallback((open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      // Force focus back to the previous element in CEF
+      if (previousFocusRef.current && typeof previousFocusRef.current.focus === 'function') {
+        setTimeout(() => {
+          previousFocusRef.current?.focus();
+          router.back();
+        }, 0);
+      } else {
+        router.back();
+      }
+    }
+  }, [router]);
 
   useEffect(() => {
     setIsOpen(true);
@@ -530,12 +566,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   return (
     <Dialog 
       open={isOpen} 
-      onOpenChange={(open) => {
-        setIsOpen(open);
-        if (!open) {
-          router.back();
-        }
-      }}
+      onOpenChange={handleModalClose}
     >
       <DialogContentWithoutClose 
         className={cn(
@@ -546,6 +577,9 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
           "bg-white dark:bg-neutral-950",
           "overflow-y-auto md:overflow-hidden"
         )}
+        tabIndex={0}
+        aria-modal="true"
+        role="dialog"
       >
         {/* Mobile Back Button */}
         {isMobile && (
