@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { PrismaClient } from "@prisma/client";
+
+// Ensure prisma is initialized
+const db = prisma || new PrismaClient();
 
 export async function DELETE(
   request: Request,
@@ -15,7 +19,7 @@ export async function DELETE(
     const { id } = params;
 
     // Delete the recent search
-    await prisma.recentsearch.delete({
+    await db.recentsearch.delete({
       where: {
         id,
         userId: session.user.id, // Ensure the user can only delete their own searches
