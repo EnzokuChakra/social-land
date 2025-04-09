@@ -1,6 +1,6 @@
 "use client";
 
-import { Story, StoryWithExtras, User, StoryView, UserRole, UserStatus } from "@/lib/definitions";
+import { Story, StoryWithExtras, User } from "@/lib/definitions";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import StoryBubble from "./StoryBubble";
 import { Separator } from "./ui/separator";
@@ -145,52 +145,6 @@ export default function StoryFeed({ userStories: initialUserStories = [], otherS
       }
     };
   }, [initialUserStories, initialOtherStories, storyModal.isOpen]);
-
-  // Add event listener for story viewed updates
-  useEffect(() => {
-    const handleStoryViewed = (event: CustomEvent) => {
-      const { userId, viewedStories } = event.detail;
-      
-      // Update otherStories to reflect the viewed status
-      setOtherStories(prevStories => 
-        prevStories.map(story => {
-          if (story.user.id === userId) {
-            const newView: StoryView & { user: User } = {
-              id: Date.now().toString(),
-              storyId: story.id,
-              user_id: session?.user?.id || '',
-              createdAt: new Date(),
-              user: {
-                id: session?.user?.id || '',
-                username: session?.user?.username || '',
-                name: session?.user?.name || null,
-                image: session?.user?.image || null,
-                email: session?.user?.email || '',
-                password: null,
-                bio: null,
-                verified: false,
-                isPrivate: false,
-                role: UserRole.USER,
-                status: "NORMAL" as UserStatus,
-                createdAt: new Date(),
-                updatedAt: new Date()
-              }
-            };
-            return {
-              ...story,
-              views: [...story.views, newView]
-            };
-          }
-          return story;
-        })
-      );
-    };
-
-    window.addEventListener('storyViewed', handleStoryViewed as EventListener);
-    return () => {
-      window.removeEventListener('storyViewed', handleStoryViewed as EventListener);
-    };
-  }, [session?.user?.id, session?.user?.username, session?.user?.name, session?.user?.image, session?.user?.email]);
 
   const hasActiveStory = userStories?.some(
     (story) => {

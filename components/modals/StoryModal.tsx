@@ -106,7 +106,6 @@ export default function StoryModal() {
   const [error, setError] = useState<string | null>(null);
   const lastFetchRef = useRef<number>(0);
   const [progress, setProgress] = useState(0);
-  const progressInterval = useRef<NodeJS.Timeout | null>(null);
   const storyTimeout = useRef<NodeJS.Timeout | null>(null);
   const lastProgressRef = useRef<number>(0);
   const animationFrameRef = useRef<number | null>(null);
@@ -154,18 +153,9 @@ export default function StoryModal() {
 
   // Now define handleStoryEnd which uses findNextUnviewedStory
   const handleStoryEnd = useCallback(() => {
-    if (isClosing) return;
-    
-    // Prevent multiple calls
-    if (progressInterval.current === null && storyTimeout.current === null) {
-      return;
-    }
 
-    // Clear any existing timers
-    if (progressInterval.current) {
-      clearInterval(progressInterval.current);
-      progressInterval.current = null;
-    }
+    if (isClosing || storyTimeout.current != null) return;
+
     if (storyTimeout.current) {
       clearTimeout(storyTimeout.current);
       storyTimeout.current = null;
@@ -197,6 +187,7 @@ export default function StoryModal() {
         setIsClosing(true);
         closingTimeoutRef.current = setTimeout(() => {
           storyModal.onClose();
+          closingTimeoutRef.current = null;
         }, 100); // Small delay to ensure state updates complete
       }
     }
@@ -211,10 +202,23 @@ export default function StoryModal() {
       if (isProgressRunning.current) return;
       isProgressRunning.current = true;
 
-      if (progressInterval.current) clearInterval(progressInterval.current);
-      if (storyTimeout.current) clearTimeout(storyTimeout.current);
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-      if (closingTimeoutRef.current) clearTimeout(closingTimeoutRef.current);
+      if (storyTimeout.current) 
+      {
+        clearTimeout(storyTimeout.current);
+        storyTimeout.current = null;
+      }
+
+      if (animationFrameRef.current) 
+      {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      
+      if (closingTimeoutRef.current) 
+      {
+        clearTimeout(closingTimeoutRef.current);
+        closingTimeoutRef.current = null;
+      }
 
       const duration = 5000; // 5 seconds per story
       startTimeRef.current = performance.now();
@@ -258,6 +262,7 @@ export default function StoryModal() {
         animationFrameRef.current = requestAnimationFrame(animate);
 
         // Set a timeout for the entire story duration as a fallback
+        if(storyTimeout.current) clearTimeout(storyTimeout.current);
         storyTimeout.current = setTimeout(() => {
           if (animationFrameRef.current) {
             cancelAnimationFrame(animationFrameRef.current);
@@ -267,6 +272,8 @@ export default function StoryModal() {
           requestAnimationFrame(() => {
             handleStoryEnd();
           });
+
+          storyTimeout.current = null;
         }, duration);
       };
 
@@ -276,6 +283,7 @@ export default function StoryModal() {
         setTimeout(() => {
           animationFrameRef.current = requestAnimationFrame(animate);
 
+          if(storyTimeout.current) clearTimeout(storyTimeout.current);
           storyTimeout.current = setTimeout(() => {
             if (animationFrameRef.current) {
               cancelAnimationFrame(animationFrameRef.current);
@@ -285,6 +293,9 @@ export default function StoryModal() {
             requestAnimationFrame(() => {
               handleStoryEnd();
             });
+
+            storyTimeout.current = null;
+
           }, duration);
         }, 1000);
       };
@@ -295,10 +306,7 @@ export default function StoryModal() {
     return () => {
       console.log('[Story Progress] Cleanup - clearing timers and animation frames');
       isProgressRunning.current = false;
-      if (progressInterval.current) {
-        clearInterval(progressInterval.current);
-        progressInterval.current = null;
-      }
+
       if (storyTimeout.current) {
         clearTimeout(storyTimeout.current);
         storyTimeout.current = null;
@@ -432,404 +440,415 @@ export default function StoryModal() {
           });
         }
       } catch (error) {
-        setError("Failed to load stories");
+        setError("Failed to track view");
       }
     };
 
     trackView();
   }, [currentStory?.id, session?.user?.id, progress]);
+          // Update the progress timer effect
+          useEffect(() => {
+            if (!currentStory || isPaused || !storyModal.isOpen) {
+              return;
+            }
 
-  // Update the progress timer effect
-  useEffect(() => {
-    if (!currentStory || isPaused || !storyModal.isOpen) {
-      return;
-    }
+            let progressTimer: NodeJS.Timeout | null = null;
+            let startDelay: NodeJS.Timeout | null = null;
+            const STORY_DURATION = 5000; // 5 seconds per story
+            const PROGRESS_INTERVAL = 50; // Update every 50ms for smooth animation
 
-    let progressTimer: NodeJS.Timeout | null = null;
-    let startDelay: NodeJS.Timeout | null = null;
-    const STORY_DURATION = 5000; // 5 seconds per story
-    const PROGRESS_INTERVAL = 50; // Update every 50ms for smooth animation
+            const startProgress = () => {
+              setProgress(0);
+              
+              startDelay = setTimeout(() => {
+                const startTime = Date.now();
+                
+                progressTimer = setInterval(() => {
+                  const elapsedTime = Date.now() - startTime;
+                  const calculatedProgress = (elapsedTime / STORY_DURATION) * 100;
+                  
+                  if (calculatedProgress >= 100) {
 
-    const startProgress = () => {
-      setProgress(0);
-      
-      startDelay = setTimeout(() => {
-        const startTime = Date.now();
-        
-        progressTimer = setInterval(() => {
-          const elapsedTime = Date.now() - startTime;
-          const calculatedProgress = (elapsedTime / STORY_DURATION) * 100;
-          
-          if (calculatedProgress >= 100) {
-            if (progressTimer) clearInterval(progressTimer);
-            if (startDelay) clearTimeout(startDelay);
+                    if (progressTimer) 
+                    {
+                      clearInterval(progressTimer);
+                      progressTimer = null;
+                    }
+
+                    if (startDelay) 
+                    {
+                      clearTimeout(startDelay);
+                      startDelay = null;
+                    }
+                    
+                    // Move to next story immediately
+                    if (currentStoryIndex < (currentUserStories?.stories.length || 0) - 1) {
+                      setCurrentStoryIndex(prev => prev + 1);
+                    } else if (storyModal.currentUserIndex < storyModal.userStories.length - 1) {
+                      storyModal.setCurrentUserIndex(storyModal.currentUserIndex + 1);
+                      setCurrentStoryIndex(0);
+                    } else {
+                      storyModal.onClose();
+                    }
+                  } else {
+                    setProgress(calculatedProgress);
+                  }
+                }, PROGRESS_INTERVAL);
+              }, 100);
+            };
+
+            startProgress();
+
+            return () => {
+              if (progressTimer) {
+                clearInterval(progressTimer);
+                progressTimer = null;
+              }
+              if (startDelay) {
+                clearTimeout(startDelay);
+                startDelay = null;
+              }
+            };
+          }, [
+            currentStory?.id,
+            isPaused,
+            storyModal.isOpen,
+            currentStoryIndex,
+            currentUserStories?.stories.length,
+            storyModal.currentUserIndex,
+            storyModal.userStories.length,
+            storyModal.onClose
+          ]);
+
+          // Handle story transitions
+          useEffect(() => {
+            if (!currentStory) {
+              return;
+            }
+
+            const timeout = setTimeout(() => {
+              requestAnimationFrame(() => {
+                setProgress(0);
+              });
+            }, 0);
+
+            return () => clearTimeout(timeout);
+          }, [currentStory?.id]);
+
+          // Reset all states when modal closes
+          useEffect(() => {
+            if (!storyModal.isOpen) {
+              setStories([]);
+              setCurrentStoryIndex(0);
+              setProgress(0);
+              setIsLiked(false);
+              setShowViewers(false);
+              setShowViewersList(false);
+              setIsPaused(false);
+              setError(null);
+              setIsLoading(false);
+              lastFetchRef.current = 0;
+
+              if (storyTimeout.current) {
+                clearTimeout(storyTimeout.current);
+                storyTimeout.current = null;
+              }
+
+              // Emit story modal close event
+              const event = new CustomEvent('storyModalClose');
+              window.dispatchEvent(event);
+            }
+          }, [storyModal.isOpen]);
+
+          // Update the initial fetch and polling effect
+          useEffect(() => {
+            if (!mount || !storyModal.isOpen || !storyModal.userId) return;
             
-            // Move to next story immediately
-            if (currentStoryIndex < (currentUserStories?.stories.length || 0) - 1) {
-              setCurrentStoryIndex(prev => prev + 1);
+            setIsLoading(true); // Show loading state while fetching
+            
+            // Initial fetch
+            const initialFetch = async () => {
+              try {
+                const response = await fetch(`/api/stories?userId=${storyModal.userId}`);
+                if (!response.ok) {
+                  throw new Error('Failed to fetch stories');
+                }
+                
+                const data = await response.json();
+                if (!data.success) {
+                  throw new Error(data.error || "Failed to load stories");
+                }
+
+                // Sort stories by createdAt in ascending order (oldest first)
+                const newStories = data.data.sort((a: Story, b: Story) => 
+                  new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                );
+
+                setStories(newStories);
+                
+                // Update userStories in modal context
+                if (storyModal.userStories.length > 0) {
+                  const updatedUserStories = [...storyModal.userStories];
+                  updatedUserStories[storyModal.currentUserIndex] = {
+                    ...updatedUserStories[storyModal.currentUserIndex],
+                    stories: newStories
+                  };
+                  storyModal.setUserStories(updatedUserStories);
+                }
+              } catch (error) {
+                setError("Failed to load stories");
+              } finally {
+                setIsLoading(false);
+              }
+            };
+
+            initialFetch();
+
+            // Set up polling with a longer interval
+            const storyUpdateInterval = setInterval(fetchStories, 15000); // Poll every 15 seconds
+            
+            return () => {
+              clearInterval(storyUpdateInterval);
+            };
+          }, [mount, storyModal.isOpen, storyModal.userId]);
+
+          // Socket.io effect for real-time likes
+          useEffect(() => {
+            if (!socket || !currentStory) return;
+
+            const handleLikeUpdate = (data: { storyId: string; userId: string; action: 'like' | 'unlike'; timestamp: string }) => {
+              if (data.storyId === currentStory.id) {
+                setStories((prevStories) => {
+                  return prevStories.map((story) => {
+                    if (story.id === data.storyId) {
+                      if (data.action === 'like') {
+                        // Add like if not already present
+                        const hasExistingLike = story.likes.some((like: StoryLike) => like.user.id === data.userId);
+                        if (!hasExistingLike) {
+                          return {
+                            ...story,
+                            likes: [...story.likes, {
+                              id: `temp-${Date.now()}`,
+                              createdAt: new Date(data.timestamp),
+                              user: {
+                                id: data.userId,
+                                username: '', // Will be updated on next fetch
+                                name: null,
+                                image: null
+                              }
+                            }]
+                          };
+                        }
+                      } else {
+                        // Remove like
+                        return {
+                          ...story,
+                          likes: story.likes.filter((like: StoryLike) => like.user.id !== data.userId)
+                        };
+                      }
+                    }
+                    return story;
+                  });
+                });
+              }
+            };
+
+            socket.on('storyLikeUpdate', handleLikeUpdate);
+            
+            return () => {
+              socket.off('storyLikeUpdate', handleLikeUpdate);
+            };
+          }, [socket, currentStory?.id, currentStory?.user?.id]);
+
+          // Optimistic update for likes with socket emission
+          const handleLike = async () => {
+            if (!currentStory || !session?.user?.id || !socket) return;
+
+            const newIsLiked = !isLiked;
+            setIsLiked(newIsLiked);
+
+            // Store the previous state for rollback
+            const previousStories = [...stories];
+
+            // Optimistically update the stories array
+            setStories((prevStories) => {
+              return prevStories.map((story) => {
+                if (story.id === currentStory.id) {
+                  const updatedLikes = newIsLiked
+                    ? [...story.likes, {
+                        id: `temp-${Date.now()}`,
+                        createdAt: new Date(),
+                        user: {
+                          id: session.user!.id,
+                          username: session.user!.username || '',
+                          name: session.user!.name || null,
+                          image: session.user!.image || null
+                        }
+                      }]
+                    : story.likes.filter((like) => like.user.id !== session.user!.id);
+
+                  return {
+                    ...story,
+                    likes: updatedLikes
+                  };
+                }
+                return story;
+              });
+            });
+
+            try {
+              const response = await axios.post('/api/stories/like', {
+                storyId: currentStory.id,
+                action: newIsLiked ? 'like' : 'unlike'
+              });
+
+              if (!response.data.success) {
+                throw new Error(response.data.error || 'Failed to update like');
+              }
+
+              // Update the story with the server response data if provided
+              if (response.data.data) {
+                setStories((prevStories) => {
+                  return prevStories.map((story) => {
+                    if (story.id === currentStory.id) {
+                      return {
+                        ...story,
+                        likes: newIsLiked 
+                          ? [...story.likes.filter(like => like.id !== `temp-${Date.now()}`), response.data.data]
+                          : story.likes.filter((like) => like.user.id !== session.user!.id)
+                      };
+                    }
+                    return story;
+                  });
+                });
+              }
+
+              // Emit socket event for real-time updates
+              socket.emit('storyLikeUpdate', {
+                storyId: currentStory.id,
+                userId: session.user.id,
+                action: newIsLiked ? 'like' : 'unlike'
+              });
+            } catch (error: any) {
+              // Revert optimistic update
+              setIsLiked(!newIsLiked);
+              setStories(previousStories);
+              
+              // Show specific error message based on the error type
+              if (error.response?.status === 404) {
+                toast.error('Story not found or expired');
+                progressToNextStory();
+              } else if (error.response?.status === 401) {
+                toast.error('You must be logged in to like stories');
+              } else {
+                toast.error(error.response?.data?.error || 'Failed to update like');
+              }
+            }
+          };
+
+          // Update the sortedViewers calculation
+          const sortedViewers = currentStory ? [...currentStory.views]
+            .filter((view: StoryView) => view.user.id !== currentStory.user.id) // Exclude story owner from views
+            .sort((a: StoryView, b: StoryView) => {
+              const aLiked = currentStory.likes.some((like: StoryLike) => like.user.id === a.user.id);
+              const bLiked = currentStory.likes.some((like: StoryLike) => like.user.id === b.user.id);
+              if (aLiked && !bLiked) return -1;
+              if (!aLiked && bLiked) return 1;
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            }) : [];
+
+          const handleDeleteStory = async () => {
+            try {
+              const response = await fetch(`/api/stories/${currentStory?.id}`, {
+                method: 'DELETE',
+              });
+              
+              if (!response.ok) throw new Error('Failed to delete story');
+              
+              // Update the stories state by removing the deleted story
+              const updatedStories = currentUserStories.stories.filter(
+                story => story.id !== currentStory?.id
+              );
+
+              // If this was the last story for the current user
+              if (updatedStories.length === 0) {
+                // Clear the lastViewedKey for own stories
+                if (currentStory?.user.id === session?.user?.id) {
+                  const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
+                  localStorage.removeItem(lastViewedKey);
+                }
+
+                // Remove the current user from userStories
+                const updatedUserStories = storyModal.userStories.filter(
+                  (_, index) => index !== storyModal.currentUserIndex
+                );
+                
+                // If there are no more users with stories, close the modal and refresh
+                if (updatedUserStories.length === 0) {
+                  storyModal.onClose();
+                  // Force refresh the page to update the UI
+                  window.location.reload();
+                  return;
+                }
+                
+                // Update the stories state
+                storyModal.setUserStories(updatedUserStories);
+                
+                // If we were viewing the last user's stories, move to the previous user
+                if (storyModal.currentUserIndex >= updatedUserStories.length) {
+                  storyModal.setCurrentUserIndex(updatedUserStories.length - 1);
+                  setCurrentStoryIndex(0);
+                }
+              } else {
+                // Update the current user's stories
+                const updatedUserStories = [...storyModal.userStories];
+                updatedUserStories[storyModal.currentUserIndex] = {
+                  ...currentUserStories,
+                  stories: updatedStories
+                };
+                storyModal.setUserStories(updatedUserStories);
+              }
+
+              // If this was the last story in the current user's stories, move to the previous story
+              if (currentStoryIndex >= updatedStories.length) {
+                setCurrentStoryIndex(Math.max(0, updatedStories.length - 1));
+              }
+            } catch (error) {
+              toast.error('Failed to delete story');
+            }
+          };
+
+          const handleReportStory = () => {
+            setStoryToReport(currentStory);
+            storyModal.onClose(); // Close the story modal first
+            // Use setTimeout to ensure the story modal is closed before opening the report modal
+            setTimeout(() => {
+              setIsReportModalOpen(true);
+            }, 100);
+          };
+
+          // Function to progress to next story
+          const progressToNextStory = useCallback(() => {
+            if (!currentUserStories?.stories) return;
+
+            if (currentStoryIndex < currentUserStories.stories.length - 1) {
+              setCurrentStoryIndex(currentStoryIndex + 1);
+              setProgress(0);
             } else if (storyModal.currentUserIndex < storyModal.userStories.length - 1) {
               storyModal.setCurrentUserIndex(storyModal.currentUserIndex + 1);
               setCurrentStoryIndex(0);
+              setProgress(0);
             } else {
+              // If we've reached the last story of the last user, close the modal
               storyModal.onClose();
             }
-          } else {
-            setProgress(calculatedProgress);
-          }
-        }, PROGRESS_INTERVAL);
-      }, 100);
-    };
+          }, [currentStoryIndex, currentUserStories?.stories?.length, storyModal]);
 
-    startProgress();
+          // Add a new effect to track when all stories have been viewed
+          useEffect(() => {
+            if (!storyModal.isOpen || !currentUserStories?.stories) return;
 
-    return () => {
-      if (progressTimer) {
-        clearInterval(progressTimer);
-      }
-      if (startDelay) {
-        clearTimeout(startDelay);
-      }
-    };
-  }, [
-    currentStory?.id,
-    isPaused,
-    storyModal.isOpen,
-    currentStoryIndex,
-    currentUserStories?.stories.length,
-    storyModal.currentUserIndex,
-    storyModal.userStories.length,
-    storyModal.onClose
-  ]);
-
-  // Handle story transitions
-  useEffect(() => {
-    if (!currentStory) {
-      return;
-    }
-
-    const timeout = setTimeout(() => {
-      requestAnimationFrame(() => {
-        setProgress(0);
-      });
-    }, 0);
-
-    return () => clearTimeout(timeout);
-  }, [currentStory?.id]);
-
-  // Reset all states when modal closes
-  useEffect(() => {
-    if (!storyModal.isOpen) {
-      setStories([]);
-      setCurrentStoryIndex(0);
-      setProgress(0);
-      setIsLiked(false);
-      setShowViewers(false);
-      setShowViewersList(false);
-      setIsPaused(false);
-      setError(null);
-      setIsLoading(false);
-      lastFetchRef.current = 0;
-      if (progressInterval.current) {
-        clearInterval(progressInterval.current);
-      }
-      if (storyTimeout.current) {
-        clearTimeout(storyTimeout.current);
-      }
-
-      // Emit story modal close event
-      const event = new CustomEvent('storyModalClose');
-      window.dispatchEvent(event);
-    }
-  }, [storyModal.isOpen]);
-
-  // Update the initial fetch and polling effect
-  useEffect(() => {
-    if (!mount || !storyModal.isOpen || !storyModal.userId) return;
-    
-    setIsLoading(true); // Show loading state while fetching
-    
-    // Initial fetch
-    const initialFetch = async () => {
-      try {
-        const response = await fetch(`/api/stories?userId=${storyModal.userId}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch stories');
-        }
-        
-        const data = await response.json();
-        if (!data.success) {
-          throw new Error(data.error || "Failed to load stories");
-        }
-
-        // Sort stories by createdAt in ascending order (oldest first)
-        const newStories = data.data.sort((a: Story, b: Story) => 
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-
-        setStories(newStories);
-        
-        // Update userStories in modal context
-        if (storyModal.userStories.length > 0) {
-          const updatedUserStories = [...storyModal.userStories];
-          updatedUserStories[storyModal.currentUserIndex] = {
-            ...updatedUserStories[storyModal.currentUserIndex],
-            stories: newStories
-          };
-          storyModal.setUserStories(updatedUserStories);
-        }
-      } catch (error) {
-        setError("Failed to load stories");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    initialFetch();
-
-    // Set up polling with a longer interval
-    const storyUpdateInterval = setInterval(fetchStories, 15000); // Poll every 15 seconds
-    
-    return () => {
-      clearInterval(storyUpdateInterval);
-    };
-  }, [mount, storyModal.isOpen, storyModal.userId]);
-
-  // Socket.io effect for real-time likes
-  useEffect(() => {
-    if (!socket || !currentStory) return;
-
-    const handleLikeUpdate = (data: { storyId: string; userId: string; action: 'like' | 'unlike'; timestamp: string }) => {
-      if (data.storyId === currentStory.id) {
-        setStories((prevStories) => {
-          return prevStories.map((story) => {
-            if (story.id === data.storyId) {
-              if (data.action === 'like') {
-                // Add like if not already present
-                const hasExistingLike = story.likes.some((like: StoryLike) => like.user.id === data.userId);
-                if (!hasExistingLike) {
-                  return {
-                    ...story,
-                    likes: [...story.likes, {
-                      id: `temp-${Date.now()}`,
-                      createdAt: new Date(data.timestamp),
-                      user: {
-                        id: data.userId,
-                        username: '', // Will be updated on next fetch
-                        name: null,
-                        image: null
-                      }
-                    }]
-                  };
-                }
-              } else {
-                // Remove like
-                return {
-                  ...story,
-                  likes: story.likes.filter((like: StoryLike) => like.user.id !== data.userId)
-                };
-              }
-            }
-            return story;
-          });
-        });
-      }
-    };
-
-    socket.on('storyLikeUpdate', handleLikeUpdate);
-    
-    return () => {
-      socket.off('storyLikeUpdate', handleLikeUpdate);
-    };
-  }, [socket, currentStory?.id, currentStory?.user?.id]);
-
-  // Optimistic update for likes with socket emission
-  const handleLike = async () => {
-    if (!currentStory || !session?.user?.id || !socket) return;
-
-    const newIsLiked = !isLiked;
-    setIsLiked(newIsLiked);
-
-    // Store the previous state for rollback
-    const previousStories = [...stories];
-
-    // Optimistically update the stories array
-    setStories((prevStories) => {
-      return prevStories.map((story) => {
-        if (story.id === currentStory.id) {
-          const updatedLikes = newIsLiked
-            ? [...story.likes, {
-                id: `temp-${Date.now()}`,
-                createdAt: new Date(),
-                user: {
-                  id: session.user!.id,
-                  username: session.user!.username || '',
-                  name: session.user!.name || null,
-                  image: session.user!.image || null
-                }
-              }]
-            : story.likes.filter((like) => like.user.id !== session.user!.id);
-
-          return {
-            ...story,
-            likes: updatedLikes
-          };
-        }
-        return story;
-      });
-    });
-
-    try {
-      const response = await axios.post('/api/stories/like', {
-        storyId: currentStory.id,
-        action: newIsLiked ? 'like' : 'unlike'
-      });
-
-      if (!response.data.success) {
-        throw new Error(response.data.error || 'Failed to update like');
-      }
-
-      // Update the story with the server response data if provided
-      if (response.data.data) {
-        setStories((prevStories) => {
-          return prevStories.map((story) => {
-            if (story.id === currentStory.id) {
-              return {
-                ...story,
-                likes: newIsLiked 
-                  ? [...story.likes.filter(like => like.id !== `temp-${Date.now()}`), response.data.data]
-                  : story.likes.filter((like) => like.user.id !== session.user!.id)
-              };
-            }
-            return story;
-          });
-        });
-      }
-
-      // Emit socket event for real-time updates
-      socket.emit('storyLikeUpdate', {
-        storyId: currentStory.id,
-        userId: session.user.id,
-        action: newIsLiked ? 'like' : 'unlike'
-      });
-    } catch (error: any) {
-      // Revert optimistic update
-      setIsLiked(!newIsLiked);
-      setStories(previousStories);
-      
-      // Show specific error message based on the error type
-      if (error.response?.status === 404) {
-        toast.error('Story not found or expired');
-        progressToNextStory();
-      } else if (error.response?.status === 401) {
-        toast.error('You must be logged in to like stories');
-      } else {
-        toast.error(error.response?.data?.error || 'Failed to update like');
-      }
-    }
-  };
-
-  // Update the sortedViewers calculation
-  const sortedViewers = currentStory ? [...currentStory.views]
-    .filter((view: StoryView) => view.user.id !== currentStory.user.id) // Exclude story owner from views
-    .sort((a: StoryView, b: StoryView) => {
-      const aLiked = currentStory.likes.some((like: StoryLike) => like.user.id === a.user.id);
-      const bLiked = currentStory.likes.some((like: StoryLike) => like.user.id === b.user.id);
-      if (aLiked && !bLiked) return -1;
-      if (!aLiked && bLiked) return 1;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    }) : [];
-
-  const handleDeleteStory = async () => {
-    try {
-      const response = await fetch(`/api/stories/${currentStory?.id}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) throw new Error('Failed to delete story');
-      
-      // Update the stories state by removing the deleted story
-      const updatedStories = currentUserStories.stories.filter(
-        story => story.id !== currentStory?.id
-      );
-
-      // If this was the last story for the current user
-      if (updatedStories.length === 0) {
-        // Clear the lastViewedKey for own stories
-        if (currentStory?.user.id === session?.user?.id) {
-          const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
-          localStorage.removeItem(lastViewedKey);
-        }
-
-        // Remove the current user from userStories
-        const updatedUserStories = storyModal.userStories.filter(
-          (_, index) => index !== storyModal.currentUserIndex
-        );
-        
-        // If there are no more users with stories, close the modal and refresh
-        if (updatedUserStories.length === 0) {
-          storyModal.onClose();
-          // Force refresh the page to update the UI
-          window.location.reload();
-          return;
-        }
-        
-        // Update the stories state
-        storyModal.setUserStories(updatedUserStories);
-        
-        // If we were viewing the last user's stories, move to the previous user
-        if (storyModal.currentUserIndex >= updatedUserStories.length) {
-          storyModal.setCurrentUserIndex(updatedUserStories.length - 1);
-          setCurrentStoryIndex(0);
-        }
-      } else {
-        // Update the current user's stories
-        const updatedUserStories = [...storyModal.userStories];
-        updatedUserStories[storyModal.currentUserIndex] = {
-          ...currentUserStories,
-          stories: updatedStories
-        };
-        storyModal.setUserStories(updatedUserStories);
-      }
-
-      // If this was the last story in the current user's stories, move to the previous story
-      if (currentStoryIndex >= updatedStories.length) {
-        setCurrentStoryIndex(Math.max(0, updatedStories.length - 1));
-      }
-    } catch (error) {
-      toast.error('Failed to delete story');
-    }
-  };
-
-  const handleReportStory = () => {
-    setStoryToReport(currentStory);
-    storyModal.onClose(); // Close the story modal first
-    // Use setTimeout to ensure the story modal is closed before opening the report modal
-    setTimeout(() => {
-      setIsReportModalOpen(true);
-    }, 100);
-  };
-
-  // Function to progress to next story
-  const progressToNextStory = useCallback(() => {
-    if (!currentUserStories?.stories) return;
-
-    if (currentStoryIndex < currentUserStories.stories.length - 1) {
-      setCurrentStoryIndex(currentStoryIndex + 1);
-      setProgress(0);
-    } else if (storyModal.currentUserIndex < storyModal.userStories.length - 1) {
-      storyModal.setCurrentUserIndex(storyModal.currentUserIndex + 1);
-      setCurrentStoryIndex(0);
-      setProgress(0);
-    } else {
-      // If we've reached the last story of the last user, close the modal
-      storyModal.onClose();
-    }
-  }, [currentStoryIndex, currentUserStories?.stories?.length, storyModal]);
-
-  // Add a new effect to track when all stories have been viewed
-  useEffect(() => {
-    if (!storyModal.isOpen || !currentUserStories?.stories) return;
-
+            // Check if we're on the last story of the last user
     // Check if we're on the last story of the last user
     const isLastStory = currentStoryIndex === currentUserStories.stories.length - 1;
     const isLastUser = storyModal.currentUserIndex === storyModal.userStories.length - 1;
@@ -1277,4 +1296,4 @@ export default function StoryModal() {
       )}
     </>
   );
-} 
+}
