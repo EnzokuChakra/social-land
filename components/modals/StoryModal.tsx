@@ -347,6 +347,34 @@ export default function StoryModal() {
         viewedStories[currentStory.id] = true;
         localStorage.setItem(storageKey, JSON.stringify(viewedStories));
 
+        // Update the stories state with the new view
+        setStories(prevStories => 
+          prevStories.map(story => {
+            if (story.id === currentStory.id) {
+              const hasExistingView = story.views?.some(view => view.user.id === session.user.id);
+              if (!hasExistingView) {
+                return {
+                  ...story,
+                  views: [
+                    ...(story.views || []),
+                    {
+                      id: `temp-${Date.now()}`,
+                      createdAt: new Date(),
+                      user: {
+                        id: session.user.id,
+                        username: session.user.username || '',
+                        name: session.user.name || null,
+                        image: session.user.image || null
+                      }
+                    }
+                  ]
+                };
+              }
+            }
+            return story;
+          })
+        );
+
         // Dispatch event to update UI
         const event = new CustomEvent('storyViewed', {
           detail: {
@@ -378,73 +406,59 @@ export default function StoryModal() {
     }
 
     // For others' stories, track view with rate limiting
-    const trackView = async () => {
+    const trackView = async (storyId: string) => {
+      if (!session?.user?.id) return;
+      
       try {
-        sessionStorage.setItem(viewedKey, now.toString());
-
         const response = await axios.post('/api/stories/view', {
-          storyIds: [currentStory.id]
+          storyIds: [storyId]
         });
-
+        
         if (response.data.success) {
-          // Emit socket event for real-time updates
-          socket?.emit('storyViewUpdate', {
-            storyId: currentStory.id,
-            userId: session.user.id,
-            timestamp: new Date().toISOString()
-          });
-
-          // Update localStorage
-          if (session?.user?.id && currentStory.user.id) {
-            const storageKey = `viewed_stories_${currentStory.user.id}_${session.user.id}`;
-            const storedViewedStories = localStorage.getItem(storageKey);
-            const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
-            viewedStories[currentStory.id] = true;
-            localStorage.setItem(storageKey, JSON.stringify(viewedStories));
-
-            // Dispatch event to update UI
-            const event = new CustomEvent('storyViewed', {
-              detail: {
-                userId: currentStory.user.id,
-                storyId: currentStory.id,
-                viewerId: session.user.id,
-                viewedStories
-              }
-            });
-            window.dispatchEvent(event);
-          }
-
-          // Update local state with the new view
-          setStories(prevStories => {
-            return prevStories.map(story => {
-              if (story.id === currentStory.id) {
+          // Update the stories state with the new view
+          setStories(prevStories => 
+            prevStories.map(story => {
+              if (story.id === storyId) {
                 const hasExistingView = story.views?.some(view => view.user.id === session.user.id);
                 if (!hasExistingView) {
                   return {
                     ...story,
-                    views: [...(story.views || []), {
-                      id: `temp-${Date.now()}`,
-                      createdAt: new Date(),
-                      user: {
-                        id: session.user.id,
-                        username: session.user.username || '',
-                        name: session.user.name || null,
-                        image: session.user.image || null
+                    views: [
+                      ...(story.views || []),
+                      {
+                        id: `temp-${Date.now()}`,
+                        createdAt: new Date(),
+                        user: {
+                          id: session.user.id,
+                          username: session.user.username || '',
+                          name: session.user.name || null,
+                          image: session.user.image || null
+                        }
                       }
-                    }]
+                    ]
                   };
                 }
               }
               return story;
-            });
+            })
+          );
+          
+          // Dispatch storyViewed event
+          const event = new CustomEvent('storyViewed', {
+            detail: {
+              userId: currentStory.user.id,
+              storyId,
+              viewerId: session.user.id
+            }
           });
+          window.dispatchEvent(event);
         }
       } catch (error) {
-        setError("Failed to load stories");
+        console.error('Error tracking story view:', error);
       }
     };
 
-    trackView();
+    trackView(currentStory.id);
   }, [currentStory?.id, session?.user?.id, progress]);
 
   // Update the progress timer effect

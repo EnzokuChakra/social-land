@@ -272,7 +272,22 @@ export default function StoryFeed({ userStories: initialUserStories = [], otherS
                   user={displayUser}
                   hasStory={Boolean(hasActiveStory)}
                   isOwn={true}
-                  viewed={false}
+                  viewed={Boolean(sortedUserStories.length > 0 && sortedUserStories[0].views?.some(view => {
+                    if (view?.user?.id !== session?.user?.id) return false;
+                    const viewDate = new Date(view.createdAt);
+                    const storyDate = new Date(sortedUserStories[0].createdAt);
+                    return viewDate >= storyDate;
+                  }) || (typeof window !== 'undefined' && session?.user?.id && (() => {
+                    const storageKey = `viewed_stories_${session.user.id}_${session.user.id}`;
+                    const storedViewedStories = localStorage.getItem(storageKey);
+                    if (!storedViewedStories) return false;
+                    try {
+                      const viewedStories = JSON.parse(storedViewedStories);
+                      return sortedUserStories.length > 0 && viewedStories[sortedUserStories[0].id] === true;
+                    } catch (error) {
+                      return false;
+                    }
+                  })()))}
                 />
               </div>
             )}
@@ -281,7 +296,7 @@ export default function StoryFeed({ userStories: initialUserStories = [], otherS
               <>
                 <Separator orientation="vertical" className="h-16" />
                 {uniqueUserStories.map((story) => {
-                  if (!story?.user?.id) return null; // Skip invalid stories
+                  if (!story?.user?.id) return null;
                   
                   const storyUser: MinimalUser = {
                     id: story.user.id,
@@ -296,7 +311,12 @@ export default function StoryFeed({ userStories: initialUserStories = [], otherS
                         user={storyUser}
                         hasStory={true}
                         isOwn={false}
-                        viewed={story.views?.some((view) => view?.user?.id === session?.user?.id)}
+                        viewed={story.views?.some(view => {
+                          if (view?.user?.id !== session?.user?.id) return false;
+                          const viewDate = new Date(view.createdAt);
+                          const storyDate = new Date(story.createdAt);
+                          return viewDate >= storyDate;
+                        })}
                       />
                     </div>
                   );

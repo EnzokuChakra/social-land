@@ -64,6 +64,8 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
   const [showOptions, setShowOptions] = useState(false);
   const router = useRouter();
   const socket = getSocket();
+  const [viewedStories, setViewedStories] = useState<Record<string, boolean>>({});
+  const [stories, setStories] = useState<any[]>([]);
 
   // Filter replies to remove deleted ones
   const filteredReplies = useMemo(() => {
@@ -206,6 +208,101 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
     }
   }, [initialShowReplies]);
 
+  // Initialize viewed stories from localStorage on mount
+  useEffect(() => {
+    if (session?.user?.id && comment.user.id) {
+      const storageKey = `viewed_stories_${comment.user.id}_${session.user.id}`;
+      const storedViewedStories = localStorage.getItem(storageKey);
+      
+      if (storedViewedStories) {
+        try {
+          const parsedViewedStories = JSON.parse(storedViewedStories);
+          setViewedStories(parsedViewedStories);
+        } catch (error) {
+          console.error("Error parsing viewed stories:", error);
+          setViewedStories({});
+        }
+      }
+    }
+  }, [session?.user?.id, comment.user.id]);
+
+  // Fetch stories when component mounts
+  useEffect(() => {
+    const fetchStories = async () => {
+      if (comment.user.hasActiveStory) {
+        try {
+          const response = await fetch(`/api/user-stories/${comment.user.id}`);
+          const { success, data } = await response.json();
+          if (success && data) {
+            setStories(data);
+          }
+        } catch (error) {
+          console.error("Error fetching stories:", error);
+        }
+      }
+    };
+
+    fetchStories();
+  }, [comment.user.id, comment.user.hasActiveStory]);
+
+  // Listen for story viewed events
+  useEffect(() => {
+    const handleStoryViewed = (event: CustomEvent) => {
+      if (event.detail.userId === comment.user.id && session?.user?.id) {
+        const storageKey = `viewed_stories_${comment.user.id}_${session.user.id}`;
+        const viewedStories = event.detail.viewedStories || {};
+        
+        // If it's the user's own story, update the last viewed timestamp
+        if (event.detail.isOwnStory) {
+          const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
+          localStorage.setItem(lastViewedKey, new Date().toISOString());
+        }
+        
+        // Update the state with the new viewed stories
+        setViewedStories(prevStories => {
+          const newStories = { ...prevStories, ...viewedStories };
+          localStorage.setItem(storageKey, JSON.stringify(newStories));
+          return newStories;
+        });
+      }
+    };
+
+    window.addEventListener('storyViewed', handleStoryViewed as EventListener);
+    return () => {
+      window.removeEventListener('storyViewed', handleStoryViewed as EventListener);
+    };
+  }, [comment.user.id, session?.user?.id]);
+
+  // Check if there are unviewed stories
+  const hasUnviewedStories = useMemo(() => {
+    if (!comment.user.hasActiveStory) return false;
+    
+    if (typeof window === 'undefined') return false;
+    
+    const isCurrentUser = session?.user?.id === comment.user.id;
+    const storageKey = `viewed_stories_${comment.user.id}_${session?.user?.id}`;
+    
+    if (isCurrentUser) {
+      const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
+      const lastViewed = localStorage.getItem(lastViewedKey);
+      if (!lastViewed) return true;
+      
+      const lastViewedDate = new Date(lastViewed);
+      return stories.some(story => new Date(story.createdAt) > lastViewedDate);
+    } else {
+      const storedViewedStories = localStorage.getItem(storageKey);
+      if (!storedViewedStories) return true;
+      
+      try {
+        const viewedStories = JSON.parse(storedViewedStories);
+        return stories.some(story => !viewedStories[story.id]);
+      } catch (error) {
+        console.error("Error parsing viewed stories:", error);
+        return true;
+      }
+    }
+  }, [comment.user.hasActiveStory, comment.user.id, session?.user?.id, stories, viewedStories]);
+
   if (!comment) return null;
 
   const user = comment.user || {
@@ -320,7 +417,8 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
               onClick={onAvatarClick}
               className={cn(
                 "relative cursor-pointer",
-                hasStoryRing && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]"
+                hasStoryRing && hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]",
+                hasStoryRing && !hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-neutral-300 dark:before:bg-neutral-700 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]"
               )}
             >
               <div className={cn(
