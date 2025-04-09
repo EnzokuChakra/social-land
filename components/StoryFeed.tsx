@@ -1,10 +1,9 @@
 "use client";
 
-import { Story, User } from "@/lib/definitions";
+import { Story, StoryWithExtras, User } from "@/lib/definitions";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import StoryBubble from "./StoryBubble";
 import { Separator } from "./ui/separator";
-import { StoryWithExtras } from "@/lib/definitions";
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import axios from "axios";
@@ -19,7 +18,7 @@ interface StoryFeedProps {
   otherStories?: StoryWithExtras[];
 }
 
-interface UserStories {
+interface UserStoriesState {
   userId: string;
   stories: StoryWithExtras[];
 }
@@ -185,7 +184,32 @@ export default function StoryFeed({ userStories: initialUserStories = [], otherS
         }
       }
       return acc;
-    }, []) || [];
+    }, [])
+    // Sort stories by timestamp (newest first) and unviewed status
+    ?.sort((a, b) => {
+      // First, check if stories are viewed
+      const aIsViewed = a.views?.some(view => view.user.id === session?.user?.id);
+      const bIsViewed = b.views?.some(view => view.user.id === session?.user?.id);
+      
+      // If one is viewed and the other isn't, prioritize the unviewed one
+      if (aIsViewed !== bIsViewed) {
+        return aIsViewed ? 1 : -1;
+      }
+      
+      // If both are viewed or both are unviewed, sort by timestamp
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }) || [];
+
+  // Sort user's own stories by timestamp (newest first)
+  const sortedUserStories = userStories
+    ?.filter(story => {
+      const storyDate = new Date(story.createdAt);
+      const now = new Date();
+      const diff = now.getTime() - storyDate.getTime();
+      const hours = diff / (1000 * 60 * 60);
+      return hours < 24;
+    })
+    ?.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) || [];
 
   // Function to handle story bubble click
   const handleStoryClick = async (userId: string) => {
@@ -193,20 +217,8 @@ export default function StoryFeed({ userStories: initialUserStories = [], otherS
 
     // Get all active stories for the clicked user
     const clickedUserStories = userId === session.user.id 
-      ? userStories.filter(story => {
-          const storyDate = new Date(story.createdAt);
-          const now = new Date();
-          const diff = now.getTime() - storyDate.getTime();
-          const hours = diff / (1000 * 60 * 60);
-          return hours < 24;
-        })
-      : otherStories.filter(story => {
-          const storyDate = new Date(story.createdAt);
-          const now = new Date();
-          const diff = now.getTime() - storyDate.getTime();
-          const hours = diff / (1000 * 60 * 60);
-          return story.user.id === userId && hours < 24;
-        });
+      ? sortedUserStories
+      : uniqueUserStories.filter(story => story.user.id === userId);
 
     // If no active stories, don't open modal
     if (clickedUserStories.length === 0) return;
@@ -219,15 +231,9 @@ export default function StoryFeed({ userStories: initialUserStories = [], otherS
         stories: clickedUserStories
       }] : []),
       // Other users' active stories (excluding the clicked user)
-      ...otherStories
-        .filter(story => {
-          const storyDate = new Date(story.createdAt);
-          const now = new Date();
-          const diff = now.getTime() - storyDate.getTime();
-          const hours = diff / (1000 * 60 * 60);
-          return story.user.id !== userId && hours < 24;
-        })
-        .reduce((acc: { userId: string; stories: StoryWithExtras[] }[], story) => {
+      ...uniqueUserStories
+        .filter(story => story.user.id !== userId)
+        .reduce((acc: UserStoriesState[], story) => {
           const existingUserIndex = acc.findIndex(item => item.userId === story.user.id);
           if (existingUserIndex === -1) {
             acc.push({ userId: story.user.id, stories: [story] });
@@ -242,13 +248,13 @@ export default function StoryFeed({ userStories: initialUserStories = [], otherS
     const userIndex = allStories.findIndex(s => s.userId === userId);
     if (userIndex === -1) return;
 
-    // Sort stories by createdAt in ascending order (oldest first)
+    // Sort stories by createdAt in descending order (newest first)
     allStories[userIndex].stories.sort((a, b) => 
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
     // Open the story modal with the correct data
-    storyModal.setUserStories(allStories);
+    storyModal.setUserStories(allStories as any);
     storyModal.setCurrentUserIndex(userIndex);
     storyModal.setUserId(userId);
     storyModal.onOpen();
