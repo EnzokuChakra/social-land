@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/utils";
 import {
   UserWithExtras,
+  PostWithExtras,
   StoryWithExtras,
   Story,
   User,
@@ -69,7 +70,7 @@ export async function fetchPosts(userId?: string) {
   noStore();
   try {
     // First, get all users that the current user has blocked
-    const blockedUsers = userId ? await prisma.block.findMany({
+    const blockedUsers = userId ? await db.block.findMany({
       where: {
         blockerId: userId,
       },
@@ -80,7 +81,7 @@ export async function fetchPosts(userId?: string) {
 
     const blockedUserIds = blockedUsers.map(block => block.blockedId);
 
-    const posts = await prisma.post.findMany({
+    const posts = await db.post.findMany({
       where: {
         // Exclude posts from blocked users
         NOT: {
@@ -206,7 +207,7 @@ export async function fetchPosts(userId?: string) {
               if (!like.user) return like;
 
               // Get follow relationship
-              const follow = await prisma.follows.findFirst({
+              const follow = await db.follows.findFirst({
                 where: {
                   followerId: userId,
                   followingId: like.user.id,
@@ -229,8 +230,7 @@ export async function fetchPosts(userId?: string) {
 
           return {
             ...post,
-            likes: likesWithFollowStatus,
-            hideComments: post.hideComments || false // Ensure hideComments is always defined
+            likes: likesWithFollowStatus
           };
         })
       );
@@ -238,11 +238,7 @@ export async function fetchPosts(userId?: string) {
       return postsWithFollowStatus;
     }
 
-    // If no userId, ensure hideComments is defined for each post
-    return posts.map(post => ({
-      ...post,
-      hideComments: post.hideComments || false
-    }));
+    return posts;
   } catch (error) {
     console.error("Database Error:", error);
     throw new Error("Failed to fetch posts");
@@ -257,24 +253,20 @@ export async function fetchPostById(postId: string) {
       where: {
         id: postId,
       },
-      select: {
-        id: true,
-        caption: true,
-        fileUrl: true,
-        fileType: true,
-        createdAt: true,
-        hideComments: true,
+      include: {
         user: {
           select: {
             id: true,
-            username: true,
             name: true,
+            username: true,
             image: true,
             bio: true,
             verified: true,
             isPrivate: true,
             role: true,
             status: true,
+            createdAt: true,
+            updatedAt: true,
             stories: {
               where: {
                 createdAt: {
@@ -293,12 +285,10 @@ export async function fetchPostById(postId: string) {
               select: {
                 id: true,
                 username: true,
-                name: true,
                 image: true,
+                name: true,
                 verified: true,
-                isPrivate: true,
-                role: true,
-                status: true
+                isPrivate: true
               }
             }
           }
@@ -313,7 +303,6 @@ export async function fetchPostById(postId: string) {
                 id: true,
                 username: true,
                 image: true,
-                name: true,
                 verified: true,
                 stories: {
                   where: {
@@ -459,8 +448,7 @@ export async function fetchPostById(postId: string) {
         hasActiveStory: post.user.stories && post.user.stories.length > 0
       },
       hasMore: totalComments > post.comments.length,
-      totalComments,
-      hideComments: post.hideComments || false // Ensure hideComments is always defined
+      totalComments
     };
 
     return transformedPost;

@@ -169,7 +169,6 @@ model post {
   aspectRatio Float    @default(1)
   location    String?  @db.VarChar(20)
   user_id     String
-  hideComments Boolean    @default(false)
 
   user        user     @relation(fields: [user_id], references: [id])
   likes       like[]

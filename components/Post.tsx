@@ -38,12 +38,6 @@ function Post({ post }: { post: PostWithExtras }) {
   const socket = getSocket();
   const storyModal = useStoryModal();
 
-  console.log('[Post] Rendering post with hideComments:', {
-    postId: post.id,
-    hideComments: post.hideComments,
-    username: post.user.username
-  });
-
   // Initialize likes count and liked status from the actual post data
   useEffect(() => {
     if (status === "authenticated") {
@@ -226,32 +220,26 @@ function Post({ post }: { post: PostWithExtras }) {
         </div>
       )}
 
-      {post.hideComments ? (
-        <div className="text-sm text-neutral-500 dark:text-neutral-400 px-3 sm:px-0 mt-2 py-2">
-          Comments are disabled for this post
-        </div>
-      ) : (
-        <div className="mt-1">
-          {post.comments.length > 0 && (
-            <Link
-              href={`/dashboard/p/${post.id}`}
-              className="text-sm text-neutral-500 dark:text-neutral-400 px-3 sm:px-0 hover:underline mt-1"
-            >
-              View all {post.comments.length} comments
-            </Link>
-          )}
-
-          <Comments
-            postId={post.id}
-            comments={[]}
-            user={session?.user}
-            postUserId={post.user.id}
-            inputRef={commentInputRef}
-            showPreview={false}
-            hideComments={post.hideComments}
-          />
-        </div>
+      {post.comments.length > 0 && (
+        <Link
+          href={`/dashboard/p/${post.id}`}
+          className="text-sm text-neutral-500 dark:text-neutral-400 px-3 sm:px-0 hover:underline mt-1"
+        >
+          View all {post.comments.length} comments
+        </Link>
       )}
+
+      {/* Only show comment input, hide comment previews on initial load */}
+      <div className="mt-1">
+        <Comments
+          postId={post.id}
+          comments={[]}
+          user={session?.user}
+          postUserId={post.user.id}
+          inputRef={commentInputRef}
+          showPreview={false}
+        />
+      </div>
 
       {post.tags && post.tags.length > 0 && (
         <TaggedUsersModal

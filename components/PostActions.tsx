@@ -223,18 +223,16 @@ function PostActions({ post, userId, className, inputRef, onBookmarkUpdate }: Pr
       <div className={cn("relative flex flex-col w-full gap-y-1", className)}>
         <div className="flex items-start w-full gap-x-2">
           <LikeButton post={currentPost} userId={userId} onLikeUpdate={handleLikeUpdate}/>
-          {!post.hideComments && (
-            inputRef ? (
-              <ActionIcon onClick={handleCommentClick}>
+          {inputRef ? (
+            <ActionIcon onClick={handleCommentClick}>
+              <MessageCircle className={"h-6 w-6"} />
+            </ActionIcon>
+          ) : (
+            <Link href={`/dashboard/p/${currentPost.id}`}>
+              <ActionIcon>
                 <MessageCircle className={"h-6 w-6"} />
               </ActionIcon>
-            ) : (
-              <Link href={`/dashboard/p/${currentPost.id}`}>
-                <ActionIcon>
-                  <MessageCircle className={"h-6 w-6"} />
-                </ActionIcon>
-              </Link>
-            )
+            </Link>
           )}
           <ShareButton postId={currentPost.id} />
           <BookmarkButton post={currentPost} userId={userId} onBookmarkUpdate={onBookmarkUpdate} />

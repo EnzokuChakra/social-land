@@ -135,13 +135,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     tags: post.tags || []
   }));
 
-  console.log('[PostView] Rendering post with hideComments:', {
-    postId: id,
-    hideComments: post.hideComments,
-    username: post.user.username,
-    pathname
-  });
-
   // Save previous focus when opening modal
   useEffect(() => {
     if (isOpen) {
@@ -721,61 +714,55 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
               )}
 
               {/* Comments */}
-              <div className="px-4 py-4">
-                {post.hideComments ? (
-                  <div className="flex items-center justify-center h-full text-neutral-500 dark:text-neutral-400 py-4">
-                    Comments are disabled for this post
-                  </div>
-                ) : (
-                  <>
-                    {comments.map((comment) => (
-                      <Comment
-                        key={`${comment.id}-${comment.createdAt}`}
-                        comment={comment}
-                        replies={comment.replies}
-                        inputRef={inputRef}
-                        postUserId={post.user.id}
-                        onReply={handleReplyToComment}
-                        hasStoryRing={comment.user.hasActiveStory}
-                        onAvatarClick={async (e) => {
-                          e.preventDefault();
-                          if (comment.user.hasActiveStory) {
-                            try {
-                              const response = await fetch(`/api/user-stories/${comment.user.id}`);
-                              const { success, data: stories } = await response.json();
-                              
-                              if (success && stories && stories.length > 0) {
-                                storyModal.setUserStories([{ userId: comment.user.id, stories }]);
-                                storyModal.setUserId(comment.user.id);
-                                storyModal.setCurrentUserIndex(0);
-                                storyModal.onOpen();
-                              }
-                            } catch (error) {
-                              // Silently handle error
+              {comments.length > 0 && (
+                <div className="px-4 py-2">
+                  {comments.map((comment) => (
+                    <Comment
+                      key={`${comment.id}-${comment.createdAt}`}
+                      comment={comment}
+                      replies={comment.replies}
+                      inputRef={inputRef}
+                      postUserId={post.user.id}
+                      onReply={handleReplyToComment}
+                      hasStoryRing={comment.user.hasActiveStory}
+                      onAvatarClick={async (e) => {
+                        e.preventDefault();
+                        if (comment.user.hasActiveStory) {
+                          try {
+                            const response = await fetch(`/api/user-stories/${comment.user.id}`);
+                            const { success, data: stories } = await response.json();
+                            
+                            if (success && stories && stories.length > 0) {
+                              storyModal.setUserStories([{ userId: comment.user.id, stories }]);
+                              storyModal.setUserId(comment.user.id);
+                              storyModal.setCurrentUserIndex(0);
+                              storyModal.onOpen();
                             }
-                          } else {
-                            router.push(`/dashboard/${comment.user.username}`);
+                          } catch (error) {
+                            // Silently handle error
                           }
-                        }}
-                      />
-                    ))}
+                        } else {
+                          router.push(`/dashboard/${comment.user.username}`);
+                        }
+                      }}
+                    />
+                  ))}
 
-                    {comments.length >= 10 && hasMore && (
-                      <button
-                        onClick={fetchMoreComments}
-                        disabled={isLoadingComments}
-                        className={cn(
-                          "text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300",
-                          "py-3 w-full text-center",
-                          isLoadingComments && "cursor-not-allowed opacity-50"
-                        )}
-                      >
-                        {isLoadingComments ? "Loading..." : "Load more comments"}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
+                  {comments.length >= 10 && hasMore && (
+                    <button
+                      onClick={fetchMoreComments}
+                      disabled={isLoadingComments}
+                      className={cn(
+                        "text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300",
+                        "py-3 w-full text-center",
+                        isLoadingComments && "cursor-not-allowed opacity-50"
+                      )}
+                    >
+                      {isLoadingComments ? "Loading..." : "Load more comments"}
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Actions and Comment Form */}
               <div className="px-4 py-2 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black">
@@ -786,13 +773,12 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                   inputRef={inputRef}
                   onBookmarkUpdate={handleBookmarkUpdate}
                 />
-                {!post.hideComments && (
-                  <CommentForm 
-                    ref={commentFormRef} 
-                    postId={post.id} 
-                    disabled={post.hideComments}
-                  />
-                )}
+                <CommentForm
+                  ref={commentFormRef}
+                  postId={id}
+                  className="pt-3 mt-2 border-t border-neutral-200 dark:border-neutral-800"
+                  inputRef={inputRef}
+                />
               </div>
             </div>
           </div>
@@ -929,66 +915,60 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                 )}
 
                 {/* Comments */}
-                <div className="px-4 py-4">
-                  {post.hideComments ? (
-                    <div className="flex items-center justify-center h-full text-neutral-500 dark:text-neutral-400 py-4">
-                      Comments are disabled for this post
-                    </div>
-                  ) : (
-                    <>
-                      {comments.map((comment) => (
-                        <Comment
-                          key={`${comment.id}-${comment.createdAt}`}
-                          comment={comment}
-                          replies={comment.replies}
-                          inputRef={inputRef}
-                          postUserId={post.user.id}
-                          onReply={handleReplyToComment}
-                          hasStoryRing={comment.user.hasActiveStory}
-                          onAvatarClick={async (e) => {
-                            e.preventDefault();
-                            if (comment.user.hasActiveStory) {
-                              try {
-                                const response = await fetch(`/api/user-stories/${comment.user.id}`);
-                                const { success, data: stories } = await response.json();
-                                
-                                if (success && stories && stories.length > 0) {
-                                  storyModal.setUserStories([{ userId: comment.user.id, stories }]);
-                                  storyModal.setUserId(comment.user.id);
-                                  storyModal.setCurrentUserIndex(0);
-                                  storyModal.onOpen();
-                                }
-                              } catch (error) {
-                                // Silently handle error
+                {comments.length > 0 && (
+                  <div className="px-4 py-2">
+                    {comments.map((comment) => (
+                      <Comment
+                        key={`${comment.id}-${comment.createdAt}`}
+                        comment={comment}
+                        replies={comment.replies}
+                        inputRef={inputRef}
+                        postUserId={post.user.id}
+                        onReply={handleReplyToComment}
+                        hasStoryRing={comment.user.hasActiveStory}
+                        onAvatarClick={async (e) => {
+                          e.preventDefault();
+                          if (comment.user.hasActiveStory) {
+                            try {
+                              const response = await fetch(`/api/user-stories/${comment.user.id}`);
+                              const { success, data: stories } = await response.json();
+                              
+                              if (success && stories && stories.length > 0) {
+                                storyModal.setUserStories([{ userId: comment.user.id, stories }]);
+                                storyModal.setUserId(comment.user.id);
+                                storyModal.setCurrentUserIndex(0);
+                                storyModal.onOpen();
                               }
-                            } else {
-                              router.push(`/dashboard/${comment.user.username}`);
+                            } catch (error) {
+                              // Silently handle error
                             }
-                          }}
-                        />
-                      ))}
+                          } else {
+                            router.push(`/dashboard/${comment.user.username}`);
+                          }
+                        }}
+                      />
+                    ))}
 
-                      {comments.length >= 10 && hasMore && (
-                        <button
-                          onClick={fetchMoreComments}
-                          disabled={isLoadingComments}
-                          className={cn(
-                            "text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300",
-                            "py-3 w-full text-center",
-                            isLoadingComments && "cursor-not-allowed opacity-50"
-                          )}
-                        >
-                          {isLoadingComments ? "Loading..." : "Load more comments"}
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
+                    {comments.length >= 10 && hasMore && (
+                      <button
+                        onClick={fetchMoreComments}
+                        disabled={isLoadingComments}
+                        className={cn(
+                          "text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300",
+                          "py-3 w-full text-center",
+                          isLoadingComments && "cursor-not-allowed opacity-50"
+                        )}
+                      >
+                        {isLoadingComments ? "Loading..." : "Load more comments"}
+                      </button>
+                    )}
+                  </div>
+                )}
               </ScrollArea>
 
               {/* Actions and Comment Form */}
               <div className="flex-shrink-0 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black">
-                <div className="px-4 py-2">
+                <div className="px-4 py-2 flex flex-col gap-2">
                   <PostActions
                     post={currentPost}
                     userId={user?.id}
@@ -996,13 +976,12 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                     inputRef={inputRef}
                     onBookmarkUpdate={handleBookmarkUpdate}
                   />
-                  {!post.hideComments && (
-                    <CommentForm 
-                      ref={commentFormRef} 
-                      postId={post.id} 
-                      disabled={post.hideComments}
-                    />
-                  )}
+                  <CommentForm
+                    ref={commentFormRef}
+                    postId={id}
+                    className="pt-3 mt-2 border-t border-neutral-200 dark:border-neutral-800"
+                    inputRef={inputRef}
+                  />
                 </div>
               </div>
             </div>
