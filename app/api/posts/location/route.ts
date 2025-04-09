@@ -19,123 +19,134 @@ export async function GET(request: Request) {
       return new NextResponse("Location is required", { status: 400 });
     }
 
+    console.log(`Searching for posts with location: "${location}"`);
+
     const skip = (page - 1) * limit;
 
-    // Fetch posts for the given location
-    const posts = await prisma.post.findMany({
-      where: {
-        location: location,
-        OR: [
-          {
-            user: {
-              isPrivate: false // Show posts from public accounts
-            }
-          },
-          {
-            user_id: session.user.id // Show current user's posts
-          },
-          {
-            AND: [
-              {
-                user: {
-                  isPrivate: true // Private accounts
-                }
-              },
-              {
-                user: {
-                  followers: {
-                    some: {
-                      followerId: session.user.id,
-                      status: "ACCEPTED"
+    try {
+      // Fetch posts for the given location
+      const posts = await prisma.post.findMany({
+        where: {
+          location: location, // Exact match only - since this is a location tag
+          OR: [
+            {
+              user: {
+                isPrivate: false // Show posts from public accounts
+              }
+            },
+            {
+              user_id: session.user.id // Show current user's posts
+            },
+            {
+              AND: [
+                {
+                  user: {
+                    isPrivate: true // Private accounts
+                  }
+                },
+                {
+                  user: {
+                    followers: {
+                      some: {
+                        followerId: session.user.id,
+                        status: "ACCEPTED"
+                      }
                     }
                   }
                 }
-              }
-            ]
-          }
-        ]
-      },
-      orderBy: {
-        createdAt: "desc"
-      },
-      skip,
-      take: limit,
-      include: {
-        user: {
-          select: {
-            id: true,
-            username: true,
-            image: true,
-            verified: true
-          }
+              ]
+            }
+          ]
         },
-        likes: {
-          where: {
-            user_id: session.user.id
+        orderBy: {
+          createdAt: "desc"
+        },
+        skip,
+        take: limit,
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              image: true,
+              verified: true
+            }
           },
-          select: {
-            id: true
-          }
-        },
-        savedBy: {
-          where: {
-            user_id: session.user.id
+          likes: {
+            where: {
+              user_id: session.user.id
+            },
+            select: {
+              id: true
+            }
           },
-          select: {
-            id: true
-          }
-        },
-        _count: {
-          select: {
-            likes: true,
-            comments: true
+          savedBy: {
+            where: {
+              user_id: session.user.id
+            },
+            select: {
+              id: true
+            }
+          },
+          _count: {
+            select: {
+              likes: true,
+              comments: true
+            }
           }
         }
-      }
-    });
+      });
 
-    // Get total count for pagination
-    const total = await prisma.post.count({
-      where: {
-        location: location,
-        OR: [
-          {
-            user: {
-              isPrivate: false
-            }
-          },
-          {
-            user_id: session.user.id
-          },
-          {
-            AND: [
-              {
-                user: {
-                  isPrivate: true
-                }
-              },
-              {
-                user: {
-                  followers: {
-                    some: {
-                      followerId: session.user.id,
-                      status: "ACCEPTED"
+      console.log(`Found ${posts.length} posts for location: "${location}"`);
+
+      // Get total count for pagination
+      const total = await prisma.post.count({
+        where: {
+          location: location, // Exact match only
+          OR: [
+            {
+              user: {
+                isPrivate: false
+              }
+            },
+            {
+              user_id: session.user.id
+            },
+            {
+              AND: [
+                {
+                  user: {
+                    isPrivate: true
+                  }
+                },
+                {
+                  user: {
+                    followers: {
+                      some: {
+                        followerId: session.user.id,
+                        status: "ACCEPTED"
+                      }
                     }
                   }
                 }
-              }
-            ]
-          }
-        ]
-      }
-    });
+              ]
+            }
+          ]
+        }
+      });
 
-    return NextResponse.json({
-      posts,
-      hasMore: skip + limit < total,
-      page,
-      total
-    });
+      console.log(`Total posts for location "${location}": ${total}`);
+
+      return NextResponse.json({
+        posts,
+        hasMore: skip + limit < total,
+        page,
+        total
+      });
+    } catch (dbError) {
+      console.error("[LOCATION_POSTS_DB_ERROR]", dbError);
+      return new NextResponse("Database Error", { status: 500 });
+    }
   } catch (error) {
     console.error("[LOCATION_POSTS_GET]", error);
     return new NextResponse("Internal Error", { status: 500 });

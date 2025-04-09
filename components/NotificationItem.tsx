@@ -10,6 +10,7 @@ import { Button } from "./ui/button";
 import { useState, memo, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import FollowButton from "./FollowButton";
+import { useStoryModal } from "@/hooks/use-story-modal";
 
 interface NotificationItemProps {
   notification: NotificationWithExtras;
@@ -36,6 +37,7 @@ function NotificationItem({ notification }: NotificationItemProps) {
   }, [notification.sender]);
 
   const router = useRouter();
+  const storyModal = useStoryModal();
 
   const handleFollowBack = useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -160,7 +162,7 @@ function NotificationItem({ notification }: NotificationItemProps) {
       case "FOLLOW_REQUEST":
         return "requested to follow you";
       case "REPLY":
-        return `replied to your comment: ${notification.comment?.text ?? ''}`;
+        return "replied to your comment";
       case "MENTION":
         return "mentioned you in a comment";
       case "EVENT_CREATED": {
@@ -229,10 +231,47 @@ function NotificationItem({ notification }: NotificationItemProps) {
     router.push(path);
   }, [router]);
 
-  const handleMainClick = useCallback((e: React.MouseEvent) => {
+  const handleMainClick = useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
-    router.push(getNotificationLink());
-  }, [router, getNotificationLink]);
+
+    if (notification.type === "STORY_LIKE") {
+      try {
+        // We need to fetch stories of the story owner, not the sender
+        const storyOwnerId = notification.userId; // This is your ID since it's your story
+        const response = await fetch(`/api/user-stories/${storyOwnerId}`);
+        const { success, data: stories } = await response.json();
+        
+        if (success && stories && stories.length > 0) {
+          // Find the story that was liked
+          const storyIndex = stories.findIndex((story: { id: string }) => story.id === notification.storyId);
+          if (storyIndex !== -1) {
+            // Check if the story is expired using the actual story data
+            const story = stories[storyIndex];
+            const isExpired = new Date().getTime() - new Date(story.createdAt).getTime() > 24 * 60 * 60 * 1000;
+
+            if (isExpired) {
+              toast.error("Story has expired");
+              return;
+            }
+
+            storyModal.setUserStories([{ userId: storyOwnerId, stories }]);
+            storyModal.setUserId(storyOwnerId);
+            storyModal.setCurrentUserIndex(0);
+            storyModal.onOpen();
+          } else {
+            toast.error("Story not found");
+          }
+        } else {
+          toast.error("Story has expired");
+        }
+      } catch (error) {
+        console.error("Error fetching stories:", error);
+        toast.error("Failed to load story");
+      }
+    } else {
+      router.push(getNotificationLink());
+    }
+  }, [router, getNotificationLink, notification, storyModal]);
 
   // Only show follow button if:
   // 1. Not following them already
