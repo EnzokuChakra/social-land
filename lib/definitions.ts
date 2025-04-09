@@ -39,6 +39,7 @@ export type Post = {
   fileUrl: string;
   aspectRatio: number;
   user_id: string;
+  hideComments?: boolean;
 };
 
 export type Story = {
@@ -199,6 +200,7 @@ export type PostWithExtras = Post & {
   savedBy: (SavedPost & { user: User })[];
   comments: CommentWithExtras[];
   tags: PostTag[];
+  hideComments?: boolean;
 };
 
 export type StoryWithExtras = Story & {

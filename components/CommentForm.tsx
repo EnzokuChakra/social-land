@@ -48,8 +48,9 @@ const CommentForm = forwardRef<
     postId: string;
     className?: string;
     inputRef?: React.RefObject<HTMLInputElement>;
+    disabled?: boolean;
   }
->(function CommentForm({ postId, className, inputRef }, forwardedRef) {
+>(function CommentForm({ postId, className, inputRef, disabled }, forwardedRef) {
   const { data: session, status } = useSession();
   const [replyingTo, setReplyingTo] = useState<{username: string, commentId: string} | null>(null);
   const [internalInputRef, setInternalInputRef] = useState<HTMLInputElement | null>(null);
@@ -211,7 +212,7 @@ const CommentForm = forwardRef<
     }
   };
 
-  const isDisabled = isSubmitting || (!session?.user?.verified && cooldownTime > 0);
+  const isDisabled = disabled || isSubmitting || (!session?.user?.verified && cooldownTime > 0);
 
   return (
     <Form {...form}>
@@ -219,7 +220,8 @@ const CommentForm = forwardRef<
         onSubmit={form.handleSubmit(handleSubmit)}
         className={cn(
           "relative border-t border-neutral-200 dark:border-neutral-800 py-3 flex w-full px-3",
-          className
+          className,
+          disabled && "opacity-50 cursor-not-allowed"
         )}
       >
         {isSubmitting && (
@@ -233,6 +235,7 @@ const CommentForm = forwardRef<
               const currentValue = form.getValues("body");
               form.setValue("body", currentValue + emoji);
             }}
+            disabled={disabled}
           />
           
           <FormField
@@ -245,7 +248,7 @@ const CommentForm = forwardRef<
                     <input
                       disabled={isDisabled}
                       type="text"
-                      placeholder={replyingTo ? `Reply to @${replyingTo.username}...` : "Add a comment..."}
+                      placeholder={disabled ? "Comments are disabled for this post" : replyingTo ? `Reply to @${replyingTo.username}...` : "Add a comment..."}
                       className="bg-transparent text-sm border-none focus:outline-none w-full dark:text-neutral-200 placeholder-neutral-500 disabled:opacity-30"
                       maxLength={MAX_COMMENT_LENGTH}
                       ref={mergeRefs(

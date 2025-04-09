@@ -48,6 +48,7 @@ type UploadState = {
   tags: { userId: string; username: string }[];
   isUploading: boolean;
   scale: number;
+  hideComments: boolean;
 };
 
 const MAX_CAPTION_LENGTH = 250;
@@ -66,6 +67,7 @@ export default function CreateModal({ children }: { children: React.ReactNode })
     tags: [],
     isUploading: false,
     scale: 1,
+    hideComments: false,
   });
   const [storyState, setStoryState] = useState<UploadState>({
     file: null,
@@ -75,6 +77,7 @@ export default function CreateModal({ children }: { children: React.ReactNode })
     tags: [],
     isUploading: false,
     scale: 1,
+    hideComments: false,
   });
   const [reelState, setReelState] = useState<UploadState>({
     file: null,
@@ -84,6 +87,7 @@ export default function CreateModal({ children }: { children: React.ReactNode })
     tags: [],
     isUploading: false,
     scale: 1,
+    hideComments: false,
   });
   const [dragging, setDragging] = useState(false);
   const postInputRef = useRef<HTMLInputElement>(null);
@@ -276,6 +280,7 @@ export default function CreateModal({ children }: { children: React.ReactNode })
           location: state.location,
           aspectRatio: 1,
           taggedUsers: state.tags,
+          hideComments: state.hideComments,
         }),
         ...(activeTab === "story" && {
           scale: state.scale,
@@ -307,6 +312,7 @@ export default function CreateModal({ children }: { children: React.ReactNode })
           tags: [],
           isUploading: false,
           scale: 1,
+          hideComments: false,
         });
       } else if (activeTab === "reel") {
         setReelState({
@@ -317,6 +323,7 @@ export default function CreateModal({ children }: { children: React.ReactNode })
           tags: [],
           isUploading: false,
           scale: 1,
+          hideComments: false,
         });
       } else {
         setPostState({
@@ -327,6 +334,7 @@ export default function CreateModal({ children }: { children: React.ReactNode })
           tags: [],
           isUploading: false,
           scale: 1,
+          hideComments: false,
         });
       }
 
@@ -360,6 +368,7 @@ export default function CreateModal({ children }: { children: React.ReactNode })
       tags: [],
       isUploading: false,
       scale: 1,
+      hideComments: false,
     });
     setStoryState({
       file: null,
@@ -369,6 +378,7 @@ export default function CreateModal({ children }: { children: React.ReactNode })
       tags: [],
       isUploading: false,
       scale: 1,
+      hideComments: false,
     });
     setReelState({
       file: null,
@@ -378,6 +388,7 @@ export default function CreateModal({ children }: { children: React.ReactNode })
       tags: [],
       isUploading: false,
       scale: 1,
+      hideComments: false,
     });
     
     // Reset submission states
@@ -754,6 +765,33 @@ export default function CreateModal({ children }: { children: React.ReactNode })
                                     }}
                                     maxTags={10}
                                   />
+                                </div>
+                              </div>
+
+                              <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-2">
+                                    <Label htmlFor="hideComments" className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
+                                      Turn off commenting
+                                    </Label>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={state.hideComments}
+                                    onClick={() => setState(prev => ({ ...prev, hideComments: !prev.hideComments }))}
+                                    className={cn(
+                                      "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-neutral-950",
+                                      state.hideComments ? "bg-blue-600" : "bg-neutral-200 dark:bg-neutral-800"
+                                    )}
+                                  >
+                                    <span
+                                      className={cn(
+                                        "inline-block h-5 w-5 transform rounded-full bg-white transition-transform dark:bg-neutral-950",
+                                        state.hideComments ? "translate-x-6" : "translate-x-1"
+                                      )}
+                                    />
+                                  </button>
                                 </div>
                               </div>
                             </>

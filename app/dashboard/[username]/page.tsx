@@ -5,7 +5,7 @@ import ProfileTabs from "@/components/ProfileTabs";
 import UserAvatar from "@/components/UserAvatar";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { fetchProfile, fetchUserStories, getReelsEnabled } from "@/lib/data";
-import { Lock, MoreHorizontal, UserX } from "lucide-react";
+import { Lock, MoreHorizontal, UserX, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -40,6 +40,7 @@ import ProfileMenu from "@/components/ProfileMenu";
 import ProfileStats from "@/components/ProfileStats";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import BlockedUserSection from "@/components/BlockedUserSection";
+import BackButton from "@/components/BackButton";
 
 interface Props {
   params: {
@@ -160,16 +161,16 @@ export default async function ProfilePage({ params }: { params: { username: stri
   // Check if user is blocked - with error handling
   let isBlocked = false;
   try {
-    // Check if block table exists by attempting to query it
-    if (db.block) {
-      const blockRecord = await db.block.findFirst({
-        where: {
-          blockerId: session.user.id,
-          blockedId: profileWithExtras.id,
-        },
-      });
-      isBlocked = !!blockRecord;
+    if (!db) {
+      throw new Error("Database connection not available");
     }
+    const blockRecord = await db.block.findFirst({
+      where: {
+        blockerId: session.user.id,
+        blockedId: profileWithExtras.id,
+      },
+    });
+    isBlocked = !!blockRecord;
   } catch (error) {
     console.error("Error checking block status:", error);
     isBlocked = false;
@@ -178,15 +179,16 @@ export default async function ProfilePage({ params }: { params: { username: stri
   // Check if user is blocked by the profile owner
   let isBlockedByUser = false;
   try {
-    if (db.block) {
-      const blockRecord = await db.block.findFirst({
-        where: {
-          blockerId: profileWithExtras.id,
-          blockedId: session.user.id,
-        },
-      });
-      isBlockedByUser = !!blockRecord;
+    if (!db) {
+      throw new Error("Database connection not available");
     }
+    const blockRecord = await db.block.findFirst({
+      where: {
+        blockerId: profileWithExtras.id,
+        blockedId: session.user.id,
+      },
+    });
+    isBlockedByUser = !!blockRecord;
   } catch (error) {
     console.error("Error checking if blocked by user:", error);
     isBlockedByUser = false;
@@ -198,9 +200,12 @@ export default async function ProfilePage({ params }: { params: { username: stri
       <div className="flex flex-col min-h-screen">
         <main className="flex-1 pb-[56px] md:pb-0 bg-white dark:bg-black mt-[72px]">
           <div className="max-w-[935px] mx-auto">
+            <div className="flex items-center justify-between px-4 py-4 border-b border-neutral-200 dark:border-neutral-800">
+              <BackButton />
+            </div>
             <div className="flex flex-col items-center justify-center py-20 text-center border-t border-neutral-200 dark:border-neutral-800">
               <UserX className="w-12 h-12 text-red-500 mb-4" />
-              <h1 className="text-2xl font-semibold mb-2">This User is Blocked</h1>
+              <h1 className="text-2xl font-semibold mb-2">You've been blocked</h1>
               <p className="text-neutral-500 max-w-sm px-4">
                 This user has blocked you. You cannot see their posts or interact with their profile.
               </p>
@@ -213,77 +218,96 @@ export default async function ProfilePage({ params }: { params: { username: stri
   }
 
   // Get user's stories
-  const stories = await db.story.findMany({
-    where: {
-      user_id: profileWithExtras.id,
-      createdAt: {
-        gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
-      },
-    },
-    include: {
-      user: true,
-      views: {
-        include: {
-          user: true,
+  let stories: StoryWithExtras[] = [];
+  try {
+    if (!db) {
+      throw new Error("Database connection not available");
+    }
+    const rawStories = await db.story.findMany({
+      where: {
+        user_id: profileWithExtras.id,
+        createdAt: {
+          gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
         },
       },
-      likes: {
-        include: {
-          user: true,
+      include: {
+        user: true,
+        views: {
+          include: {
+            user: true,
+          },
+        },
+        likes: {
+          include: {
+            user: true,
+          },
         },
       },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
-  // Transform stories to include required fields
-  const transformedStories = stories.map((story) => ({
-    ...story,
-    user: {
-      ...story.user,
-      email: story.user.email || "",
-      password: story.user.password || "",
-      bio: story.user.bio || "",
-      role: story.user.role as UserRole,
-      status: story.user.status as UserStatus,
-      createdAt: story.user.createdAt || new Date(),
-      updatedAt: story.user.updatedAt || new Date(),
-      followers: [],
-      following: [],
-    } as User,
-    views: (story.views || []).map((view) => ({
-      ...view,
-      user: {
-        ...view.user,
-        email: view.user.email || "",
-        password: view.user.password || "",
-        bio: view.user.bio || "",
-        role: view.user.role as UserRole,
-        status: view.user.status as UserStatus,
-        createdAt: view.user.createdAt || new Date(),
-        updatedAt: view.user.updatedAt || new Date(),
-        followers: [],
-        following: [],
-      } as User,
-    })) as (PrismaStoryView & { user: User })[],
-    likes: (story.likes || []).map((like) => ({
-      ...like,
-      user: {
-        ...like.user,
-        email: like.user.email || "",
-        password: like.user.password || "",
-        bio: like.user.bio || "",
-        role: like.user.role as UserRole,
-        status: like.user.status as UserStatus,
-        createdAt: like.user.createdAt || new Date(),
-        updatedAt: like.user.updatedAt || new Date(),
-        followers: [],
-        following: [],
-      } as User,
-    })) as (Like & { user: User })[],
-  })) as StoryWithExtras[];
+    stories = rawStories.map((story) => {
+      const baseUser: User = {
+        id: story.user.id,
+        name: story.user.name || null,
+        email: story.user.email || "",
+        username: story.user.username || "",
+        password: story.user.password || "",
+        image: story.user.image || null,
+        bio: story.user.bio || null,
+        verified: story.user.verified || false,
+        isPrivate: story.user.isPrivate || false,
+        role: UserRole.USER,
+        status: "NORMAL" as UserStatus,
+        createdAt: story.user.createdAt || new Date(),
+        updatedAt: story.user.updatedAt || new Date(),
+      };
+
+      return {
+        id: story.id,
+        createdAt: story.createdAt,
+        fileUrl: story.fileUrl,
+        scale: story.scale || 1,
+        user_id: story.user_id,
+        user: baseUser,
+        views: (story.views || []).map((view) => ({
+          id: view.id,
+          createdAt: view.createdAt,
+          storyId: view.storyId,
+          user_id: view.user_id,
+          updatedAt: view.createdAt,
+          user: {
+            ...baseUser,
+            id: view.user.id,
+            name: view.user.name || null,
+            username: view.user.username || "",
+            image: view.user.image || null,
+          },
+        })),
+        likes: (story.likes || []).map((like) => ({
+          id: like.id,
+          createdAt: like.createdAt,
+          updatedAt: like.updatedAt || new Date(),
+          user_id: like.user_id,
+          postId: null,
+          reelId: null,
+          storyId: story.id,
+          user: {
+            ...baseUser,
+            id: like.user.id,
+            name: like.user.name || null,
+            username: like.user.username || "",
+            image: like.user.image || null,
+          },
+        })),
+      } as StoryWithExtras;
+    });
+  } catch (error) {
+    console.error("Error fetching stories:", error);
+    stories = [];
+  }
 
   // Get reels enabled status
   const reelsEnabled = await getReelsEnabled();
@@ -294,7 +318,7 @@ export default async function ProfilePage({ params }: { params: { username: stri
         <div className="max-w-[935px] mx-auto" suppressHydrationWarning>
           <section className="flex flex-col md:flex-row gap-y-4 px-4 pb-6" suppressHydrationWarning>
             <div className="shrink-0 md:w-[290px] md:mr-7 flex justify-center md:justify-center" suppressHydrationWarning>
-              <ProfileAvatar user={profileWithExtras} stories={transformedStories} showModal={true}>
+              <ProfileAvatar user={profileWithExtras} stories={stories} showModal={true}>
                 <UserAvatar
                   user={profileWithExtras}
                   className="w-[86px] h-[86px] md:w-[150px] md:h-[150px] cursor-pointer ring-2 ring-neutral-100 dark:ring-neutral-900"
@@ -332,7 +356,7 @@ export default async function ProfilePage({ params }: { params: { username: stri
                     <div className="flex items-center gap-x-2 w-full md:w-auto" suppressHydrationWarning>
                       <ProfileMenu 
                         userId={profileWithExtras.id} 
-                        username={profileWithExtras.username}
+                        username={profileWithExtras.username || ""}
                         userStatus={profileWithExtras.status}
                       />
                     </div>
@@ -349,7 +373,7 @@ export default async function ProfilePage({ params }: { params: { username: stri
                       />
                       <ProfileMenu 
                         userId={profileWithExtras.id} 
-                        username={profileWithExtras.username}
+                        username={profileWithExtras.username || ""}
                         userStatus={profileWithExtras.status}
                       />
                     </div>
