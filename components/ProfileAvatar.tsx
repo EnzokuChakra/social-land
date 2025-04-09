@@ -289,8 +289,9 @@ function ProfileAvatar({
 
   // Show story ring only if:
   // 1. It's the current user's profile, or
-  // 2. The profile is public and has stories
-  const shouldShowStoryRing = isCurrentUser || (!user.isPrivate && hasStories);
+  // 2. The profile is public and has stories, or
+  // 3. The profile is private but the current user is following them
+  const shouldShowStoryRing = isCurrentUser || (!user.isPrivate && hasStories) || (user.isPrivate && user.followers?.some(follow => follow.followerId === session?.user?.id && follow.status === "ACCEPTED") && hasStories);
 
   // Update local stories when prop changes
   useEffect(() => {
@@ -298,7 +299,8 @@ function ProfileAvatar({
   }, [initialStories]);
 
   const handleProfileClick = () => {
-    if (hasStories && (isCurrentUser || !user.isPrivate)) {
+    const isFollowing = user.followers?.some(follow => follow.followerId === session?.user?.id && follow.status === "ACCEPTED");
+    if (hasStories && (isCurrentUser || !user.isPrivate || isFollowing)) {
       const activeStories = stories.filter(story => {
         if (!story?.fileUrl) return false;
         const storyDate = new Date(story.createdAt);
