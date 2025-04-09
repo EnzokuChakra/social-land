@@ -430,40 +430,6 @@ export default function StoryModal() {
               return story;
             });
           });
-
-          // Update the userStories in the modal context
-          storyModal.setUserStories((prev: UserStoriesState[]) => {
-            return prev.map((userStory: UserStoriesState) => {
-              if (userStory.userId === currentStory.user.id) {
-                return {
-                  ...userStory,
-                  stories: userStory.stories.map((story: Story) => {
-                    if (story.id === currentStory.id) {
-                      const hasExistingView = story.views?.some((view: StoryView) => view.user.id === session.user.id);
-                      if (!hasExistingView) {
-                        const newView: StoryView = {
-                          id: Date.now().toString(),
-                          user: {
-                            id: session.user.id,
-                            username: session.user.username || '',
-                            name: session.user.name || null,
-                            image: session.user.image || null
-                          },
-                          createdAt: new Date()
-                        };
-                        return {
-                          ...story,
-                          views: [...story.views, newView]
-                        };
-                      }
-                    }
-                    return story;
-                  })
-                };
-              }
-              return userStory;
-            });
-          });
         }
       } catch (error) {
         setError("Failed to load stories");
