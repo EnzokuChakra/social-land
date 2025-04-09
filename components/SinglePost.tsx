@@ -89,7 +89,14 @@ async function SinglePost({ id }: { id: string }) {
           <div className="px-2 hidden md:block mt-auto border-y p-2.5">
             <PostActions post={post} userId={userId} />
           </div>
-          <CommentForm postId={id} className="hidden md:inline-flex" />
+          {!post.hideComments && (
+            <CommentForm postId={id} className="hidden md:inline-flex" />
+          )}
+          {post.hideComments && (
+            <div className="text-sm text-neutral-500 dark:text-neutral-400 px-4 py-3 hidden md:block">
+              Comments are disabled for this post
+            </div>
+          )}
         </div>
       </Card>
       <div className="md:hidden">

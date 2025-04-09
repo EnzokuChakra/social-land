@@ -49,6 +49,22 @@ function ensurePrisma() {
   return prisma;
 }
 
+export type PostWithUser = {
+  id: string;
+  user_id: string;
+  createdAt: Date;
+  updatedAt: Date;
+  caption: string | null;
+  fileUrl: string;
+  aspectRatio: number;
+  location: string | null;
+  hideComments: boolean;
+  user: {
+    id: string;
+    username: string;
+  };
+};
+
 export async function createPost(values: z.infer<typeof CreatePost>) {
   const session = await auth();
 
@@ -107,15 +123,23 @@ export async function deletePost(postId: string) {
     const post = await db.post.findUnique({
       where: { id: postId },
       select: { 
-        user_id: true, 
+        id: true, 
+        user_id: true,
+        hideComments: true,
+        createdAt: true,
+        updatedAt: true,
+        caption: true,
         fileUrl: true,
+        aspectRatio: true,
+        location: true,
         user: {
           select: {
+            id: true,
             username: true
           }
         }
-      },
-    });
+      }
+    }) as PostWithUser | null;
 
     if (!post) {
       throw new Error("Post not found");
@@ -809,11 +833,20 @@ export async function createComment(values: z.infer<typeof CreateComment>) {
     }
     const post = await db.post.findUnique({
       where: { id: postId },
-      select: { id: true, user_id: true }
+      select: { 
+        id: true, 
+        user_id: true,
+        hideComments: true 
+      }
     });
 
     if (!post) {
       throw new Error("Post not found");
+    }
+
+    // Check if comments are disabled for this post
+    if (post.hideComments === true) {
+      throw new Error("Comments are disabled for this post");
     }
 
     // Create the comment

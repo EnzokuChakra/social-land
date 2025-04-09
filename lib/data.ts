@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/utils";
 import {
   UserWithExtras,
-  PostWithExtras,
   StoryWithExtras,
   Story,
   User,
@@ -25,8 +24,8 @@ import {
 } from "./definitions";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { Post as PrismaPost, User as PrismaUser, Like as PrismaLike, Follows as PrismaFollows } from "@prisma/client";
-import { PostWithExtras, UserWithFollowStatus } from "@/lib/definitions";
+import { post as PrismaPost, user as PrismaUser, like as PrismaLike, follows as PrismaFollows } from "@prisma/client";
+import { PostWithExtras, UserWithFollows } from "@/lib/definitions";
 
 interface FollowerData {
   follower: {
@@ -70,7 +69,7 @@ export async function fetchPosts(userId?: string) {
   noStore();
   try {
     // First, get all users that the current user has blocked
-    const blockedUsers = userId ? await db.block.findMany({
+    const blockedUsers = userId ? await prisma.block.findMany({
       where: {
         blockerId: userId,
       },
@@ -81,7 +80,7 @@ export async function fetchPosts(userId?: string) {
 
     const blockedUserIds = blockedUsers.map(block => block.blockedId);
 
-    const posts = await db.post.findMany({
+    const posts = await prisma.post.findMany({
       where: {
         // Exclude posts from blocked users
         NOT: {
@@ -201,13 +200,13 @@ export async function fetchPosts(userId?: string) {
     // If userId is provided, get follow status for each user in likes array
     if (userId) {
       const postsWithFollowStatus = await Promise.all(
-        posts.map(async (post: PostWithExtras) => {
+        posts.map(async (post) => {
           const likesWithFollowStatus = await Promise.all(
-            post.likes.map(async (like: Like & { user: UserWithFollowStatus | null }) => {
+            post.likes.map(async (like) => {
               if (!like.user) return like;
 
               // Get follow relationship
-              const follow = await db.follows.findFirst({
+              const follow = await prisma.follows.findFirst({
                 where: {
                   followerId: userId,
                   followingId: like.user.id,
@@ -230,7 +229,8 @@ export async function fetchPosts(userId?: string) {
 
           return {
             ...post,
-            likes: likesWithFollowStatus
+            likes: likesWithFollowStatus,
+            hideComments: post.hideComments || false // Ensure hideComments is always defined
           };
         })
       );
@@ -238,7 +238,11 @@ export async function fetchPosts(userId?: string) {
       return postsWithFollowStatus;
     }
 
-    return posts;
+    // If no userId, ensure hideComments is defined for each post
+    return posts.map(post => ({
+      ...post,
+      hideComments: post.hideComments || false
+    }));
   } catch (error) {
     console.error("Database Error:", error);
     throw new Error("Failed to fetch posts");
@@ -253,20 +257,24 @@ export async function fetchPostById(postId: string) {
       where: {
         id: postId,
       },
-      include: {
+      select: {
+        id: true,
+        caption: true,
+        fileUrl: true,
+        fileType: true,
+        createdAt: true,
+        hideComments: true,
         user: {
           select: {
             id: true,
-            name: true,
             username: true,
+            name: true,
             image: true,
             bio: true,
             verified: true,
             isPrivate: true,
             role: true,
             status: true,
-            createdAt: true,
-            updatedAt: true,
             stories: {
               where: {
                 createdAt: {
@@ -285,10 +293,12 @@ export async function fetchPostById(postId: string) {
               select: {
                 id: true,
                 username: true,
-                image: true,
                 name: true,
+                image: true,
                 verified: true,
-                isPrivate: true
+                isPrivate: true,
+                role: true,
+                status: true
               }
             }
           }
@@ -303,6 +313,7 @@ export async function fetchPostById(postId: string) {
                 id: true,
                 username: true,
                 image: true,
+                name: true,
                 verified: true,
                 stories: {
                   where: {
@@ -397,9 +408,8 @@ export async function fetchPostById(postId: string) {
     });
 
     if (!post) return null;
-
     // Get total comment count
-    const totalComments = await prisma.comment.count({
+    const totalComments = await prisma?.comment.count({
       where: {
         postId: postId,
         parentId: null // Only count top-level comments
@@ -411,13 +421,11 @@ export async function fetchPostById(postId: string) {
     if (!session?.user?.id) {
       throw new Error("Not authenticated");
     }
-
     const likesWithFollowStatus = await Promise.all(
-      post.likes.map(async (like: Like & { user: UserWithFollowStatus | null }) => {
+      post.Likes.map(async (like: Like & { user: UserWithFollowStatus | null }) => {
         if (!like.user) {
           return like;
         }
-        
         const follow = await prisma.follows.findUnique({
           where: {
             followerId_followingId: {
@@ -448,7 +456,8 @@ export async function fetchPostById(postId: string) {
         hasActiveStory: post.user.stories && post.user.stories.length > 0
       },
       hasMore: totalComments > post.comments.length,
-      totalComments
+      totalComments,
+      hideComments: post.hideComments || false // Ensure hideComments is always defined
     };
 
     return transformedPost;
@@ -604,21 +613,21 @@ export async function fetchPostsByUsername(username: string, postId?: string) {
     });
 
     // Transform the data to include hasActiveStory and handle nested comments
-    const transformedData = data.map((post: PostWithExtras) => ({
+    const transformedData = data.map((post) => ({
       ...post,
       user: {
         ...post.user,
         hasActiveStory: post.user.stories && post.user.stories.length > 0,
         stories: undefined
       },
-      comments: post.comments.map((comment: CommentWithExtras) => ({
+      comments: post.comments.map((comment) => ({
         ...comment,
         user: {
           ...comment.user,
           hasActiveStory: comment.user.stories && comment.user.stories.length > 0,
           stories: undefined
         },
-        replies: comment.replies?.map((reply: CommentWithExtras) => ({
+        replies: comment.replies?.map((reply) => ({
           ...reply,
           user: {
             ...reply.user,
@@ -627,7 +636,7 @@ export async function fetchPostsByUsername(username: string, postId?: string) {
           }
         }))
       }))
-    }));
+    })) as PostWithExtras[];
 
     return transformedData;
   } catch (error) {
@@ -1223,16 +1232,15 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
     // Handle potential failures in parallel queries
     const followersResult = followers.status === 'fulfilled' ? followers.value : [];
     const followingResult = following.status === 'fulfilled' ? following.value : [];
-
     // Transform followers and following data with proper types
-    const transformedFollowers = followersResult.map((f: FollowerData) => ({
+    const transformedFollowers = followersResult.map((f) => ({
       ...f.follower,
       followerId: f.followerId,
       followingId: f.followingId,
       status: f.status
     }));
 
-    const transformedFollowing = followingResult.map((f: FollowingData) => ({
+    const transformedFollowing = followingResult.map((f) => ({
       ...f.following,
       followerId: f.followerId,
       followingId: f.followingId,
@@ -1258,21 +1266,21 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
 
     const result = {
       ...profile,
-      posts: profile.posts.map((post: PostWithExtras) => ({
+      posts: profile.posts.map((post) => ({
         ...post,
         user: {
           ...post.user,
           hasActiveStory: post.user.stories && post.user.stories.length > 0,
           stories: undefined
         },
-        comments: post.comments.map((comment: CommentWithExtras) => ({
+        comments: post.comments.map((comment) => ({
           ...comment,
           user: {
             ...comment.user,
             hasActiveStory: comment.user.stories && comment.user.stories.length > 0,
             stories: undefined
           },
-          replies: comment.replies?.map((reply: CommentWithExtras) => ({
+          replies: comment.replies?.map((reply) => ({
             ...reply,
             user: {
               ...reply.user,
@@ -1282,7 +1290,7 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
           }))
         }))
       })),
-      taggedPosts: taggedPosts.map((post: PostWithExtras) => ({
+      taggedPosts: taggedPosts.map((post) => ({
         id: post.id,
         fileUrl: post.fileUrl,
         caption: post.caption,
@@ -1295,14 +1303,14 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
           stories: undefined
         },
         likes: post.likes || [],
-        comments: (post.comments || []).map((comment: CommentWithExtras) => ({
+        comments: (post.comments || []).map((comment) => ({
           ...comment,
           user: {
             ...comment.user,
             hasActiveStory: comment.user.stories && comment.user.stories.length > 0,
             stories: undefined
           },
-          replies: comment.replies?.map((reply: CommentWithExtras) => ({
+          replies: comment.replies?.map((reply) => ({
             ...reply,
             user: {
               ...reply.user,
@@ -1314,13 +1322,12 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
         savedBy: post.savedBy || [],
         tags: post.tags || []
       })),
-      savedPosts: profile.savedPosts.map((savedPost: SavedPostWithExtras) => ({
-        ...savedPost,
+      savedPosts: profile.savedPosts.map((savedPost) => ({
         post: {
-          ...(savedPost.post as PostWithExtras),
+          ...savedPost.post,
           user: {
-            ...(savedPost.post as PostWithExtras).user,
-            hasActiveStory: !!(savedPost.post as PostWithExtras).user?.stories?.length,
+            ...savedPost.post.user,
+            hasActiveStory: !!savedPost.post.user?.stories?.length,
             stories: undefined
           }
         }

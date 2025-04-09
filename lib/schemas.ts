@@ -6,6 +6,7 @@ export const PostSchema = z.object({
   caption: z.string().max(2200, { message: "Caption cannot exceed 2,200 characters" }).optional(),
   location: z.string().optional(),
   aspectRatio: z.number().default(1),
+  hideComments: z.boolean().default(false),
 });
 
 export const CreatePost = PostSchema.omit({ id: true });

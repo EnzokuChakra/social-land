@@ -200,7 +200,7 @@ export type PostWithExtras = Post & {
   savedBy: (SavedPost & { user: User })[];
   comments: CommentWithExtras[];
   tags: PostTag[];
-  hideComments?: boolean;
+  hideComments: boolean;
 };
 
 export type StoryWithExtras = Story & {

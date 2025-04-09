@@ -135,6 +135,13 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     tags: post.tags || []
   }));
 
+  console.log('[PostView] Rendering post with hideComments:', {
+    postId: id,
+    hideComments: post.hideComments,
+    username: post.user.username,
+    pathname
+  });
+
   // Save previous focus when opening modal
   useEffect(() => {
     if (isOpen) {
@@ -714,10 +721,10 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
               )}
 
               {/* Comments */}
-              <div className="px-4 py-2">
+              <div className="px-4 py-4">
                 {post.hideComments ? (
-                  <div className="flex items-center justify-center h-full text-neutral-500 dark:text-neutral-400">
-                    <p>Comments are disabled for this post</p>
+                  <div className="flex items-center justify-center h-full text-neutral-500 dark:text-neutral-400 py-4">
+                    Comments are disabled for this post
                   </div>
                 ) : (
                   <>
@@ -779,13 +786,13 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                   inputRef={inputRef}
                   onBookmarkUpdate={handleBookmarkUpdate}
                 />
-                <div className="px-4 pb-4">
+                {!post.hideComments && (
                   <CommentForm 
                     ref={commentFormRef} 
                     postId={post.id} 
                     disabled={post.hideComments}
                   />
-                </div>
+                )}
               </div>
             </div>
           </div>
@@ -922,10 +929,10 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                 )}
 
                 {/* Comments */}
-                <div className="px-4 py-2">
+                <div className="px-4 py-4">
                   {post.hideComments ? (
-                    <div className="flex items-center justify-center h-full text-neutral-500 dark:text-neutral-400">
-                      <p>Comments are disabled for this post</p>
+                    <div className="flex items-center justify-center h-full text-neutral-500 dark:text-neutral-400 py-4">
+                      Comments are disabled for this post
                     </div>
                   ) : (
                     <>
@@ -981,7 +988,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
 
               {/* Actions and Comment Form */}
               <div className="flex-shrink-0 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black">
-                <div className="px-4 py-2 flex flex-col gap-2">
+                <div className="px-4 py-2">
                   <PostActions
                     post={currentPost}
                     userId={user?.id}
@@ -989,13 +996,13 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                     inputRef={inputRef}
                     onBookmarkUpdate={handleBookmarkUpdate}
                   />
-                  <div className="px-4 pb-4">
+                  {!post.hideComments && (
                     <CommentForm 
                       ref={commentFormRef} 
                       postId={post.id} 
                       disabled={post.hideComments}
                     />
-                  </div>
+                  )}
                 </div>
               </div>
             </div>

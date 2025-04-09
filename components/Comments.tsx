@@ -65,6 +65,7 @@ function Comments({
   postUserId,
   inputRef,
   showPreview = true,
+  hideComments = false,
 }: {
   postId: string;
   comments: CommentWithExtras[];
@@ -72,7 +73,16 @@ function Comments({
   postUserId: string;
   inputRef?: React.RefObject<HTMLInputElement>;
   showPreview?: boolean;
+  hideComments?: boolean;
 }) {
+  console.log('[Comments] Rendering with props:', {
+    postId,
+    hideComments,
+    showPreview,
+    hasUser: !!user,
+    commentsCount: initialComments.length
+  });
+
   const [optimisticComments, addOptimisticComment] = useOptimistic<
     CommentWithExtras[],
     OptimisticAction
@@ -684,97 +694,112 @@ function Comments({
 
   return (
     <div className="space-y-4">
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="relative flex items-center space-x-2 w-full px-3 sm:px-0"
-        >
-          <div className="flex items-center space-x-2 w-full">
-            <EmojiPicker
-              onChange={(emoji) => {
-                const currentValue = form.getValues("body");
-                form.setValue("body", currentValue + emoji);
-              }}
-            />
-            
-            <FormField
-              control={form.control}
-              name="body"
-              render={({ field }) => (
-                <FormItem className="flex-grow">
-                  <FormControl>
-                    <input
-                      type="text"
-                      placeholder={form.watch("parentId") ? "Add a reply..." : "Add a comment..."}
-                      className="w-full text-sm py-1 px-3 bg-transparent border-none focus:outline-none dark:text-white disabled:opacity-50"
-                      disabled={isSubmitting || cooldownTime > 0}
-                      {...field}
-                      ref={(e) => {
-                        field.ref(e);
-                        if (inputRef && e) {
-                          (inputRef as React.MutableRefObject<HTMLInputElement>).current = e;
-                        }
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-          {cooldownTime > 0 ? (
-            <div className="text-sm font-semibold text-neutral-500">
-              {cooldownTime}s
-            </div>
-          ) : (
-            <button
-              type="submit"
-              className={cn(
-                "text-sky-500 text-sm font-semibold hover:text-sky-700 dark:hover:text-sky-300 disabled:opacity-50 disabled:cursor-not-allowed",
-                (form.watch("body")?.length === 0 || isSubmitting) && "opacity-50"
-              )}
-              disabled={form.watch("body")?.length === 0 || isSubmitting}
+      {hideComments ? (
+        <div className="text-sm text-neutral-500 dark:text-neutral-400 px-3 sm:px-0">
+          Comments are disabled for this post
+        </div>
+      ) : (
+        <>
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="relative flex items-center space-x-2 w-full px-3 sm:px-0"
             >
-              {form.watch("parentId") ? "Reply" : "Post"}
-            </button>
-          )}
-          {form.watch("parentId") && (
-            <button
-              type="button"
-              onClick={() => {
-                form.setValue("parentId", null);
-                form.setValue("body", "");
-              }}
-              className="text-neutral-500 text-sm hover:text-neutral-600 dark:hover:text-neutral-400"
-            >
-              Cancel
-            </button>
-          )}
-        </form>
-      </Form>
-
-      {/* Comments list */}
-      {showPreview && (
-        <div className="space-y-4 px-3 sm:px-0">
-          {renderComments(optimisticComments)}
-          
-          {totalComments > 10 && hasMore && optimisticComments.length >= 10 && (
-            <button
-              onClick={loadMoreComments}
-              disabled={isLoading}
-              className="w-full text-sm font-semibold text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 py-2.5 border-t border-neutral-200 dark:border-neutral-800 mt-2"
-            >
-              {isLoading ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-500 border-t-transparent" />
-                  Loading...
+              <div className="flex items-center space-x-2 w-full">
+                <EmojiPicker
+                  onChange={(emoji) => {
+                    const currentValue = form.getValues("body");
+                    form.setValue("body", currentValue + emoji);
+                  }}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="body"
+                  render={({ field }) => (
+                    <FormItem className="flex-grow">
+                      <FormControl>
+                        <input
+                          type="text"
+                          placeholder={form.watch("parentId") ? "Add a reply..." : "Add a comment..."}
+                          className="w-full text-sm py-1 px-3 bg-transparent border-none focus:outline-none dark:text-white disabled:opacity-50"
+                          disabled={isSubmitting || cooldownTime > 0}
+                          {...field}
+                          ref={(e) => {
+                            field.ref(e);
+                            if (inputRef && e) {
+                              (inputRef as React.MutableRefObject<HTMLInputElement>).current = e;
+                            }
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              {cooldownTime > 0 ? (
+                <div className="text-sm font-semibold text-neutral-500">
+                  {cooldownTime}s
                 </div>
               ) : (
-                `View previous comments (${totalComments - optimisticComments.length} more)`
+                <button
+                  type="submit"
+                  className={cn(
+                    "text-sky-500 text-sm font-semibold hover:text-sky-700 dark:hover:text-sky-300 disabled:opacity-50 disabled:cursor-not-allowed",
+                    (form.watch("body")?.length === 0 || isSubmitting) && "opacity-50"
+                  )}
+                  disabled={form.watch("body")?.length === 0 || isSubmitting}
+                >
+                  {form.watch("parentId") ? "Reply" : "Post"}
+                </button>
               )}
-            </button>
+              {form.watch("parentId") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    form.setValue("parentId", null);
+                    form.setValue("body", "");
+                  }}
+                  className="text-neutral-500 text-sm hover:text-neutral-600 dark:hover:text-neutral-400"
+                >
+                  Cancel
+                </button>
+              )}
+            </form>
+          </Form>
+
+          {showPreview && (
+            <div className="space-y-4 px-3 sm:px-0">
+              {displayComments.map((comment) => (
+                <CommentComponent
+                  key={comment.id}
+                  comment={comment}
+                  inputRef={inputRef}
+                  postUserId={postUserId}
+                  onReply={handleReplyToComment}
+                />
+              ))}
+              
+              {totalComments > 10 && hasMore && optimisticComments.length >= 10 && (
+                <button
+                  onClick={loadMoreComments}
+                  disabled={isLoading}
+                  className="w-full text-sm font-semibold text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100 py-2.5 border-t border-neutral-200 dark:border-neutral-800 mt-2"
+                >
+                  {isLoading ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-500 border-t-transparent" />
+                      Loading...
+                    </div>
+                  ) : (
+                    `View previous comments (${totalComments - optimisticComments.length} more)`
+                  )}
+                </button>
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
