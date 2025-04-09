@@ -117,7 +117,7 @@ export default function StoryFeed({ userStories: initialUserStories = [], otherS
         return JSON.stringify(prevStories) === JSON.stringify(newStories) ? prevStories : newStories;
       });
     } catch (error) {
-      console.error('Error fetching stories:', error);
+      // Remove console.error
     }
   };
 

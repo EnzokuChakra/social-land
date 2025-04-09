@@ -153,7 +153,6 @@ function ProfileForm({ profile }: { profile: UserWithExtras }) {
           isOwnProfile={true}
         />
 
-        {/* Privacy Warning Alert Dialog */}
         <AlertDialog open={showPrivacyWarning} onOpenChange={setShowPrivacyWarning}>
           <AlertDialogContent>
             <AlertDialogHeader>

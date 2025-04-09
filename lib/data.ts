@@ -1510,7 +1510,7 @@ export async function fetchSavedPostsByUsername(username: string) {
   }
 }
 
-export async function fetchSuggestedUsers(userId: string | undefined) {
+export async function fetchSuggestedUsers(userId: string | undefined, limit: number = 5) {
   noStore();
 
   try {
@@ -1530,8 +1530,9 @@ export async function fetchSuggestedUsers(userId: string | undefined) {
       }
     });
 
-    // Extract all user IDs that have any kind of relationship
+    // Extract all user IDs that have any kind of relationship and add the current user
     const excludeUserIds = new Set([
+      userId, // Explicitly add current user to exclusion list
       ...followRelationships.map((rel: { followerId: string; followingId: string }) => rel.followerId),
       ...followRelationships.map((rel: { followerId: string; followingId: string }) => rel.followingId)
     ]);
@@ -1542,7 +1543,7 @@ export async function fetchSuggestedUsers(userId: string | undefined) {
         AND: [
           {
             id: {
-              not: userId,
+              not: userId, // Redundant but keeping for safety
               notIn: Array.from(excludeUserIds)
             }
           },
@@ -1565,7 +1566,7 @@ export async function fetchSuggestedUsers(userId: string | undefined) {
           }
         }
       },
-      take: 5,
+      take: limit,
       orderBy: {
         followers: {
           _count: 'desc'

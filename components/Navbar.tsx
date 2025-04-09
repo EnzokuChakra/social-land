@@ -90,7 +90,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const { isCollapsed, setIsCollapsed, navbarWidth } = useNavbar();
-  const { notifications, isLoading, setNotifications } = useNotifications();
+  const { notifications, refreshNotifications, isLoading, hasUnreadNotifications, markNotificationsAsSeen } = useNotifications();
   const isMobile = useMediaQuery("(max-width: 768px)");
   const router = useRouter();
   const { theme, setTheme } = useTheme();
@@ -103,18 +103,12 @@ export default function Navbar() {
   
   // Combined state object for better performance
   const [states, setStates] = useState({
-    isSearchOpen: false,
     isNotificationsOpen: false,
-    showDropdown: false,
-    hasUnreadNotifications: false
+    isSearchOpen: false,
+    showDropdown: false
   });
 
-  const { 
-    isSearchOpen, 
-    isNotificationsOpen, 
-    showDropdown, 
-    hasUnreadNotifications 
-  } = states;
+  const { isNotificationsOpen, isSearchOpen, showDropdown } = states;
 
   const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>({
     hasRequest: false,
@@ -206,37 +200,28 @@ export default function Navbar() {
     };
   }, []);
 
-  // Close dropdowns when clicking outside
+  // Handle dropdown toggle
+  const toggleDropdown = () => {
+    setStates(prev => ({
+      ...prev,
+      showDropdown: !prev.showDropdown
+    }));
+  };
+
+  // Close dropdown when clicking outside
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      const target = event.target as HTMLElement;
-      const navbar = document.querySelector('nav');
-      const searchSidebar = document.querySelector('[data-search-sidebar]');
-      const notificationSidebar = document.querySelector('[data-notification-sidebar]');
-
-      // Only close search if click is outside both navbar and search sidebar
-      if (isSearchOpen && navbar && !navbar.contains(target) && searchSidebar && !searchSidebar.contains(target)) {
-        handleSearchClose();
-      }
-
-      // Only close notifications if click is outside both navbar and notifications sidebar
-      if (isNotificationsOpen && navbar && !navbar.contains(target) && notificationSidebar && !notificationSidebar.contains(target)) {
-        handleNotificationsClose();
-      }
-
-      if (dropdownRef.current && !dropdownRef.current.contains(target as Node)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showDropdown && !event.target?.closest('.dropdown-container')) {
         setStates(prev => ({
           ...prev,
-          showModeToggle: false,
-          showLanguageToggle: false,
           showDropdown: false
         }));
       }
-    }
+    };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isSearchOpen, isNotificationsOpen, isMobile]);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showDropdown]);
 
   // Close notifications and search when navigating
   useEffect(() => {
@@ -257,17 +242,6 @@ export default function Navbar() {
       }));
     }
   }, [isMobile]);
-
-  // Check for unread notifications when notifications array changes
-  useEffect(() => {
-    if (notifications) {
-      const unreadExists = notifications.some(notification => !notification.isRead);
-      setStates(prev => ({
-        ...prev,
-        hasUnreadNotifications: unreadExists
-      }));
-    }
-  }, [notifications]);
 
   // Update verification status check
   useEffect(() => {
@@ -290,6 +264,14 @@ export default function Navbar() {
       return () => clearInterval(interval);
     }
   }, [session]);
+
+  // Update unread notifications state when notifications change
+  useEffect(() => {
+    setStates(prev => ({
+      ...prev,
+      hasUnreadNotifications: notifications.some(n => !n.isRead)
+    }));
+  }, [notifications]);
 
   // Construct routes array based on settings
   const mainRoutes = [...baseRoutes];
@@ -329,16 +311,13 @@ export default function Navbar() {
       }
 
       // Mark notifications as read if there are unread ones
-      if (notifications?.some(n => !n.isRead)) {
+      if (hasUnreadNotifications) {
         const response = await fetch("/api/notifications/mark-read", {
           method: "POST",
         });
         if (response.ok) {
-          setNotifications(notifications.map(n => ({ ...n, isRead: true })));
-          setStates(prev => ({
-            ...prev,
-            hasUnreadNotifications: false
-          }));
+          markNotificationsAsSeen();
+          refreshNotifications();
         }
       }
     } catch (error) {
@@ -377,6 +356,9 @@ export default function Navbar() {
       ...prev,
       isNotificationsOpen: false
     }));
+
+    // Mark all notifications and follow requests as seen when closing the panel
+    markNotificationsAsSeen();
 
     // Update collapse state using the navbar hook
     if (!isMobile) {

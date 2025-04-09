@@ -31,7 +31,7 @@ export default async function DashboardPage() {
 
   const [posts, suggestedUsers, userStories, otherStories, profile] = await Promise.all([
     fetchPosts(session.user.id),
-    fetchSuggestedUsers(session.user.id),
+    fetchSuggestedUsers(session.user.id, 20),
     fetchUserStories(session.user.id),
     fetchOtherStories(session.user.id),
     fetchProfile(session.user.username),

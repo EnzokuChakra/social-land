@@ -15,6 +15,9 @@ export async function POST() {
       where: {
         userId: session.user.id,
         isRead: false,
+        type: {
+          in: ["FOLLOW", "LIKE", "COMMENT", "REPLY", "MENTION", "TAG", "STORY_LIKE", "COMMENT_LIKE", "EVENT_CREATED", "FOLLOW_REQUEST"]
+        }
       },
       data: {
         isRead: true,

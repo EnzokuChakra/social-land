@@ -107,38 +107,97 @@ function NotificationItem({ notification }: NotificationItemProps) {
 
   const getNotificationText = useCallback(() => {
     switch (notification.type) {
+      case "FOLLOW":
+        return "started following you";
       case "LIKE": {
-        if (notification.metadata?.othersCount) {
-          const othersCount = notification.metadata.othersCount as number;
-          return othersCount === 1 
-            ? "and 1 other liked your post"
-            : `and ${othersCount} others liked your post`;
+        let metadata = notification.metadata;
+        if (typeof metadata === 'string') {
+          try {
+            metadata = JSON.parse(metadata);
+          } catch (e) {
+            console.error('Error parsing notification metadata:', e);
+            metadata = null;
+          }
+        }
+        const othersCount = metadata?.othersCount as number | undefined;
+        if (othersCount && othersCount > 0) {
+          return `and ${othersCount} others liked your post`;
         }
         return "liked your post";
       }
+      case "STORY_LIKE": {
+        let metadata = notification.metadata;
+        if (typeof metadata === 'string') {
+          try {
+            metadata = JSON.parse(metadata);
+          } catch (e) {
+            console.error('Error parsing notification metadata:', e);
+            metadata = null;
+          }
+        }
+        const storyOthersCount = metadata?.othersCount as number | undefined;
+        if (storyOthersCount && storyOthersCount > 0) {
+          return `and ${storyOthersCount} others liked your story`;
+        }
+        return "liked your story";
+      }
       case "COMMENT": {
-        if (notification.metadata?.othersCount) {
-          const othersCount = notification.metadata.othersCount as number;
-          return othersCount === 1 
-            ? "and 1 other commented on your post"
-            : `and ${othersCount} others commented on your post`;
+        let metadata = notification.metadata;
+        if (typeof metadata === 'string') {
+          try {
+            metadata = JSON.parse(metadata);
+          } catch (e) {
+            console.error('Error parsing notification metadata:', e);
+            metadata = null;
+          }
+        }
+        const othersCount = metadata?.othersCount as number | undefined;
+        if (othersCount && othersCount > 0) {
+          return `and ${othersCount} others commented on your post`;
         }
         return "commented on your post";
       }
-      case "FOLLOW":
-        return "started following you";
       case "FOLLOW_REQUEST":
         return "requested to follow you";
       case "REPLY":
-        return "replied to your comment";
+        return `replied to your comment: ${notification.comment?.text ?? ''}`;
       case "MENTION":
         return "mentioned you in a comment";
+      case "EVENT_CREATED": {
+        let metadata = notification.metadata;
+        if (typeof metadata === 'string') {
+          try {
+            metadata = JSON.parse(metadata);
+          } catch (e) {
+            console.error('Error parsing notification metadata:', e);
+            metadata = null;
+          }
+        }
+        const eventName = metadata?.eventName as string | undefined;
+        return `A new event "${eventName || ''}" has been posted! Check it out!`;
+      }
+      case "COMMENT_LIKE": {
+        let metadata = notification.metadata;
+        if (typeof metadata === 'string') {
+          try {
+            metadata = JSON.parse(metadata);
+          } catch (e) {
+            console.error('Error parsing notification metadata:', e);
+            metadata = null;
+          }
+        }
+        const othersCount = metadata?.othersCount as number | undefined;
+        if (othersCount && othersCount > 0) {
+          return `and ${othersCount} others liked your comment`;
+        }
+        return "liked your comment";
+      }
       case "TAG":
         return "tagged you in a post";
       default:
         return null;
     }
-  }, [notification.type, notification.metadata?.othersCount]);
+  }, [notification.type, notification.metadata]);
 
   // Don't render notification if we don't have text for it
   if (!getNotificationText()) return null;
@@ -146,27 +205,23 @@ function NotificationItem({ notification }: NotificationItemProps) {
   const getNotificationLink = useCallback(() => {
     switch (notification.type) {
       case "FOLLOW":
-      case "FOLLOW_REQUEST":
         return `/dashboard/${notification.sender?.username}`;
       case "LIKE":
       case "COMMENT":
+      case "REPLY":
       case "MENTION":
       case "TAG":
-        return notification.postId ? `/dashboard/p/${notification.postId}` : "#";
-      case "REPLY":
-        return notification.postId ? `/dashboard/p/${notification.postId}#${notification.metadata?.commentId}` : "#";
+        return `/dashboard/p/${notification.postId}`;
       case "STORY_LIKE":
-        // Check if the story is expired (24 hours old)
-        const storyCreatedAt = notification.story?.createdAt;
-        const isExpired = storyCreatedAt && 
-          new Date().getTime() - new Date(storyCreatedAt).getTime() > 24 * 60 * 60 * 1000;
-        
-        // Return "#" if the story is expired, otherwise return the story link
-        return !isExpired && notification.storyId ? `/dashboard/s/${notification.storyId}` : "#";
+        return `/dashboard/stories/${notification.storyId}`;
+      case "COMMENT_LIKE":
+        return `/dashboard/p/${notification.postId}#comment-${notification.comment?.id}`;
+      case "EVENT_CREATED":
+        return "/dashboard/events";
       default:
         return "#";
     }
-  }, [notification.type, notification.sender?.username, notification.postId, notification.metadata?.commentId, notification.storyId, notification.story?.createdAt]);
+  }, [notification]);
 
   const handleNavigate = useCallback((e: React.MouseEvent, path: string) => {
     e.preventDefault();
@@ -198,26 +253,34 @@ function NotificationItem({ notification }: NotificationItemProps) {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={cn(
-        "w-full flex items-center gap-3 py-3 px-4 transition-colors",
+        "w-full flex items-start gap-3 py-3 px-4 transition-colors",
         "hover:bg-neutral-900/5 dark:hover:bg-neutral-800/50",
         "text-left border-b border-neutral-200 dark:border-neutral-800",
         "focus:outline-none focus:bg-neutral-100 dark:focus:bg-neutral-800/50"
       )}
     >
-      <UserAvatar 
-        user={notification.sender} 
-        className="h-8 w-8 flex-none"
+      <UserAvatar
+        user={notification.sender ? {
+          id: notification.sender.id,
+          username: notification.sender.username,
+          name: notification.sender.username,
+          image: notification.sender.image
+        } : null}
+        className="h-8 w-8 flex-shrink-0"
       />
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1 flex-wrap">
-          <span className="font-medium text-sm">
-            {notification.sender?.username}
-          </span>
-          <span className="text-sm text-neutral-500">
-            {getNotificationText()}
-          </span>
+        <div className="flex flex-wrap gap-1 items-baseline">
+          <p className="text-sm line-clamp-2">
+            <span className="font-medium">
+              {notification.sender?.username}
+            </span>
+            {" "}
+            <span className="text-neutral-500">
+              {getNotificationText()}
+            </span>
+          </p>
         </div>
-        <span className="text-xs text-neutral-400">
+        <span className="text-xs text-neutral-400 block mt-0.5">
           {formatTimeAgo(notification.createdAt)}
         </span>
       </div>
@@ -225,7 +288,7 @@ function NotificationItem({ notification }: NotificationItemProps) {
         <Button
           size="sm"
           variant="outline"
-          className="ml-2"
+          className="ml-2 flex-shrink-0"
           onClick={handleFollowBack}
           disabled={isLoading}
         >

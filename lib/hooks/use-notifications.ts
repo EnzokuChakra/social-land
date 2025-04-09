@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { NotificationWithExtras, NotificationType } from "@/lib/definitions";
 import { getNotificationsClient } from '@/lib/client-actions';
 import { JsonValue } from '@prisma/client/runtime/library';
@@ -47,7 +47,14 @@ export function useNotifications() {
   const [followRequests, setFollowRequests] = useState<NotificationWithUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const { isAuthenticated, isLoading: isSessionLoading } = useSessionAuth();
+  const lastFetchTime = useRef<number>(0);
+  const notificationsRef = useRef<NotificationWithUser[]>([]);
+  const followRequestsRef = useRef<NotificationWithUser[]>([]);
+  const lastSeenNotificationsRef = useRef<Set<string>>(new Set());
+  const CACHE_DURATION = 5000; // 5 seconds cache
+  const POLLING_INTERVAL = 10000; // 10 seconds polling
 
   const transformNotification = (notification: NotificationWithUser): NotificationWithExtras => ({
     ...notification,
@@ -67,77 +74,98 @@ export function useNotifications() {
     metadata: notification.metadata as Record<string, any> | null
   });
 
-  useEffect(() => {
-    let mounted = true;
-    let pollInterval: NodeJS.Timeout;
+  // Check for new notifications
+  const checkForNewNotifications = useCallback((newNotifications: NotificationWithUser[], newFollowRequests: NotificationWithUser[]) => {
+    const hasNewNotifications = newNotifications.some(notification => {
+      // Only check non-follow-request notifications
+      return notification.type !== "FOLLOW_REQUEST" && 
+             !lastSeenNotificationsRef.current.has(notification.id) && 
+             !notification.isRead;
+    });
 
-    async function fetchNotifications() {
-      if (!isAuthenticated) {
-        return;
-      }
+    const hasNewFollowRequests = newFollowRequests.some(request => {
+      // If we haven't seen this follow request before
+      return !lastSeenNotificationsRef.current.has(request.id);
+    });
 
-      try {
-        const { notifications: newNotifications, followRequests: newFollowRequests } = await getNotificationsClient();
-        
-        if (mounted) {
-          setFollowRequests(newFollowRequests);
-          setNotifications(newNotifications);
-          setError(null);
-        }
-      } catch (err) {
-        if (mounted) {
-          console.error('[useNotifications] Error fetching:', err);
-          setError(err as Error);
-        }
-      } finally {
-        if (mounted) {
-          setIsLoading(false);
-        }
-      }
-    }
+    // Set unread state based on either regular notifications or follow requests
+    setHasUnreadNotifications(hasNewNotifications || hasNewFollowRequests);
+  }, []);
 
-    // Only start fetching if authenticated and session loading is complete
-    if (isAuthenticated && !isSessionLoading) {
-      fetchNotifications();
-      // Poll for new notifications every 30 seconds
-      pollInterval = setInterval(fetchNotifications, 30000);
-    }
+  const markNotificationsAsSeen = useCallback(() => {
+    // Add all current notification IDs to the seen set
+    notifications.forEach(notification => {
+      lastSeenNotificationsRef.current.add(notification.id);
+    });
+    // Also mark follow requests as seen
+    followRequests.forEach(request => {
+      lastSeenNotificationsRef.current.add(request.id);
+    });
+    setHasUnreadNotifications(false);
+  }, [notifications, followRequests]);
 
-    return () => {
-      mounted = false;
-      if (pollInterval) {
-        clearInterval(pollInterval);
-      }
-    };
-  }, [isAuthenticated, isSessionLoading]);
+  const fetchNotifications = useCallback(async (force = false) => {
+    if (!isAuthenticated) return;
 
-  const refetch = async () => {
-    if (!isAuthenticated) {
+    const now = Date.now();
+    // Only fetch if cache is expired or force refresh
+    if (!force && now - lastFetchTime.current < CACHE_DURATION) {
       return;
     }
 
-    setIsLoading(true);
     try {
-      const { notifications: newNotifications, followRequests: newFollowRequests } = await getNotificationsClient();
-
-      setFollowRequests(newFollowRequests);
-      setNotifications(newNotifications);
-      setError(null);
+      const data = await getNotificationsClient();
+      
+      // Only update if there are actual changes
+      const hasNewNotifications = JSON.stringify(data.notifications) !== JSON.stringify(notificationsRef.current);
+      const hasNewFollowRequests = JSON.stringify(data.followRequests) !== JSON.stringify(followRequestsRef.current);
+      
+      if (hasNewNotifications || hasNewFollowRequests) {
+        notificationsRef.current = data.notifications;
+        followRequestsRef.current = data.followRequests;
+        setNotifications(data.notifications);
+        setFollowRequests(data.followRequests);
+        
+        // Check for new notifications
+        checkForNewNotifications(data.notifications, data.followRequests);
+      }
+      
+      lastFetchTime.current = now;
+      setIsLoading(false);
     } catch (err) {
-      console.error('[useNotifications] Error refetching:', err);
-      setError(err as Error);
-    } finally {
+      setError(err instanceof Error ? err : new Error('Failed to fetch notifications'));
       setIsLoading(false);
     }
-  };
+  }, [isAuthenticated, checkForNewNotifications]);
+
+  // Initial fetch
+  useEffect(() => {
+    if (isAuthenticated && !isSessionLoading) {
+      fetchNotifications(true);
+    }
+  }, [isAuthenticated, isSessionLoading, fetchNotifications]);
+
+  // Set up polling for real-time updates
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const interval = setInterval(fetchNotifications, POLLING_INTERVAL);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, fetchNotifications]);
+
+  // Force refresh function
+  const refreshNotifications = useCallback(() => {
+    lastFetchTime.current = 0;
+    fetchNotifications(true);
+  }, [fetchNotifications]);
 
   return {
     notifications,
     followRequests,
-    setNotifications,
-    setFollowRequests,
     isLoading: isSessionLoading || isLoading,
     error,
-    refetch
+    hasUnreadNotifications,
+    markNotificationsAsSeen,
+    refreshNotifications
   };
 } 

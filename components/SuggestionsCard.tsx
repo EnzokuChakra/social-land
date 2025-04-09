@@ -20,6 +20,7 @@ interface SuggestionsCardProps {
 
 export default function SuggestionsCard({ users }: SuggestionsCardProps) {
   const [showAllUsers, setShowAllUsers] = useState(false);
+  const [displayedUsers, setDisplayedUsers] = useState(users.slice(0, 5));
 
   return (
     <>
@@ -59,7 +60,7 @@ export default function SuggestionsCard({ users }: SuggestionsCardProps) {
           </Button>
         </div>
         <div suppressHydrationWarning>
-          <Suggestions users={users} className="mt-4" hideTitle />
+          <Suggestions users={displayedUsers} className="mt-4" hideTitle />
         </div>
       </div>
 

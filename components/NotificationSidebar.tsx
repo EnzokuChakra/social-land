@@ -23,11 +23,30 @@ export default function NotificationSidebar({
 }: NotificationSidebarProps) {
   const [showFollowRequests, setShowFollowRequests] = useState(false);
   const [notifications, setNotifications] = useState<NotificationWithExtras[]>(initialNotifications);
+  const [displayedNotifications, setDisplayedNotifications] = useState<NotificationWithExtras[]>([]);
+  const [page, setPage] = useState(1);
   const isMobile = useMediaQuery("(max-width: 768px)");
+  const ITEMS_PER_PAGE = 10;
+
+  // Handle closing the sidebar
+  const handleClose = () => {
+    setShowFollowRequests(false);
+    onClose();
+  };
 
   useEffect(() => {
     setNotifications(initialNotifications);
+    setPage(1); // Reset page when notifications change
   }, [initialNotifications]);
+
+  useEffect(() => {
+    // Update displayed notifications when page or notifications change
+    const startIndex = 0;
+    const endIndex = page * ITEMS_PER_PAGE;
+    // Filter out FOLLOW_REQUEST notifications from the main list
+    const filteredNotifications = notifications.filter(n => n.type !== "FOLLOW_REQUEST");
+    setDisplayedNotifications(filteredNotifications.slice(startIndex, endIndex));
+  }, [notifications, page]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -58,6 +77,10 @@ export default function NotificationSidebar({
     setNotifications(prev => prev.filter(n => n.id !== notificationId));
   };
 
+  const handleLoadMore = () => {
+    setPage(prev => prev + 1);
+  };
+
   return (
     <>
       <motion.div
@@ -68,20 +91,9 @@ export default function NotificationSidebar({
           x: isOpen ? 0 : -100
         }}
         transition={{ 
-          type: "spring",
-          width: {
-            type: "spring",
-            stiffness: 400,
-            damping: 30
-          },
-          opacity: {
-            duration: 0.2
-          },
-          x: {
-            type: "spring",
-            stiffness: 400,
-            damping: 30
-          }
+          type: "tween",
+          duration: 0.2,
+          ease: "easeInOut"
         }}
         className={cn(
           "fixed z-50",
@@ -90,62 +102,85 @@ export default function NotificationSidebar({
           "bg-white dark:bg-black",
           "shadow-sm dark:shadow-neutral-800/10",
           "overflow-hidden",
-          "will-change-[width,opacity,transform]"
+          "transform-gpu",
+          "backface-visibility-hidden",
+          "will-change-transform"
         )}
         data-notification-sidebar
       >
-        <div className="sticky top-0 z-10 bg-white dark:bg-black border-b border-neutral-200 dark:border-neutral-800 p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">Notifications</h2>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="hover:bg-neutral-100 dark:hover:bg-neutral-800/50 rounded-full"
-            >
-              <ChevronLeftIcon className="w-5 h-5" />
-            </Button>
-          </div>
-          {uniqueFollowRequests.length > 0 && (
-            <Button
-              variant="outline"
-              onClick={() => setShowFollowRequests(true)}
-              className="w-full justify-between"
-            >
-              Follow Requests
-              <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1">
-                {uniqueFollowRequests.length}
-              </span>
-            </Button>
-          )}
-        </div>
-
-        <div className="p-4">
-          {showFollowRequests ? (
-            <FollowRequests
-              requests={uniqueFollowRequests.map(n => ({
-                id: n.id,
-                sender: {
-                  id: n.sender?.id || n.sender_id || "",
-                  username: n.sender?.username || null,
-                  name: n.sender?.username || null,
-                  image: n.sender?.image || null
-                },
-                createdAt: n.createdAt
-              }))}
-              onBack={() => setShowFollowRequests(false)}
-              onAction={handleFollowRequestAction}
-            />
-          ) : (
-            <div className="space-y-4">
-              {otherNotifications.map((notification) => (
-                <NotificationItem
-                  key={notification.id}
-                  notification={notification}
-                />
-              ))}
+        <div className="h-full flex flex-col">
+          <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Notifications</h2>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleClose}
+                className="hover:bg-neutral-100 dark:hover:bg-neutral-800/50 rounded-full"
+              >
+                <ChevronLeftIcon className="w-5 h-5" />
+              </Button>
             </div>
-          )}
+            {uniqueFollowRequests.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={() => setShowFollowRequests(true)}
+                className="w-full justify-between"
+              >
+                Follow Requests
+                <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1">
+                  {uniqueFollowRequests.length}
+                </span>
+              </Button>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {showFollowRequests ? (
+              <FollowRequests
+                requests={uniqueFollowRequests.map(n => ({
+                  id: n.id,
+                  sender: {
+                    id: n.sender?.id || n.sender_id || "",
+                    username: n.sender?.username || null,
+                    name: n.sender?.username || null,
+                    image: n.sender?.image || null
+                  },
+                  createdAt: n.createdAt
+                }))}
+                onBack={() => setShowFollowRequests(false)}
+                onAction={handleFollowRequestAction}
+              />
+            ) : (
+              <div className="space-y-4 p-4">
+                {displayedNotifications.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-[200px]">
+                    <p className="text-sm text-neutral-500">No notifications yet</p>
+                  </div>
+                ) : (
+                  <>
+                    {displayedNotifications.map((notification) => (
+                      <NotificationItem
+                        key={notification.id}
+                        notification={notification}
+                      />
+                    ))}
+                    {notifications.length > displayedNotifications.length && (
+                      <div className="flex justify-center pt-4">
+                        <Button
+                          variant="outline"
+                          onClick={handleLoadMore}
+                          className="w-full"
+                        >
+                          Load More Notifications
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </motion.div>
 

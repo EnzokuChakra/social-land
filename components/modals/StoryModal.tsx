@@ -111,6 +111,7 @@ export default function StoryModal() {
   const lastProgressRef = useRef<number>(0);
   const animationFrameRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
+  const isProgressRunning = useRef(false);
   const socket = useSocket();
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [storyToReport, setStoryToReport] = useState<Story | null>(null);
@@ -205,9 +206,11 @@ export default function StoryModal() {
   useEffect(() => {
     if (!mount || !storyModal.isOpen || isPaused || isClosing) return;
 
-    console.log('Starting progress bar for story:', currentStory?.id);
-
     const startProgress = () => {
+      // Prevent multiple progress trackers
+      if (isProgressRunning.current) return;
+      isProgressRunning.current = true;
+
       if (progressInterval.current) clearInterval(progressInterval.current);
       if (storyTimeout.current) clearTimeout(storyTimeout.current);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
@@ -223,11 +226,23 @@ export default function StoryModal() {
         const newProgress = Math.min((elapsed / duration) * 100, 100);
 
         setProgress(newProgress);
+        
+        // Enhanced debug logging for progress
+        if (Math.floor(newProgress) % 20 === 0) { // Log every 20% progress
+          console.log(`[Story Progress] Story ${currentStoryIndex + 1}/${currentUserStories?.stories.length || 0} - ${Math.floor(newProgress)}%`, {
+            isPaused,
+            isClosing,
+            hasStartTime: !!startTimeRef.current,
+            currentStoryId: currentStory?.id,
+            isProgressRunning: isProgressRunning.current
+          });
+        }
 
         if (newProgress < 100) {
           animationFrameRef.current = requestAnimationFrame(animate);
         } else {
           // Story is complete
+          isProgressRunning.current = false;
           requestAnimationFrame(() => {
             handleStoryEnd();
           });
@@ -239,7 +254,7 @@ export default function StoryModal() {
       image.src = currentStory?.fileUrl || '';
       
       image.onload = () => {
-        console.log('Story image loaded, starting progress');
+        console.log('[Story Progress] Image loaded, starting progress');
         animationFrameRef.current = requestAnimationFrame(animate);
 
         // Set a timeout for the entire story duration as a fallback
@@ -248,6 +263,7 @@ export default function StoryModal() {
             cancelAnimationFrame(animationFrameRef.current);
             animationFrameRef.current = null;
           }
+          isProgressRunning.current = false;
           requestAnimationFrame(() => {
             handleStoryEnd();
           });
@@ -255,10 +271,9 @@ export default function StoryModal() {
       };
 
       image.onerror = () => {
-        console.error('Failed to load story image');
+        console.log('[Story Progress] Image failed to load, starting progress with delay');
         // If image fails to load, still start the progress after a short delay
         setTimeout(() => {
-          console.log('Starting progress despite image load failure');
           animationFrameRef.current = requestAnimationFrame(animate);
 
           storyTimeout.current = setTimeout(() => {
@@ -266,6 +281,7 @@ export default function StoryModal() {
               cancelAnimationFrame(animationFrameRef.current);
               animationFrameRef.current = null;
             }
+            isProgressRunning.current = false;
             requestAnimationFrame(() => {
               handleStoryEnd();
             });
@@ -277,7 +293,8 @@ export default function StoryModal() {
     startProgress();
 
     return () => {
-      console.log('Cleaning up progress timers');
+      console.log('[Story Progress] Cleanup - clearing timers and animation frames');
+      isProgressRunning.current = false;
       if (progressInterval.current) {
         clearInterval(progressInterval.current);
         progressInterval.current = null;

@@ -232,182 +232,99 @@ async function createNotification({
   postId,
   commentId,
   storyId,
+  metadata,
 }: {
-  type: "LIKE" | "COMMENT" | "FOLLOW" | "FOLLOW_REQUEST" | "COMMENT_REPLY" | "REPLY" | "STORY_LIKE";
+  type: NotificationType;
   user_id: string;
   postId?: string;
   commentId?: string;
   storyId?: string;
+  metadata?: string;
 }) {
   const sender_id = await getUserId();
-
-  if (sender_id === user_id) {
-    return;
-  }
+  if (sender_id === user_id) return;
 
   try {
     const prisma = ensurePrisma();
-    if (type === "LIKE" && postId) {
-      // Find any existing like notification for this post
-      const existingNotification = await prisma.notification.findFirst({
-        where: {
-          type: "LIKE",
-          userId: user_id,
-          postId,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
+    
+    // For bulk notifications (like EVENT_CREATED), use a transaction
+    if (type === "EVENT_CREATED") {
+      const users = await prisma.user.findMany({
+        where: { id: { not: sender_id } },
+        select: { id: true }
       });
 
-      // Get count of other likes (excluding the current user)
-      const otherLikes = await prisma.like.count({
-        where: {
-          postId,
-          user_id: {
-            not: sender_id,
-          },
-        },
-      });
-
-      if (existingNotification) {
-        // Update the existing notification with new sender and others count
-        await prisma.notification.update({
-          where: { id: existingNotification.id },
-          data: {
-            sender_id,
-            createdAt: new Date(),
-            metadata: otherLikes > 0 ? JSON.stringify({ othersCount: otherLikes }) : null,
-          },
-        });
-      } else {
-        // Create new notification if none exists
-        await prisma.notification.create({
-          data: {
-            id: crypto.randomUUID(),
-            type,
-            userId: user_id,
-            sender_id,
-            postId,
-            metadata: otherLikes > 0 ? JSON.stringify({ othersCount: otherLikes }) : null,
-          },
-        });
-      }
-    } else if (type === "STORY_LIKE" && storyId) {
-      // Find any existing story like notification
-      const existingNotification = await prisma.notification.findFirst({
-        where: {
-          type: "STORY_LIKE",
-          userId: user_id,
-          storyId,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-      // Get count of other story likes (excluding the current user)
-      const otherLikes = await prisma.like.count({
-        where: {
-          storyId,
-          user_id: {
-            not: sender_id,
-          },
-        },
-      });
-
-      if (existingNotification) {
-        // Update the existing notification with new sender and others count
-        await prisma.notification.update({
-          where: { id: existingNotification.id },
-          data: {
-            sender_id,
-            createdAt: new Date(),
-            metadata: otherLikes > 0 ? JSON.stringify({ othersCount: otherLikes }) : null,
-          },
-        });
-      } else {
-        // Create new notification if none exists
-        await prisma.notification.create({
-          data: {
-            id: crypto.randomUUID(),
-            type,
-            userId: user_id,
-            sender_id,
-            storyId,
-            metadata: otherLikes > 0 ? JSON.stringify({ othersCount: otherLikes }) : null,
-          },
-        });
-      }
-    } else if (type === "COMMENT" && postId) {
-      // Find any existing comment notification for this post
-      const existingNotification = await prisma.notification.findFirst({
-        where: {
-          type: "COMMENT",
-          userId: user_id,
-          postId,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-      // Get count of other comments (excluding the current user)
-      const otherComments = await prisma.comment.count({
-        where: {
-          postId,
-          user_id: {
-            not: sender_id,
-          },
-          parentId: null, // Only count top-level comments
-        },
-      });
-
-      if (existingNotification) {
-        // Update the existing notification with new sender and others count
-        await prisma.notification.update({
-          where: { id: existingNotification.id },
-          data: {
-            sender_id,
-            createdAt: new Date(),
-            metadata: JSON.stringify({
-              ...(commentId ? { commentId } : {}),
-              ...(otherComments > 0 ? { othersCount: otherComments } : {}),
-            }),
-          },
-        });
-      } else {
-        // Create new notification if none exists
-        await prisma.notification.create({
-          data: {
-            id: crypto.randomUUID(),
-            type,
-            userId: user_id,
-            sender_id,
-            postId,
-            metadata: JSON.stringify({
-              ...(commentId ? { commentId } : {}),
-              ...(otherComments > 0 ? { othersCount: otherComments } : {}),
-            }),
-          },
-        });
-      }
-    } else {
-      // For other notification types (FOLLOW, FOLLOW_REQUEST, COMMENT_REPLY, REPLY)
-      const data: any = {
-        id: crypto.randomUUID(),
-        type,
-        userId: user_id,
-        sender_id,
-        postId,
-      };
-
-      if (commentId) {
-        data.metadata = JSON.stringify({ commentId });
-      }
-
-      await prisma.notification.create({ data });
+      await prisma.$transaction(
+        users.map(user => 
+          prisma.notification.create({
+            data: {
+              id: crypto.randomUUID(),
+              type,
+              userId: user.id,
+              sender_id,
+              metadata: JSON.stringify({
+                eventId: postId,
+                eventName: commentId // We're using commentId as eventName here
+              }),
+            },
+          })
+        )
+      );
+      return;
     }
+
+    // For single notifications, use a single query
+    const data = {
+      id: crypto.randomUUID(),
+      type,
+      userId: user_id,
+      sender_id,
+      postId,
+      storyId,
+      metadata
+    };
+
+    // Add metadata based on notification type
+    if (type === "LIKE" && postId) {
+      const [otherLikes, existingNotification] = await Promise.all([
+        prisma.like.count({
+          where: {
+            postId,
+            user_id: { not: sender_id }
+          }
+        }),
+        prisma.notification.findFirst({
+          where: {
+            type: "LIKE",
+            userId: user_id,
+            postId
+          },
+          orderBy: { createdAt: "desc" }
+        })
+      ]);
+
+      if (existingNotification) {
+        await prisma.notification.update({
+          where: { id: existingNotification.id },
+          data: {
+            sender_id,
+            createdAt: new Date(),
+            metadata: JSON.stringify({ 
+              othersCount: otherLikes,
+              lastLikerId: sender_id
+            })
+          }
+        });
+        return;
+      }
+
+      data.metadata = JSON.stringify({ 
+        othersCount: otherLikes,
+        lastLikerId: sender_id
+      });
+    }
+
+    await prisma.notification.create({ data });
   } catch (error) {
     console.error("Error creating notification:", error);
   }
@@ -945,12 +862,27 @@ export async function createComment(values: z.infer<typeof CreateComment>) {
         console.log("[CREATE_COMMENT] Created reply notification");
       }
     } else if (post.user_id !== userId) {
+      // Get count of other comments (excluding the current user)
+      const otherComments = await db.comment.count({
+        where: {
+          postId,
+          user_id: {
+            not: userId,
+          },
+          parentId: null, // Only count top-level comments
+        },
+      });
+
       // Create notification for top-level comment
       await createNotification({
         type: "COMMENT",
         user_id: post.user_id,
         postId: postId ?? undefined,
         commentId: comment.id,
+        metadata: JSON.stringify({
+          othersCount: otherComments,
+          lastCommenterId: userId
+        }),
       });
       console.log("[CREATE_COMMENT] Created comment notification");
     }
@@ -1711,25 +1643,35 @@ export async function getNotifications() {
         followers: { status: string }[];
         following: { status: string }[];
       };
-    }) => ({
-      id: crypto.randomUUID(),
-      type: "FOLLOW_REQUEST" as const,
-      userId,
-      sender_id: request.followerId,
-      createdAt: request.createdAt,
-      sender: {
-        ...request.follower,
-        isFollowing: request.follower.following.length > 0 && request.follower.following[0].status === "ACCEPTED",
-        isFollowedByUser: request.follower.followers.length > 0 && request.follower.followers[0].status === "ACCEPTED",
-        hasPendingRequest: true,
-      },
-      post: null,
-      story: null,
-      isRead: false,
-      reelId: null,
-      storyId: null,
-      metadata: null,
-    }));
+    }) => {
+      // Check if there's an existing notification for this follow request
+      const existingNotification = notifications.find(
+        n => n.type === "FOLLOW_REQUEST" && n.sender_id === request.followerId
+      );
+
+      // Create a consistent ID based on the follower and following IDs
+      const consistentId = `follow-request-${request.followerId}-${userId}`;
+
+      return {
+        id: consistentId,
+        type: "FOLLOW_REQUEST" as const,
+        userId,
+        sender_id: request.followerId,
+        createdAt: request.createdAt,
+        sender: {
+          ...request.follower,
+          isFollowing: request.follower.following.length > 0 && request.follower.following[0].status === "ACCEPTED",
+          isFollowedByUser: request.follower.followers.length > 0 && request.follower.followers[0].status === "ACCEPTED",
+          hasPendingRequest: true,
+        },
+        post: null,
+        story: null,
+        isRead: existingNotification?.isRead ?? false,
+        reelId: null,
+        storyId: null,
+        metadata: null,
+      };
+    });
 
     // Return both regular notifications and follow requests
     return {
@@ -1795,15 +1737,57 @@ export async function likeComment(commentId: string) {
 
     // Create notification for comment owner if it's not the same user
     if (like.comment.user_id !== session.user.id) {
-      await db.notification.create({
-        data: {
-          id: crypto.randomUUID(),
+      // Find any existing comment like notification
+      const existingNotification = await db.notification.findFirst({
+        where: {
           type: "COMMENT_LIKE",
           userId: like.comment.user_id,
-          sender_id: session.user.id,
-          postId: like.comment.postId!,
+          postId: like.comment.postId,
+        },
+        orderBy: {
+          createdAt: "desc",
         },
       });
+
+      // Get count of other comment likes (excluding the current user)
+      const otherLikes = await db.commentlike.count({
+        where: {
+          commentId,
+          user_id: {
+            not: session.user.id,
+          },
+        },
+      });
+
+      if (existingNotification) {
+        // Update the existing notification with new sender and others count
+        await db.notification.update({
+          where: { id: existingNotification.id },
+          data: {
+            sender_id: session.user.id,
+            createdAt: new Date(),
+            metadata: JSON.stringify({ 
+              othersCount: otherLikes,
+              lastLikerId: session.user.id
+            }),
+          },
+        });
+      } else {
+        // Create new notification if none exists
+        await db.notification.create({
+          data: {
+            id: crypto.randomUUID(),
+            type: "COMMENT_LIKE",
+            userId: like.comment.user_id,
+            sender_id: session.user.id,
+            postId: like.comment.postId!,
+            metadata: JSON.stringify({ 
+              othersCount: otherLikes,
+              lastLikerId: session.user.id
+            }),
+          },
+        });
+      }
     }
 
     // Make sure to revalidate all relevant paths
@@ -1906,6 +1890,34 @@ export async function createEvent(formData: FormData) {
       user_id: session.user.id,
     },
   });
+
+  // Get all users except the event creator
+  const users = await db.user.findMany({
+    where: {
+      id: {
+        not: session.user.id
+      }
+    },
+    select: {
+      id: true
+    }
+  });
+
+  // Create notifications for all users
+  await Promise.all(users.map(user => 
+    db.notification.create({
+      data: {
+        id: crypto.randomUUID(),
+        type: "EVENT_CREATED",
+        userId: user.id,
+        sender_id: session.user.id,
+        metadata: JSON.stringify({
+          eventId: event.id,
+          eventName: event.name
+        }),
+      },
+    })
+  ));
 
   return event;
 }

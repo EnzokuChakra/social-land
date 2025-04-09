@@ -92,7 +92,9 @@ export type NotificationType =
   | "REPLY" 
   | "MENTION" 
   | "TAG"
-  | "STORY_LIKE";
+  | "STORY_LIKE"
+  | "COMMENT_LIKE"
+  | "EVENT_CREATED";
 
 export type Notification = {
   id: string;
