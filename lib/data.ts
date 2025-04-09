@@ -24,8 +24,8 @@ import {
 } from "./definitions";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { post as PrismaPost, user as PrismaUser, like as PrismaLike, follows as PrismaFollows } from "@prisma/client";
-import { PostWithExtras, UserWithFollows } from "@/lib/definitions";
+import { Post as PrismaPost, User as PrismaUser, Like as PrismaLike, Follows as PrismaFollows } from "@prisma/client";
+import { PostWithExtras, UserWithFollowStatus } from "@/lib/definitions";
 
 interface FollowerData {
   follower: {
@@ -200,9 +200,9 @@ export async function fetchPosts(userId?: string) {
     // If userId is provided, get follow status for each user in likes array
     if (userId) {
       const postsWithFollowStatus = await Promise.all(
-        posts.map(async (post) => {
+        posts.map(async (post: PostWithExtras) => {
           const likesWithFollowStatus = await Promise.all(
-            post.likes.map(async (like) => {
+            post.likes.map(async (like: Like & { user: UserWithFollowStatus | null }) => {
               if (!like.user) return like;
 
               // Get follow relationship
@@ -408,8 +408,9 @@ export async function fetchPostById(postId: string) {
     });
 
     if (!post) return null;
+
     // Get total comment count
-    const totalComments = await prisma?.comment.count({
+    const totalComments = await prisma.comment.count({
       where: {
         postId: postId,
         parentId: null // Only count top-level comments
@@ -421,11 +422,13 @@ export async function fetchPostById(postId: string) {
     if (!session?.user?.id) {
       throw new Error("Not authenticated");
     }
+
     const likesWithFollowStatus = await Promise.all(
-      post.Likes.map(async (like: Like & { user: UserWithFollowStatus | null }) => {
+      post.likes.map(async (like: Like & { user: UserWithFollowStatus | null }) => {
         if (!like.user) {
           return like;
         }
+        
         const follow = await prisma.follows.findUnique({
           where: {
             followerId_followingId: {
@@ -613,21 +616,21 @@ export async function fetchPostsByUsername(username: string, postId?: string) {
     });
 
     // Transform the data to include hasActiveStory and handle nested comments
-    const transformedData = data.map((post) => ({
+    const transformedData = data.map((post: PostWithExtras) => ({
       ...post,
       user: {
         ...post.user,
         hasActiveStory: post.user.stories && post.user.stories.length > 0,
         stories: undefined
       },
-      comments: post.comments.map((comment) => ({
+      comments: post.comments.map((comment: CommentWithExtras) => ({
         ...comment,
         user: {
           ...comment.user,
           hasActiveStory: comment.user.stories && comment.user.stories.length > 0,
           stories: undefined
         },
-        replies: comment.replies?.map((reply) => ({
+        replies: comment.replies?.map((reply: CommentWithExtras) => ({
           ...reply,
           user: {
             ...reply.user,
@@ -636,7 +639,7 @@ export async function fetchPostsByUsername(username: string, postId?: string) {
           }
         }))
       }))
-    })) as PostWithExtras[];
+    }));
 
     return transformedData;
   } catch (error) {
@@ -1232,15 +1235,16 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
     // Handle potential failures in parallel queries
     const followersResult = followers.status === 'fulfilled' ? followers.value : [];
     const followingResult = following.status === 'fulfilled' ? following.value : [];
+
     // Transform followers and following data with proper types
-    const transformedFollowers = followersResult.map((f) => ({
+    const transformedFollowers = followersResult.map((f: FollowerData) => ({
       ...f.follower,
       followerId: f.followerId,
       followingId: f.followingId,
       status: f.status
     }));
 
-    const transformedFollowing = followingResult.map((f) => ({
+    const transformedFollowing = followingResult.map((f: FollowingData) => ({
       ...f.following,
       followerId: f.followerId,
       followingId: f.followingId,
@@ -1266,21 +1270,21 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
 
     const result = {
       ...profile,
-      posts: profile.posts.map((post) => ({
+      posts: profile.posts.map((post: PostWithExtras) => ({
         ...post,
         user: {
           ...post.user,
           hasActiveStory: post.user.stories && post.user.stories.length > 0,
           stories: undefined
         },
-        comments: post.comments.map((comment) => ({
+        comments: post.comments.map((comment: CommentWithExtras) => ({
           ...comment,
           user: {
             ...comment.user,
             hasActiveStory: comment.user.stories && comment.user.stories.length > 0,
             stories: undefined
           },
-          replies: comment.replies?.map((reply) => ({
+          replies: comment.replies?.map((reply: CommentWithExtras) => ({
             ...reply,
             user: {
               ...reply.user,
@@ -1290,7 +1294,7 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
           }))
         }))
       })),
-      taggedPosts: taggedPosts.map((post) => ({
+      taggedPosts: taggedPosts.map((post: PostWithExtras) => ({
         id: post.id,
         fileUrl: post.fileUrl,
         caption: post.caption,
@@ -1303,14 +1307,14 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
           stories: undefined
         },
         likes: post.likes || [],
-        comments: (post.comments || []).map((comment) => ({
+        comments: (post.comments || []).map((comment: CommentWithExtras) => ({
           ...comment,
           user: {
             ...comment.user,
             hasActiveStory: comment.user.stories && comment.user.stories.length > 0,
             stories: undefined
           },
-          replies: comment.replies?.map((reply) => ({
+          replies: comment.replies?.map((reply: CommentWithExtras) => ({
             ...reply,
             user: {
               ...reply.user,
@@ -1322,12 +1326,13 @@ export async function fetchProfile(username: string): Promise<UserWithExtras | n
         savedBy: post.savedBy || [],
         tags: post.tags || []
       })),
-      savedPosts: profile.savedPosts.map((savedPost) => ({
+      savedPosts: profile.savedPosts.map((savedPost: SavedPostWithExtras) => ({
+        ...savedPost,
         post: {
-          ...savedPost.post,
+          ...(savedPost.post as PostWithExtras),
           user: {
-            ...savedPost.post.user,
-            hasActiveStory: !!savedPost.post.user?.stories?.length,
+            ...(savedPost.post as PostWithExtras).user,
+            hasActiveStory: !!(savedPost.post as PostWithExtras).user?.stories?.length,
             stories: undefined
           }
         }
