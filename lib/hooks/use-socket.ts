@@ -65,9 +65,7 @@ export function useSocket() {
           timestamp: new Date().toISOString()
         });
         
-        // Only show the toast for unexpected disconnections, not page refreshes
-        if ((reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') 
-            && !document.hidden) { // Don't show if page is being hidden/refreshed
+        if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
           toast.error('Connection lost. Reconnecting...');
           globalSocket?.connect();
         }
