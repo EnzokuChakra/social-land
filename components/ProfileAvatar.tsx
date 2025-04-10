@@ -394,6 +394,7 @@ function ProfileAvatar({
 
   const handleViewStory = async () => {
     try {
+      console.log("[ProfileAvatar] Fetching stories for user:", user.id);
       const response = await fetch(`/api/stories?userId=${user.id}`);
       if (!response.ok) {
         throw new Error('Failed to fetch story');
@@ -404,18 +405,48 @@ function ProfileAvatar({
         throw new Error(data.error || 'Failed to fetch stories');
       }
       
+      console.log("[ProfileAvatar] Stories fetched successfully:", {
+        count: data.data.length,
+        stories: data.data.map((s: any) => ({ id: s.id, createdAt: s.createdAt }))
+      });
+      
+      // Format the stories to match the expected format
       const formattedStories = data.data.map((story: any) => ({
         id: story.id,
-        userId: story.user_id,
-        username: story.user.username,
-        imageUrl: story.fileUrl,
+        fileUrl: story.fileUrl,
         createdAt: new Date(story.createdAt),
-        viewedBy: story.views?.map((view: any) => view.user.id) || [],
+        scale: story.scale || 1,
+        user_id: story.user_id,
+        user: {
+          id: story.user.id,
+          username: story.user.username,
+          name: null,
+          image: story.user.image,
+          verified: story.user.verified,
+          isPrivate: false,
+          role: 'USER' as UserRole,
+          status: 'ACTIVE' as UserStatus,
+        },
+        views: story.views || [],
+        likes: story.likes || [],
       }));
       
+      // Set the stories in the state
       setStories(formattedStories);
+      
+      // Set the user ID and open the story modal
       storyModal.setUserId(user.id);
+      storyModal.setUserStories([{
+        userId: user.id,
+        stories: formattedStories
+      }]);
+      storyModal.setCurrentUserIndex(0);
       storyModal.onOpen();
+      
+      console.log("[ProfileAvatar] Story modal opened with:", {
+        userId: user.id,
+        storiesCount: formattedStories.length
+      });
     } catch (error) {
       console.error('Error fetching story:', error);
       toast.error('Failed to load story');

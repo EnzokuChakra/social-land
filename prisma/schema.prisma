@@ -90,6 +90,7 @@ model event {
   rules       String?  @db.Text
   type        String
   prize       String?
+  prizes      String?  @db.Text
   location    String
   startDate   DateTime
   photoUrl    String

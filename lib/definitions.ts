@@ -407,6 +407,7 @@ export type Event = {
   rules: string | null;
   type: string;
   prize: string | null;
+  prizes: string | null;
   location: string;
   startDate: Date;
   photoUrl: string;

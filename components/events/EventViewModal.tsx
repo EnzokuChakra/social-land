@@ -5,7 +5,7 @@ import {
   Dialog,
   DialogContent,
 } from "@/components/ui/dialog";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDateToBucharestWithTime } from "@/lib/utils";
 import { EventWithUser } from "@/lib/definitions";
 
 interface EventViewModalProps {
@@ -53,7 +53,7 @@ export default function EventViewModal({ event, isOpen, onClose }: EventViewModa
             <div className="flex flex-col gap-4">
               <div className="flex items-center gap-2 text-sm text-neutral-400">
                 <CalendarDays className="w-4 h-4" />
-                <span>{format(new Date(event.startDate), "MMMM d, yyyy 'at' h:mm a")}</span>
+                <span>{formatDateToBucharestWithTime(event.startDate)}</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-neutral-400">
                 <MapPin className="w-4 h-4" />

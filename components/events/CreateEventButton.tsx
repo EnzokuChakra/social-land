@@ -30,11 +30,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { cn, TIMEZONE, formatCurrency } from "@/lib/utils";
 import { EventSchema } from "@/lib/schemas";
 import { toast } from "sonner";
 import Image from "next/image";
 import { TimePicker } from "@/components/ui/time-picker";
+import { formatInTimeZone } from "date-fns-tz";
 
 type FormData = {
   name: string;
@@ -78,8 +79,14 @@ export default function CreateEventButton() {
   };
 
   const updatePrize = (index: number, value: string) => {
+    // Remove any non-numeric characters except decimal point
+    const numericValue = value.replace(/[^0-9.]/g, '');
+    
+    // Format the value with dollar sign and commas
+    const formattedValue = formatCurrency(numericValue);
+    
     const newPrizes = [...prizes];
-    newPrizes[index] = value;
+    newPrizes[index] = formattedValue;
     setPrizes(newPrizes);
     form.setValue("prizes", newPrizes);
   };
@@ -92,11 +99,14 @@ export default function CreateEventButton() {
         return;
       }
 
+      // Convert the date to Bucharest timezone
+      const bucharestDate = new Date(formatInTimeZone(data.startDate, TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX"));
+      
       console.log("[CreateEvent] Creating FormData with:", {
         name: data.name,
         type: data.type,
         location: data.location,
-        startDate: data.startDate,
+        startDate: bucharestDate,
         hasRules: !!data.rules,
         hasPrizes: !!(data.prizes && data.prizes.length > 0),
         photoSize: photo.size,
@@ -113,7 +123,7 @@ export default function CreateEventButton() {
         formData.append("prizes", JSON.stringify(data.prizes.filter(prize => prize.trim() !== "")));
       }
       formData.append("location", data.location);
-      formData.append("startDate", data.startDate.toISOString());
+      formData.append("startDate", bucharestDate.toISOString());
 
       console.log("[CreateEvent] Sending request to /api/events...");
       const response = await fetch("/api/events", {
@@ -320,7 +330,7 @@ export default function CreateEventButton() {
                               <DatePicker
                                 selected={field.value}
                                 onSelect={field.onChange}
-                                disabled={form.formState.isSubmitting}
+                                className="w-full"
                               />
                             </PopoverContent>
                           </Popover>

@@ -26,6 +26,7 @@ import {
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { formatCurrency } from "@/lib/utils";
 
 interface EventCardProps {
   event: EventWithUser;
@@ -37,6 +38,29 @@ export default function EventCard({ event, status }: EventCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const { data: session, status: sessionStatus } = useSession();
   const router = useRouter();
+
+  // Parse prizes from JSON string or use single prize
+  console.log('Raw prizes data:', event.prizes);
+  console.log('Raw prize data:', event.prize);
+  
+  const prizes = event.prizes 
+    ? (typeof event.prizes === 'string' ? JSON.parse(event.prizes) : event.prizes) 
+    : (event.prize ? [event.prize] : []);
+  
+  console.log('Parsed prizes:', prizes);
+  
+  // Ensure all prizes are valid numbers
+  const validPrizes = prizes.filter((prize: string | number) => {
+    console.log('Processing prize:', prize, 'type:', typeof prize);
+    if (!prize) return false;
+    const numericValue = typeof prize === 'string' ? prize.replace(/[^0-9.]/g, '') : prize.toString();
+    console.log('Numeric value:', numericValue);
+    const isValid = !isNaN(parseFloat(numericValue));
+    console.log('Is valid:', isValid);
+    return isValid;
+  });
+  
+  console.log('Valid prizes:', validPrizes);
 
   // Simple mount test
   useEffect(() => {
@@ -227,10 +251,16 @@ User email: ${session?.user?.email || 'No email'}`);
                 <MapPin className="w-4 h-4 text-primary" />
                 <span className="line-clamp-1">{event.location}</span>
               </div>
-              {event.prize && (
+              {validPrizes.length > 0 && (
                 <div className="flex items-center gap-2">
                   <Trophy className="w-4 h-4 text-primary" />
-                  <span className="line-clamp-1">{event.prize}</span>
+                  <div className="flex flex-col">
+                    {validPrizes.map((prize: string | number, index: number) => (
+                      <span key={index} className="text-sm text-muted-foreground">
+                        {formatCurrency(prize)}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -304,14 +334,20 @@ User email: ${session?.user?.email || 'No email'}`);
                   </div>
                 </div>
 
-                {event.prize && (
+                {validPrizes.length > 0 && (
                   <div className="flex items-center gap-3">
                     <div className="p-2 rounded-lg bg-primary/10">
                       <Trophy className="w-5 h-5 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium">Prize</p>
-                      <p className="text-muted-foreground">{event.prize}</p>
+                      <p className="font-medium">Prizes</p>
+                      <div className="space-y-1">
+                        {validPrizes.map((prize: string | number, index: number) => (
+                          <p key={index} className="text-muted-foreground">
+                            {formatCurrency(prize)}
+                          </p>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}

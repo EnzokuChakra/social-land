@@ -6,22 +6,22 @@ import { useSocket } from "@/hooks/use-socket";
 import { toast } from "sonner";
 import { Event, EventWithUser, UserRole, UserStatus, EventStatus } from "@/lib/definitions";
 import { fetchEvents } from "@/lib/actions";
-import { CalendarDays, Search, Filter, CalendarClock, Trophy, MoreVertical, Trash2, Edit, Eye } from "lucide-react";
+import { CalendarDays, Search, CalendarClock, Trophy, MoreVertical, Trash2 } from "lucide-react";
 import CreateEventButton from "@/components/events/CreateEventButton";
 import EventViewModal from "@/components/events/EventViewModal";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, isToday, isPast, isFuture } from "date-fns";
 import Image from "next/image";
-import { formatCurrency } from "@/lib/utils";
+import { 
+  formatCurrency, 
+  isTodayInBucharest, 
+  isPastInBucharest, 
+  isFutureInBucharest, 
+  formatDateToBucharest, 
+  formatTimeToBucharest 
+} from "@/lib/utils";
 import { CustomLoader } from "@/components/ui/custom-loader";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,17 +30,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const eventTypes = [
-  "All Types",
-  "Social",
-  "Sports",
-  "Education",
-  "Music",
-  "Art",
-  "Food",
-  "Business",
-];
 
 const container = {
   hidden: { opacity: 0 },
@@ -58,28 +47,28 @@ const item = {
 };
 
 function getStatusColor(startDate: Date) {
-  if (isToday(startDate)) {
+  if (isTodayInBucharest(startDate)) {
     return {
-      bg: "bg-green-500/10",
-      text: "text-green-500",
+      bg: "bg-green-500",
+      text: "text-white",
     };
-  } else if (isPast(startDate)) {
+  } else if (isPastInBucharest(startDate)) {
     return {
-      bg: "bg-gray-500/10",
-      text: "text-gray-500",
+      bg: "bg-gray-500",
+      text: "text-white",
     };
   } else {
     return {
-      bg: "bg-blue-500/10",
-      text: "text-blue-500",
+      bg: "bg-orange-500",
+      text: "text-white",
     };
   }
 }
 
 function getStatusText(startDate: Date): EventStatus {
-  if (isToday(startDate)) {
+  if (isTodayInBucharest(startDate)) {
     return "ONGOING";
-  } else if (isPast(startDate)) {
+  } else if (isPastInBucharest(startDate)) {
     return "ENDED";
   } else {
     return "UPCOMING";
@@ -89,7 +78,6 @@ function getStatusText(startDate: Date): EventStatus {
 export default function EventsPage() {
   const [events, setEvents] = useState<EventWithUser[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedType, setSelectedType] = useState("All Types");
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<EventWithUser | null>(null);
   const { data: session } = useSession();
@@ -100,8 +88,7 @@ export default function EventsPage() {
       const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.location.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesType = selectedType === "All Types" || event.type === selectedType;
-      return matchesSearch && matchesType;
+      return matchesSearch;
     });
   };
 
@@ -330,19 +317,6 @@ export default function EventsPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <Select value={selectedType} onValueChange={setSelectedType}>
-          <SelectTrigger className="w-full md:w-[220px] py-6 border-2">
-            <Filter className="w-5 h-5 mr-2" />
-            <SelectValue placeholder="Filter by type" />
-          </SelectTrigger>
-          <SelectContent>
-            {eventTypes.map((type) => (
-              <SelectItem key={type} value={type} className="py-3 text-base">
-                {type}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Events Timeline */}
@@ -426,16 +400,16 @@ export default function EventsPage() {
                         {statusText}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3 text-base text-white/90 mb-3">
-                      <CalendarDays className="w-5 h-5 flex-shrink-0" />
-                      <span>{format(new Date(event.startDate), "PPP")}</span>
+                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                      <CalendarClock className="w-4 h-4" />
+                      <span>{formatDateToBucharest(event.startDate)}</span>
                     </div>
                     {event.prize && (
                       <div className="flex items-center justify-between mt-3">
                         <div className="flex items-center gap-3">
                           <Trophy className="w-5 h-5 text-yellow-500 flex-shrink-0" />
                           <span className="text-base font-medium text-white">
-                            {formatCurrency(event.prize)}
+                            {formatCurrency(parseFloat(event.prize))}
                           </span>
                         </div>
                         <span className="text-sm text-white/80">

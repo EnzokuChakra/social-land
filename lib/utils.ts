@@ -6,6 +6,7 @@ import { formatDistanceToNowStrict } from "date-fns";
 import { auth } from "./auth";
 import { Post, PostWithExtras } from "./definitions";
 import { prisma } from "./prisma";
+import { formatInTimeZone } from 'date-fns-tz';
 
 // Polyfill for crypto.randomUUID
 if (typeof window !== 'undefined' && window.crypto && !window.crypto.randomUUID) {
@@ -148,21 +149,27 @@ export function getErrorMessage(error: unknown): string {
   return 'An unknown error occurred';
 }
 
-export function formatCurrency(value: string): string {
-  // Remove any non-numeric characters except decimal point
-  const numericValue = parseFloat(value.replace(/[^0-9.]/g, ''));
-  
-  if (isNaN(numericValue)) {
-    return value; // Return original value if not a valid number
+export function formatCurrency(value: string | number): string {
+  // Handle null or undefined values
+  if (value === null || value === undefined) {
+    return "$0";
   }
-
-  // Format the number with commas and 2 decimal places
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(numericValue);
+  
+  // Remove any non-numeric characters except decimal point
+  const numericValue = typeof value === 'string' 
+    ? value.replace(/[^0-9.]/g, '') 
+    : value.toString();
+  
+  // Parse the numeric value
+  const number = parseFloat(numericValue);
+  
+  // Check if it's a valid number
+  if (isNaN(number)) {
+    return "$0";
+  }
+  
+  // Format with commas and no decimal places
+  return `$${number.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
 
 export async function checkUserBanStatus(userId: string) {
@@ -192,4 +199,40 @@ export async function checkUserBanStatus(userId: string) {
     console.error("Error checking user ban status:", error);
     return false;
   }
+}
+
+export const TIMEZONE = 'Europe/Bucharest';
+
+export function formatDateToBucharest(date: Date | string): string {
+  return formatInTimeZone(new Date(date), TIMEZONE, 'yyyy-MM-dd HH:mm');
+}
+
+export function formatDateToBucharestWithTime(date: Date | string): string {
+  return formatInTimeZone(new Date(date), TIMEZONE, 'PPP p');
+}
+
+export function formatTimeToBucharest(date: Date | string): string {
+  return formatInTimeZone(new Date(date), TIMEZONE, 'HH:mm');
+}
+
+export function getBucharestDate(date: Date | string): Date {
+  return new Date(formatInTimeZone(new Date(date), TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX"));
+}
+
+export function isTodayInBucharest(date: Date | string): boolean {
+  const today = new Date();
+  return formatInTimeZone(new Date(date), TIMEZONE, 'yyyy-MM-dd') === 
+         formatInTimeZone(today, TIMEZONE, 'yyyy-MM-dd');
+}
+
+export function isPastInBucharest(date: Date | string): boolean {
+  const now = new Date();
+  return new Date(formatInTimeZone(new Date(date), TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX")) < 
+         new Date(formatInTimeZone(now, TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX"));
+}
+
+export function isFutureInBucharest(date: Date | string): boolean {
+  const now = new Date();
+  return new Date(formatInTimeZone(new Date(date), TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX")) > 
+         new Date(formatInTimeZone(now, TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX"));
 }

@@ -101,6 +101,7 @@ export async function POST(req: Request) {
           description: formData.get("description") as string,
           rules: formData.get("rules") as string,
           prize: prizes.length > 0 ? prizes[0] : null,
+          prizes: prizes.length > 0 ? JSON.stringify(prizes) : null,
           location: formData.get("location") as string,
           startDate: new Date(formData.get("startDate") as string),
           photoUrl,
