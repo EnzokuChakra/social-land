@@ -1087,12 +1087,6 @@ export default function StoryModal() {
                           Report
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem
-                        className="cursor-pointer"
-                        onClick={storyModal.onClose}
-                      >
-                        Cancel
-                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
 
