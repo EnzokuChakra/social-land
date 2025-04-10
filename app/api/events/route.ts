@@ -7,7 +7,6 @@ import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { unlink } from 'fs/promises';
 import { getSocket } from "@/lib/socket";
-import fs from 'fs';
 
 // Ensure db is available
 if (!db) {
@@ -19,19 +18,6 @@ export const config = {
     bodyParser: false,
   },
 };
-
-// Helper function to get the correct upload path
-function getUploadPath() {
-  // Use process.cwd() to get the current working directory
-  const uploadPath = path.join(process.cwd(), 'public', 'uploads', 'events');
-  
-  // Ensure the directory exists
-  if (!fs.existsSync(uploadPath)) {
-    fs.mkdirSync(uploadPath, { recursive: true });
-  }
-  
-  return uploadPath;
-}
 
 export async function POST(req: Request) {
   try {
@@ -67,8 +53,8 @@ export async function POST(req: Request) {
     const ext = path.extname(photo.name);
     const filename = `${nanoid()}${ext}`;
     
-    // Use the helper function to get the correct upload path
-    const uploadDir = getUploadPath();
+    // Use absolute path for uploads
+    const uploadDir = path.join('/var/www/OG-GRAM/public/uploads', 'events');
     const filepath = path.join(uploadDir, filename);
     
     console.log("[EVENTS_POST] Saving photo:", { 
@@ -93,7 +79,8 @@ export async function POST(req: Request) {
       console.log("[EVENTS_POST] File written successfully");
       
       // Verify file exists
-      const stats = await fs.promises.stat(filepath);
+      const fs = require('fs').promises;
+      const stats = await fs.stat(filepath);
       console.log("[EVENTS_POST] File stats:", {
         size: stats.size,
         path: filepath,
@@ -141,7 +128,7 @@ export async function POST(req: Request) {
         await db.event.update({
           where: { id: event.id },
           data: {
-            prize: formData.get("prizes") as string
+            prizes: formData.get("prizes") as string
           }
         });
       }
@@ -207,7 +194,8 @@ export async function POST(req: Request) {
       console.error("[EVENTS_POST_DB]", error);
       // Try to clean up the uploaded file if database operation fails
       try {
-        await fs.promises.unlink(filepath);
+        const fs = require('fs').promises;
+        await fs.unlink(filepath);
       } catch (unlinkError) {
         console.error("[EVENTS_POST] Failed to clean up file:", unlinkError);
       }
@@ -316,17 +304,11 @@ export async function DELETE(req: Request) {
     if (event.photoUrl) {
       try {
         const filename = event.photoUrl.split('/').pop();
-        // Use the helper function to get the correct upload path
-        const filepath = path.join(getUploadPath(), filename || '');
+        const filepath = path.join('/var/www/OG-GRAM/public/uploads/events', filename || '');
         console.log("[EVENTS_DELETE] Deleting photo file:", filepath);
         
-        // Check if file exists before trying to delete
-        if (fs.existsSync(filepath)) {
-          await fs.promises.unlink(filepath);
-          console.log("[EVENTS_DELETE] Photo file deleted successfully");
-        } else {
-          console.log("[EVENTS_DELETE] Photo file not found:", filepath);
-        }
+        await unlink(filepath);
+        console.log("[EVENTS_DELETE] Photo file deleted successfully");
       } catch (error) {
         console.error("[EVENTS_DELETE] Error deleting photo file:", error);
         // Don't throw here - the event is already deleted from DB
