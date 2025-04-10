@@ -14,34 +14,40 @@ export function useSocket() {
     if (!globalSocket) {
       const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5002';
       
+      console.log("[useSocket] Initializing socket connection to:", socketUrl);
+      
       globalSocket = io(socketUrl, {
+        withCredentials: true,
         transports: ['websocket', 'polling'],
         autoConnect: true,
         reconnection: true,
-        reconnectionAttempts: 5,
+        reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
-        timeout: 45000,
-        forceNew: false,
-        withCredentials: true,
-        path: '/socket.io/',
-        secure: true,
+        timeout: 100000,
+        secure: false,
         rejectUnauthorized: false,
-        auth: {
-          token: typeof window !== 'undefined' ? localStorage.getItem('socket_token') : null
+        path: '/socket.io/',
+        extraHeaders: {
+          'Access-Control-Allow-Origin': '*',
         }
       });
 
       // Handle connection events
       globalSocket.on('connect', () => {
-        // Connection established
+        console.log("[useSocket] Socket connected", {
+          socketId: globalSocket?.id,
+          timestamp: new Date().toISOString()
+        });
       });
 
       globalSocket.on('connect_error', (error) => {
+        console.error("[useSocket] Connection error:", error);
         toast.error('Connection error. Retrying...');
       });
 
       globalSocket.on('disconnect', (reason) => {
+        console.log("[useSocket] Socket disconnected:", reason);
         if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
           toast.error('Connection lost. Reconnecting...');
           globalSocket?.connect();
@@ -49,6 +55,7 @@ export function useSocket() {
       });
 
       globalSocket.on('error', (error) => {
+        console.error("[useSocket] Socket error:", error);
         toast.error('Socket error occurred');
       });
     }

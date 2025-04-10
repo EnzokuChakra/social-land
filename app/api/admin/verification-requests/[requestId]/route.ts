@@ -62,4 +62,64 @@ export async function PATCH(
     console.error("[VERIFICATION_REQUEST_UPDATE]", error);
     return new NextResponse("Internal Error", { status: 500 });
   }
+}
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: { requestId: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session?.user || session.user.role !== "MASTER_ADMIN") {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    // Get the verification request to find the user
+    const request = await db.verificationRequest.findUnique({
+      where: {
+        id: params.requestId,
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    if (!request) {
+      return new NextResponse("Request not found", { status: 404 });
+    }
+
+    // Remove verification from user
+    await db.user.update({
+      where: {
+        id: request.user.id,
+      },
+      data: {
+        verified: false,
+      },
+    });
+
+    // Delete the verification request
+    await db.verificationRequest.delete({
+      where: {
+        id: params.requestId,
+      },
+    });
+
+    // Emit socket event to notify the user
+    if (io) {
+      io.emit(`user:${request.user.id}`, {
+        type: "VERIFICATION_REMOVED",
+        data: {
+          verified: false,
+          message: "Your account verification has been removed."
+        }
+      });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[VERIFICATION_REQUEST_DELETE]", error);
+    return new NextResponse("Internal Error", { status: 500 });
+  }
 } 

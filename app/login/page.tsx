@@ -72,7 +72,10 @@ export default function LoginPage() {
   if (status === "loading") {
     console.log('[Login] Showing loading state');
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div 
+        className="flex h-screen items-center justify-center"
+        suppressHydrationWarning
+      >
         <Icons.spinner className="h-8 w-8 animate-spin" />
       </div>
     );
@@ -126,8 +129,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="container relative h-screen flex flex-col items-center justify-center">
-      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+    <div 
+      className="flex h-screen items-center justify-center"
+      suppressHydrationWarning
+    >
+      <div 
+        className="w-full max-w-md space-y-8 px-4 py-12"
+        suppressHydrationWarning
+      >
         <div className="flex flex-col space-y-2 text-center">
           <Icons.logo className="mx-auto h-6 w-6" />
           <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>

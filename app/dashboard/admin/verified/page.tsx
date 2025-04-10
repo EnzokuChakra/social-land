@@ -14,7 +14,7 @@ import Link from "next/link";
 type VerificationRequest = {
   id: string;
   createdAt: string;
-  status: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
   user: {
     id: string;
     username: string | null;
@@ -66,6 +66,22 @@ export default function VerifiedBadgePage() {
     } catch (error) {
       console.error("Error updating request:", error);
       toast.error("Failed to update request status");
+    }
+  }
+
+  async function handleRemoveVerification(requestId: string) {
+    try {
+      const response = await fetch(`/api/admin/verification-requests/${requestId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to remove verification");
+
+      toast.success("Verification removed successfully");
+      fetchRequests(); // Refresh the list
+    } catch (error) {
+      console.error("Error removing verification:", error);
+      toast.error("Failed to remove verification");
     }
   }
 
@@ -128,9 +144,20 @@ export default function VerifiedBadgePage() {
                     </div>
                   )}
                   {request.status === "APPROVED" && (
-                    <div className="text-green-500 flex items-center gap-1">
-                      <Check className="h-4 w-4" />
-                      Approved
+                    <div className="flex items-center gap-2">
+                      <div className="text-green-500 flex items-center gap-1">
+                        <Check className="h-4 w-4" />
+                        Approved
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleRemoveVerification(request.id)}
+                        className="ml-2"
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Remove
+                      </Button>
                     </div>
                   )}
                   {request.status === "REJECTED" && (

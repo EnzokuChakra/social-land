@@ -133,7 +133,6 @@ export default function CreateEventButton() {
       console.log("[CreateEvent] Success response:", result);
 
       toast.success("Event created successfully");
-      router.refresh();
       setOpen(false);
       form.reset();
       setPhoto(undefined);

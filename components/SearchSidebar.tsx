@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "./ui/button";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import VerifiedBadge from "./VerifiedBadge";
+import { HydrationSafeDiv } from "./HydrationSafeDiv";
 
 interface SearchSidebarProps {
   isOpen: boolean;
@@ -168,8 +169,8 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
         )}
         data-search-sidebar
       >
-        <div className="sticky top-0 z-10 bg-white dark:bg-black border-b border-neutral-200 dark:border-neutral-800 p-4">
-          <div className="flex items-center justify-between mb-4">
+        <HydrationSafeDiv className="sticky top-0 z-10 bg-white dark:bg-black border-b border-neutral-200 dark:border-neutral-800 p-4">
+          <HydrationSafeDiv className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold">Search</h2>
             <Button
               variant="ghost"
@@ -179,7 +180,7 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
             >
               <ChevronLeftIcon className="w-5 h-5" />
             </Button>
-          </div>
+          </HydrationSafeDiv>
           <Input
             placeholder="Search users..."
             value={searchQuery}
@@ -187,12 +188,12 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
             className="w-full"
             autoComplete="off"
           />
-        </div>
+        </HydrationSafeDiv>
 
-        <div className="p-4">
+        <HydrationSafeDiv className="p-4">
           {!searchQuery && recentSearches.length > 0 && (
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-4">
+            <HydrationSafeDiv className="mb-6">
+              <HydrationSafeDiv className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Recent</h3>
                 <button
                   onClick={clearAllRecentSearches}
@@ -200,7 +201,7 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
                 >
                   Clear all
                 </button>
-              </div>
+              </HydrationSafeDiv>
               <div className="space-y-4">
                 {recentSearches.map((search) => (
                   <div key={search.id} className="flex items-center justify-between">
@@ -242,11 +243,11 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
                   </div>
                 ))}
               </div>
-            </div>
+            </HydrationSafeDiv>
           )}
 
           {searchQuery && (
-            <div className="space-y-4">
+            <HydrationSafeDiv className="space-y-4">
               {isLoading ? (
                 <p className="text-center text-neutral-600 dark:text-neutral-400">
                   Searching...
@@ -286,9 +287,9 @@ export default function SearchSidebar({ isOpen, onClose }: SearchSidebarProps) {
                   No users found
                 </p>
               )}
-            </div>
+            </HydrationSafeDiv>
           )}
-        </div>
+        </HydrationSafeDiv>
       </motion.div>
 
       {/* Backdrop */}

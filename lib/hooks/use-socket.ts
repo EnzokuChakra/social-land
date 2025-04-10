@@ -83,6 +83,22 @@ export function useSocket() {
         });
         toast.error('Socket error occurred');
       });
+      
+      // Add event listeners for specific events
+      globalSocket.on('newEvent', (data) => {
+        console.log('[SOCKET_EVENT] Received newEvent:', {
+          eventId: data.id,
+          eventName: data.name,
+          timestamp: new Date().toISOString()
+        });
+      });
+      
+      globalSocket.on('deleteEvent', (eventId) => {
+        console.log('[SOCKET_EVENT] Received deleteEvent:', {
+          eventId,
+          timestamp: new Date().toISOString()
+        });
+      });
     }
 
     socketRef.current = globalSocket;

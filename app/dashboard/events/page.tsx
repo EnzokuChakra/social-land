@@ -129,11 +129,14 @@ export default function EventsPage() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
+        console.log("[EventsPage] Fetching events from API...");
         const response = await fetch("/api/events");
         if (!response.ok) throw new Error("Failed to fetch events");
         const data = await response.json();
+        console.log("[EventsPage] Events fetched successfully:", { count: data.length });
         setEvents(data);
       } catch (error) {
+        console.error("[EventsPage] Error fetching events:", error);
         toast.error("Failed to load events");
       } finally {
         setLoading(false);
@@ -144,26 +147,58 @@ export default function EventsPage() {
   }, []);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket) {
+      console.log("[EventsPage] Socket not available");
+      return;
+    }
+
+    console.log("[EventsPage] Socket connected, setting up event listeners", {
+      socketId: socket.id,
+      connected: socket.connected,
+      timestamp: new Date().toISOString()
+    });
 
     // Handle new event
     const handleNewEvent = (newEvent: EventWithUser) => {
-      setEvents(prev => [newEvent, ...prev]);
+      console.log("[EventsPage] Received newEvent socket event:", { 
+        eventId: newEvent.id, 
+        eventName: newEvent.name,
+        eventType: newEvent.type,
+        eventStartDate: newEvent.startDate,
+        userId: newEvent.user_id,
+        timestamp: new Date().toISOString()
+      });
+      
+      setEvents(prev => {
+        // Check if event already exists to avoid duplicates
+        if (prev.some(event => event.id === newEvent.id)) {
+          console.log("[EventsPage] Event already exists in list, skipping update");
+          return prev;
+        }
+        console.log("[EventsPage] Adding new event to list");
+        return [newEvent, ...prev];
+      });
       toast.success("New event created!");
     };
 
     // Handle event deletion
     const handleEventDeleted = (eventId: string) => {
+      console.log("[EventsPage] Received deleteEvent socket event:", { 
+        eventId,
+        timestamp: new Date().toISOString()
+      });
       setEvents(prev => prev.filter(event => event.id !== eventId));
       toast.success("Event deleted successfully");
     };
 
     // Subscribe to socket events
+    console.log("[EventsPage] Subscribing to socket events");
     socket.on("newEvent", handleNewEvent);
     socket.on("deleteEvent", handleEventDeleted);
 
     // Cleanup
     return () => {
+      console.log("[EventsPage] Cleaning up socket event listeners");
       socket.off("newEvent", handleNewEvent);
       socket.off("deleteEvent", handleEventDeleted);
     };

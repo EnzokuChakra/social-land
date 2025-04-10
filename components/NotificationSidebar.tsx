@@ -9,6 +9,7 @@ import FollowRequests from "./FollowRequests";
 import { ChevronLeftIcon } from "lucide-react";
 import { Button } from "./ui/button";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
+import { HydrationSafeDiv } from "./HydrationSafeDiv";
 
 interface NotificationSidebarProps {
   isOpen: boolean;
@@ -108,9 +109,9 @@ export default function NotificationSidebar({
         )}
         data-notification-sidebar
       >
-        <div className="h-full flex flex-col">
-          <div className="p-4 border-b border-neutral-200 dark:border-neutral-800">
-            <div className="flex items-center justify-between mb-4">
+        <HydrationSafeDiv className="h-full flex flex-col">
+          <HydrationSafeDiv className="p-4 border-b border-neutral-200 dark:border-neutral-800">
+            <HydrationSafeDiv className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">Notifications</h2>
               <Button
                 variant="ghost"
@@ -120,7 +121,7 @@ export default function NotificationSidebar({
               >
                 <ChevronLeftIcon className="w-5 h-5" />
               </Button>
-            </div>
+            </HydrationSafeDiv>
             {uniqueFollowRequests.length > 0 && (
               <Button
                 variant="outline"
@@ -133,9 +134,9 @@ export default function NotificationSidebar({
                 </span>
               </Button>
             )}
-          </div>
+          </HydrationSafeDiv>
 
-          <div className="flex-1 overflow-y-auto">
+          <HydrationSafeDiv className="flex-1 overflow-y-auto">
             {showFollowRequests ? (
               <FollowRequests
                 requests={uniqueFollowRequests.map(n => ({
@@ -152,11 +153,11 @@ export default function NotificationSidebar({
                 onAction={handleFollowRequestAction}
               />
             ) : (
-              <div className="space-y-4 p-4">
+              <HydrationSafeDiv className="space-y-4 p-4">
                 {displayedNotifications.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-[200px]">
+                  <HydrationSafeDiv className="flex flex-col items-center justify-center h-[200px]">
                     <p className="text-sm text-neutral-500">No notifications yet</p>
-                  </div>
+                  </HydrationSafeDiv>
                 ) : (
                   <>
                     {displayedNotifications.map((notification) => (
@@ -166,7 +167,7 @@ export default function NotificationSidebar({
                       />
                     ))}
                     {notifications.length > displayedNotifications.length && (
-                      <div className="flex justify-center pt-4">
+                      <HydrationSafeDiv className="flex justify-center pt-4">
                         <Button
                           variant="outline"
                           onClick={handleLoadMore}
@@ -174,18 +175,18 @@ export default function NotificationSidebar({
                         >
                           Load More Notifications
                         </Button>
-                      </div>
+                      </HydrationSafeDiv>
                     )}
                   </>
                 )}
-              </div>
+              </HydrationSafeDiv>
             )}
-          </div>
-        </div>
+          </HydrationSafeDiv>
+        </HydrationSafeDiv>
       </motion.div>
 
       {isOpen && (
-        <div
+        <HydrationSafeDiv
           className={cn(
             "fixed z-40 bg-black/20",
             isMobile ? "inset-0" : "inset-y-0 left-[72px] right-0"

@@ -47,7 +47,10 @@ const activeClients = new Map();
 
 // Socket event handling
 io.on("connection", (socket) => {
-  console.log("[SOCKET] New Connection ID:", socket.id);
+  console.log("[SOCKET] New Connection ID:", socket.id, {
+    timestamp: new Date().toISOString(),
+    totalConnections: io.engine.clientsCount
+  });
   activeClients.set(socket.id, socket);
 
   // Only log errors
@@ -94,6 +97,29 @@ io.on("connection", (socket) => {
 
   socket.on("profileUpdate", (data) => {
     io.emit("profileUpdate", data);
+  });
+
+  // Event handlers
+  socket.on("newEvent", (data) => {
+    console.log("[SOCKET] New event created:", {
+      eventId: data.id,
+      eventName: data.name,
+      userId: data.user_id,
+      timestamp: new Date().toISOString(),
+      totalClients: io.engine.clientsCount
+    });
+    io.emit("newEvent", data);
+    console.log("[SOCKET] newEvent emitted to all clients");
+  });
+
+  socket.on("deleteEvent", (eventId) => {
+    console.log("[SOCKET] Event deleted:", {
+      eventId,
+      timestamp: new Date().toISOString(),
+      totalClients: io.engine.clientsCount
+    });
+    io.emit("deleteEvent", eventId);
+    console.log("[SOCKET] deleteEvent emitted to all clients");
   });
 
   socket.on("disconnect", () => {

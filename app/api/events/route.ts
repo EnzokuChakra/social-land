@@ -6,12 +6,7 @@ import { nanoid } from "nanoid";
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { unlink } from 'fs/promises';
-import { io } from "socket.io-client";
-
-// Initialize socket connection
-const socket = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5002", {
-  transports: ['websocket']
-});
+import { getSocket } from "@/lib/socket";
 
 export const config = {
   api: {
@@ -26,12 +21,21 @@ export async function POST(req: Request) {
     console.log("[EVENTS_POST] Session:", { userId: session?.user?.id, verified: session?.user?.verified });
 
     if (!session?.user || !session.user.verified) {
+      console.log("[EVENTS_POST] Unauthorized: No session or user not verified");
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
     // Get form data
     const formData = await req.formData();
-    console.log("[EVENTS_POST] Form data received");
+    console.log("[EVENTS_POST] Form data received:", {
+      name: formData.get("name"),
+      type: formData.get("type"),
+      location: formData.get("location"),
+      startDate: formData.get("startDate"),
+      hasRules: !!formData.get("rules"),
+      hasPrizes: !!formData.get("prizes"),
+      hasPhoto: !!formData.get("photo")
+    });
 
     // Handle photo upload
     const photo = formData.get("photo");
@@ -108,10 +112,53 @@ export async function POST(req: Request) {
         },
       });
 
-      console.log("[EVENTS_POST] Event created successfully:", { eventId: event.id });
+      console.log("[EVENTS_POST] Event created successfully:", { 
+        eventId: event.id,
+        eventName: event.name,
+        eventType: event.type,
+        eventStartDate: event.startDate,
+        userId: event.user_id
+      });
+      
+      // Get all users except the event creator
+      const users = await db.user.findMany({
+        where: {
+          id: {
+            not: session.user.id
+          }
+        },
+        select: {
+          id: true
+        }
+      });
+
+      console.log("[EVENTS_POST] Creating notifications for users:", {
+        totalUsers: users.length,
+        eventId: event.id
+      });
+
+      // Create notifications for all users
+      await Promise.all(users.map((user: { id: string }) => 
+        db.notification.create({
+          data: {
+            id: nanoid(),
+            type: "EVENT_CREATED",
+            userId: user.id,
+            sender_id: session.user.id,
+            metadata: JSON.stringify({
+              eventId: event.id,
+              eventName: event.name
+            }),
+          },
+        })
+      ));
+      
+      console.log("[EVENTS_POST] Notifications created successfully");
       
       // Emit socket event for real-time update
-      socket.emit("newEvent", event);
+      console.log("[EVENTS_POST] Emitting socket event 'newEvent'");
+      getSocket().emit("newEvent", event);
+      console.log("[EVENTS_POST] Socket event emitted");
       
       return NextResponse.json(event);
     } catch (error) {
@@ -240,7 +287,7 @@ export async function DELETE(req: Request) {
     }
 
     // Emit socket event for real-time update
-    socket.emit("deleteEvent", eventId);
+    getSocket().emit("deleteEvent", eventId);
 
     console.log("[EVENTS_DELETE] Event deleted successfully:", eventId);
     return new NextResponse(JSON.stringify({ success: true }), { 

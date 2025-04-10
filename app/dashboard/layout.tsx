@@ -1,30 +1,22 @@
-import Navbar from "@/components/Navbar";
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { ProfileProvider } from "@/lib/contexts/profile-context";
-import PageLayout from "@/components/PageLayout";
-import { NavbarProvider } from "@/lib/hooks/use-navbar";
+"use client";
 
-export default async function DashboardLayout({
+import Navbar from "@/components/Navbar";
+import { ProfileProvider } from "@/lib/contexts/profile-context";
+import { NavbarProvider } from "@/lib/hooks/use-navbar";
+import { HydrationSafeDiv } from "@/components/HydrationSafeDiv";
+
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
-
-  if (!session?.user) {
-    redirect("/login");
-  }
-
   return (
     <ProfileProvider>
       <NavbarProvider>
-        <div className="relative min-h-screen bg-white dark:bg-black" suppressHydrationWarning>
+        <HydrationSafeDiv className="relative min-h-screen">
           <Navbar />
-          <PageLayout>
-            {children}
-          </PageLayout>
-        </div>
+          {children}
+        </HydrationSafeDiv>
       </NavbarProvider>
     </ProfileProvider>
   );

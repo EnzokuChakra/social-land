@@ -10,6 +10,7 @@ import MobileBottomNav from "@/components/MobileBottomNav";
 import { memo } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from 'next-auth/react';
+import { HydrationSafeDiv } from "./HydrationSafeDiv";
 
 // Paths where bottom nav should be hidden
 const hiddenPaths = ['/login', '/register', '/forgot-password', '/reset-password'];
@@ -57,6 +58,8 @@ export default function BodyContent({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     // Debug code for iframe detection
+    if (typeof window === 'undefined') return;
+
     try {
       const isInIframe = window !== window.parent;
       console.log('[DEBUG] Page environment check:', {
@@ -70,16 +73,6 @@ export default function BodyContent({ children }: { children: React.ReactNode })
         userAgent: navigator.userAgent,
         timestamp: new Date().toISOString()
       });
-
-      // Listen for auth-related errors
-      const origError = console.error;
-      console.error = (...args) => {
-        if (args[0] && typeof args[0] === 'string' && 
-            (args[0].includes('auth') || args[0].includes('session'))) {
-          console.log('[DEBUG] Auth error detected:', ...args);
-        }
-        return origError.apply(console, args);
-      };
 
       // Check for access to cookies
       if (isInIframe) {
@@ -110,9 +103,9 @@ export default function BodyContent({ children }: { children: React.ReactNode })
           storageKey="theme-preference"
           disableTransitionOnChange={false}
         >
-          <div className="pb-14 md:pb-0">
+          <HydrationSafeDiv className="pb-14 md:pb-0">
             {children}
-          </div>
+          </HydrationSafeDiv>
           <MemoizedToaster />
           <Suspense fallback={null}>
             <MemoizedModals />

@@ -4,6 +4,7 @@ import "./globals.css";
 import { auth } from "@/lib/auth";
 import SessionProvider from "@/components/SessionProvider";
 import BodyContent from "@/components/BodyContent";
+import { cn } from "@/lib/utils";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -28,12 +29,14 @@ export default async function RootLayout({
           as="style"
         />
       </head>
-      <body className={inter.className} suppressHydrationWarning>
-        <SessionProvider>
-          <BodyContent>
-            {children}
-          </BodyContent>
-        </SessionProvider>
+      <body className={cn("min-h-screen bg-background font-sans antialiased", inter.className)} suppressHydrationWarning>
+        <div className="relative flex min-h-screen flex-col" suppressHydrationWarning>
+          <SessionProvider>
+            <BodyContent>
+              {children}
+            </BodyContent>
+          </SessionProvider>
+        </div>
       </body>
     </html>
   );
