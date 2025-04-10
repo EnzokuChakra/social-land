@@ -50,16 +50,18 @@ const MemoizedImage = memo(({ src, alt, aspectRatio, onDoubleClick }: {
     src={src}
     alt={alt}
     className={cn(
-      "w-full h-auto",
+      "w-full h-auto select-none",
       aspectRatio === 1 ? "object-cover" : "object-contain"
     )}
     width={1200}
     height={1200}
-    priority
+    loading="eager"
+    decoding="sync"
+    priority={true}
     quality={100}
     onDoubleClick={onDoubleClick}
   />
-));
+), (prevProps, nextProps) => prevProps.src === nextProps.src);
 MemoizedImage.displayName = "MemoizedImage";
 
 const MemoizedDesktopImage = memo(({ src, alt, aspectRatio }: {
@@ -78,17 +80,19 @@ const MemoizedDesktopImage = memo(({ src, alt, aspectRatio }: {
         src={src}
         alt={alt}
         className={cn(
-          "max-h-full w-auto",
+          "max-h-full w-auto select-none",
           aspectRatio === 1 ? "object-cover" : "object-contain"
         )}
         width={1200}
         height={1200}
-        priority
+        loading="eager"
+        decoding="sync"
+        priority={true}
         quality={100}
       />
     </div>
   </div>
-));
+), (prevProps, nextProps) => prevProps.src === nextProps.src);
 MemoizedDesktopImage.displayName = "MemoizedDesktopImage";
 
 function PostView({ id, post }: { id: string; post: PostWithExtras }) {
@@ -117,36 +121,74 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
   const [lastDoubleTapTime, setLastDoubleTapTime] = useState(0);
   const [showDoubleClickHint, setShowDoubleClickHint] = useState(false);
-  const [viewedStories, setViewedStories] = useState<Record<string, boolean>>({});
+
+  // Lazy load stories and viewed stories
   const [stories, setStories] = useState<any[]>([]);
-  
-  // Add shouldShowStoryRing logic
+  const [viewedStories, setViewedStories] = useState<Record<string, boolean>>({});
+
+  // Memoize shouldShowStoryRing to prevent unnecessary calculations
   const shouldShowStoryRing = useMemo(() => {
     const isCurrentUser = session?.user?.id === post.user.id;
     const isFollowing = post.user.isFollowing;
     return isCurrentUser || (!post.user.isPrivate && post.user.hasActiveStory) || (post.user.isPrivate && isFollowing && post.user.hasActiveStory);
   }, [session?.user?.id, post.user.id, post.user.isPrivate, post.user.hasActiveStory, post.user.isFollowing]);
 
-  // Initialize currentPost with expanded likes data
-  const [currentPost, setCurrentPost] = useState<PostWithExtras>(() => ({
-    ...post,
-    likes: post.likes.map(like => ({
-      ...like,
-      user: {
-        ...like.user,
-        isFollowing: like.user.isFollowing || false,
-        hasPendingRequest: like.user.hasPendingRequest || false,
-        isPrivate: like.user.isPrivate || false
-      }
-    })),
-    savedBy: post.savedBy || [],
-    comments: post.comments || [],
-    tags: post.tags || []
-  }));
+  // Check if there are unviewed stories - memoized for performance
+  const hasUnviewedStories = useMemo(() => {
+    if (!post.user.hasActiveStory) return false;
+    if (typeof window === 'undefined') return false;
+    
+    const isCurrentUser = session?.user?.id === post.user.id;
+    const storageKey = `viewed_stories_${post.user.id}_${session?.user?.id}`;
+    
+    if (isCurrentUser) {
+      const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
+      const lastViewed = localStorage.getItem(lastViewedKey);
+      if (!lastViewed) return true;
+      
+      const lastViewedDate = new Date(lastViewed);
+      return stories.some(story => new Date(story.createdAt) > lastViewedDate);
+    }
+    
+    const storedViewedStories = localStorage.getItem(storageKey);
+    if (!storedViewedStories) return true;
+    
+    try {
+      const viewedStories = JSON.parse(storedViewedStories);
+      return stories.some(story => !viewedStories[story.id]);
+    } catch (error) {
+      console.error("Error parsing viewed stories:", error);
+      return true;
+    }
+  }, [post.user.hasActiveStory, post.user.id, session?.user?.id, stories]);
 
-  // Initialize viewed stories from localStorage on mount
+  // Memoize the initial post data to prevent unnecessary re-renders
+  const initialPostData = useMemo(() => {
+    const processedPost: PostWithExtras = {
+      ...post,
+      likes: post.likes.map(like => ({
+        ...like,
+        user: {
+          ...like.user,
+          isFollowing: Boolean(like.user.isFollowing),
+          hasPendingRequest: Boolean(like.user.hasPendingRequest),
+          isPrivate: Boolean(like.user.isPrivate)
+        }
+      })),
+      savedBy: post.savedBy || [],
+      comments: post.comments || [],
+      tags: post.tags || []
+    };
+    return processedPost;
+  }, [post]);
+
+  const [currentPost, setCurrentPost] = useState<PostWithExtras>(initialPostData);
+
+  // Load viewed stories after initial render
   useEffect(() => {
-    if (session?.user?.id && post.user.id) {
+    if (!session?.user?.id || !post.user.id) return;
+
+    const loadViewedStories = () => {
       const storageKey = `viewed_stories_${post.user.id}_${session.user.id}`;
       const storedViewedStories = localStorage.getItem(storageKey);
       
@@ -159,48 +201,54 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
           setViewedStories({});
         }
       }
-    }
+    };
+
+    // Defer loading viewed stories
+    const timer = setTimeout(loadViewedStories, 0);
+    return () => clearTimeout(timer);
   }, [session?.user?.id, post.user.id]);
 
-  // Fetch stories when component mounts
+  // Fetch stories only if needed and after initial render
   useEffect(() => {
+    if (!post.user.hasActiveStory) return;
+
     const fetchStories = async () => {
-      if (post.user.hasActiveStory) {
-        try {
-          const response = await fetch(`/api/user-stories/${post.user.id}`);
-          const { success, data } = await response.json();
-          if (success && data) {
-            setStories(data);
-          }
-        } catch (error) {
-          console.error("Error fetching stories:", error);
+      try {
+        const response = await fetch(`/api/user-stories/${post.user.id}`);
+        const { success, data } = await response.json();
+        if (success && data) {
+          setStories(data);
         }
+      } catch (error) {
+        console.error("Error fetching stories:", error);
       }
     };
 
-    fetchStories();
+    // Defer fetching stories
+    const timer = setTimeout(fetchStories, 0);
+    return () => clearTimeout(timer);
   }, [post.user.id, post.user.hasActiveStory]);
 
-  // Listen for story viewed events
+  // Optimize story view event listener
   useEffect(() => {
+    if (!session?.user?.id || !post.user.id) return;
+
     const handleStoryViewed = (event: CustomEvent) => {
-      if (event.detail.userId === post.user.id && session?.user?.id) {
-        const storageKey = `viewed_stories_${post.user.id}_${session.user.id}`;
-        const viewedStories = event.detail.viewedStories || {};
-        
-        // If it's the user's own story, update the last viewed timestamp
-        if (event.detail.isOwnStory) {
-          const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
-          localStorage.setItem(lastViewedKey, new Date().toISOString());
-        }
-        
-        // Update the state with the new viewed stories
-        setViewedStories(prevStories => {
-          const newStories = { ...prevStories, ...viewedStories };
-          localStorage.setItem(storageKey, JSON.stringify(newStories));
-          return newStories;
-        });
+      if (event.detail.userId !== post.user.id) return;
+
+      const storageKey = `viewed_stories_${post.user.id}_${session.user.id}`;
+      const viewedStories = event.detail.viewedStories || {};
+      
+      if (event.detail.isOwnStory) {
+        const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
+        localStorage.setItem(lastViewedKey, new Date().toISOString());
       }
+      
+      setViewedStories(prevStories => {
+        const newStories = { ...prevStories, ...viewedStories };
+        localStorage.setItem(storageKey, JSON.stringify(newStories));
+        return newStories;
+      });
     };
 
     window.addEventListener('storyViewed', handleStoryViewed as EventListener);
@@ -208,36 +256,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
       window.removeEventListener('storyViewed', handleStoryViewed as EventListener);
     };
   }, [post.user.id, session?.user?.id]);
-
-  // Check if there are unviewed stories
-  const hasUnviewedStories = useMemo(() => {
-    if (!post.user.hasActiveStory) return false;
-    
-    const isCurrentUser = session?.user?.id === post.user.id;
-    const storageKey = `viewed_stories_${post.user.id}_${session?.user?.id}`;
-    
-    if (typeof window === 'undefined') return false;
-    
-    if (isCurrentUser) {
-      const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
-      const lastViewed = localStorage.getItem(lastViewedKey);
-      if (!lastViewed) return true;
-      
-      const lastViewedDate = new Date(lastViewed);
-      return stories.some(story => new Date(story.createdAt) > lastViewedDate);
-    } else {
-      const storedViewedStories = localStorage.getItem(storageKey);
-      if (!storedViewedStories) return true;
-      
-      try {
-        const viewedStories = JSON.parse(storedViewedStories);
-        return stories.some(story => !viewedStories[story.id]);
-      } catch (error) {
-        console.error("Error parsing viewed stories:", error);
-        return true;
-      }
-    }
-  }, [post.user.hasActiveStory, post.user.id, session?.user?.id, stories, viewedStories]);
 
   // Save previous focus when opening modal
   useEffect(() => {
