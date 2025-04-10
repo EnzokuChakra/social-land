@@ -27,6 +27,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
+import EventViewModal from "@/components/events/EventViewModal";
 
 interface EventCardProps {
   event: EventWithUser;
@@ -124,83 +125,105 @@ export default function EventCard({ event, status }: EventCardProps) {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.3 }}
-        className="relative"
+        className="relative group"
       >
         <Card 
-          className="overflow-hidden group cursor-pointer hover:shadow-xl transition-all duration-300 border border-border/50 hover:border-primary/50 mt-8 bg-card/50 backdrop-blur-sm"
+          className="overflow-hidden cursor-pointer hover:shadow-2xl transition-all duration-300 border border-border/50 hover:border-primary/50 bg-card/50 backdrop-blur-sm"
           onClick={() => setIsModalOpen(true)}
         >
-          <div className="relative h-56">
+          <div className="relative h-64">
             <Image
               src={event.photoUrl}
               alt={event.name}
               fill
-              className="object-cover group-hover:scale-110 transition-transform duration-700"
+              className="object-cover group-hover:scale-105 transition-transform duration-700"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent opacity-90" />
-            <Badge className={`absolute top-3 right-3 ${statusColor} backdrop-blur-sm`}>
+            <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/50 to-transparent opacity-90" />
+            
+            {/* Status Badge */}
+            <Badge 
+              className={`absolute top-4 right-4 ${statusColor} backdrop-blur-sm px-4 py-1.5 text-sm font-medium`}
+            >
               {status}
             </Badge>
 
-            {/* Three dots menu */}
-            <div className="absolute top-3 left-3 z-[100]">
-              <Button
-                variant="destructive"
-                size="icon"
-                className="h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background/90"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDelete();
-                }}
-              >
-                <MoreVertical className="h-4 w-4" />
-              </Button>
+            {/* Event Title Overlay */}
+            <div className="absolute bottom-0 left-0 right-0 p-6">
+              <h3 className="text-2xl font-bold text-white mb-2 line-clamp-1 group-hover:text-primary transition-colors">
+                {event.name}
+              </h3>
+              <div className="flex items-center gap-2 text-white/90">
+                <Calendar className="w-4 h-4" />
+                <span className="text-sm">{formatDateSafely(startDate, "PPP")}</span>
+              </div>
             </div>
+
+            {/* Three dots menu */}
+            {isAuthorized && (
+              <div className="absolute top-4 left-4 z-[100]">
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  className="h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm hover:bg-background/90"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete();
+                  }}
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
           
           <CardContent className="p-6">
-            <h3 className="text-2xl font-bold mb-3 line-clamp-1 group-hover:text-primary transition-colors">
-              {event.name}
-            </h3>
             <p className="text-sm text-muted-foreground line-clamp-2 mb-6">
               {event.description}
             </p>
-            <div className="space-y-3 text-sm text-muted-foreground">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Calendar className="w-4 h-4 text-primary" />
-                </div>
-                <span>{formatDateSafely(startDate, "PPP")}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Clock className="w-4 h-4 text-primary" />
-                </div>
-                <span>{formatDateSafely(startDate, "HH:mm")} - {formatDateSafely(endDate, "HH:mm")}</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <MapPin className="w-4 h-4 text-primary" />
-                </div>
-                <span className="line-clamp-1">{event.location}</span>
-              </div>
-              {validPrizes.length > 0 && (
-                <div className="flex items-start gap-3">
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-primary/10">
-                    <Trophy className="w-4 h-4 text-primary" />
+                    <Clock className="w-4 h-4 text-primary" />
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs text-muted-foreground">Prize Pool</span>
-                    <div className="flex flex-wrap gap-2">
-                      {validPrizes.map((prize: string | number, index: number) => (
-                        <Badge 
-                          key={index} 
-                          variant="secondary" 
-                          className="bg-primary/10 text-primary hover:bg-primary/20"
-                        >
-                          {formatCurrency(prize)}
-                        </Badge>
-                      ))}
+                  <div>
+                    <p className="text-xs text-muted-foreground">Time</p>
+                    <p className="text-sm font-medium">
+                      {formatDateSafely(startDate, "HH:mm")} - {formatDateSafely(endDate, "HH:mm")}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <MapPin className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Location</p>
+                    <p className="text-sm font-medium line-clamp-1">{event.location}</p>
+                  </div>
+                </div>
+              </div>
+
+              {validPrizes.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <Trophy className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Prize Pool</p>
+                      <div className="flex flex-wrap gap-2">
+                        {validPrizes.map((prize: string | number, index: number) => (
+                          <Badge 
+                            key={index} 
+                            variant="secondary" 
+                            className="bg-primary/10 text-primary hover:bg-primary/20"
+                          >
+                            {formatCurrency(prize)}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -209,116 +232,42 @@ export default function EventCard({ event, status }: EventCardProps) {
           </CardContent>
           
           <CardFooter className="p-6 border-t bg-muted/30">
-            <div className="flex items-center gap-3">
-              <UserAvatar
-                user={{
-                  id: event.user.id,
-                  image: event.user.image,
-                  name: event.user.name,
-                  username: event.user.username,
-                }}
-                className="h-10 w-10"
-              />
-              <div>
-                <p className="font-semibold">{event.user.name}</p>
-                <p className="text-sm text-muted-foreground">@{event.user.username}</p>
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-3">
+                <UserAvatar
+                  user={{
+                    id: event.user.id,
+                    image: event.user.image,
+                    name: event.user.name,
+                    username: event.user.username,
+                  }}
+                  className="h-10 w-10"
+                />
+                <div>
+                  <p className="font-semibold">{event.user.name}</p>
+                  <p className="text-sm text-muted-foreground">@{event.user.username}</p>
+                </div>
               </div>
+              <Button 
+                variant="outline" 
+                className="ml-auto"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsModalOpen(true);
+                }}
+              >
+                View Details
+              </Button>
             </div>
           </CardFooter>
         </Card>
       </motion.div>
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">{event.name}</DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Organized by {event.user.name} (@{event.user.username})
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-6">
-            <div className="relative h-[400px] rounded-lg overflow-hidden">
-              <Image
-                src={event.photoUrl}
-                alt={event.name}
-                fill
-                className="object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
-              <Badge className={`absolute top-4 right-4 ${statusColor} backdrop-blur-sm`}>
-                {status}
-              </Badge>
-            </div>
-
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-lg bg-primary/10">
-                      <Calendar className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Date & Time</p>
-                      <p className="text-muted-foreground">
-                        {formatDateSafely(startDate, "PPP")}
-                        <br />
-                        {formatDateSafely(startDate, "HH:mm")} - {formatDateSafely(endDate, "HH:mm")}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3">
-                    <div className="p-3 rounded-lg bg-primary/10">
-                      <MapPin className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Location</p>
-                      <p className="text-muted-foreground">{event.location}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {validPrizes.length > 0 && (
-                    <div className="flex items-start gap-3">
-                      <div className="p-3 rounded-lg bg-primary/10">
-                        <Trophy className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium mb-2">Prize Pool</p>
-                        <div className="flex flex-wrap gap-2">
-                          {validPrizes.map((prize: string | number, index: number) => (
-                            <Badge 
-                              key={index} 
-                              variant="secondary" 
-                              className="bg-primary/10 text-primary hover:bg-primary/20 text-base px-4 py-1"
-                            >
-                              {formatCurrency(prize)}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Description</h3>
-                <p className="text-muted-foreground whitespace-pre-wrap">{event.description}</p>
-              </div>
-
-              {event.rules && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Rules</h3>
-                  <p className="text-muted-foreground whitespace-pre-wrap">{event.rules}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <EventViewModal
+        event={event}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
     </>
   );
 } 
