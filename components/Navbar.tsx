@@ -411,249 +411,290 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="hidden md:flex fixed top-0 left-0 right-0 z-[100] h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div 
+      <nav 
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex h-full w-[240px] flex-col bg-white dark:bg-black border-r border-neutral-200 dark:border-neutral-800 transition-all duration-300 ease-in-out",
+          isCollapsed && "w-[72px]",
+          "max-md:hidden", // Hide on mobile using CSS, not relying on JS
+          isMobile ? "hidden" : "flex" // Additional JS-based toggle for client-side
+        )}
+      >
+        {/* Collapse Toggle Button */}
+        {!isMobile && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="absolute -right-3 top-6 h-6 w-6 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          >
+            <ChevronLeftIcon className={cn("h-4 w-4 transition-transform", isCollapsed && "rotate-180")} />
+          </Button>
+        )}
+
+        <Link 
+          href={session ? "/dashboard" : "/"} 
           className={cn(
-            "fixed inset-y-0 left-0 z-50 flex h-full w-[240px] flex-col bg-white dark:bg-black border-r border-neutral-200 dark:border-neutral-800 transition-all duration-300 ease-in-out",
-            isCollapsed && "w-[70px]"
+            "p-6",
+            isCollapsed ? "justify-center" : "justify-start",
+            "flex items-center"
           )}
         >
-          {/* Collapse Toggle Button */}
-          {!isMobile && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsCollapsed(!isCollapsed)}
-              className="absolute -right-3 top-6 h-6 w-6 rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black hover:bg-neutral-100 dark:hover:bg-neutral-800"
-            >
-              <ChevronLeftIcon className={cn("h-4 w-4 transition-transform", isCollapsed && "rotate-180")} />
-            </Button>
+          {isCollapsed ? (
+            <span className="font-bold text-xl">OG</span>
+          ) : (
+            <h1 className="font-bold text-xl">Social Land</h1>
           )}
+        </Link>
 
-          <Link 
-            href={session ? "/dashboard" : "/"} 
-            className={cn(
-              "p-6",
-              isCollapsed ? "justify-center" : "justify-start",
-              "flex items-center"
-            )}
-          >
-            {isCollapsed ? (
-              <span className="font-bold text-xl">OG</span>
-            ) : (
-              <h1 className="font-bold text-xl">Social Land</h1>
-            )}
-          </Link>
-
-          {/* Main Navigation */}
-          <div className="flex-1 flex flex-col gap-1 px-3">
-            {/* Primary Navigation Items */}
-            {mainRoutes.map((route) => (
-              <Link
-                key={route.href}
-                href={route.href}
-                className={cn(
-                  buttonVariants({ variant: "ghost", size: "lg" }),
-                  "w-full flex items-center gap-4 py-3",
-                  "transition-all duration-200",
-                  "hover:bg-neutral-100 dark:hover:bg-neutral-800/50",
-                  ((route.href === "/dashboard" && (pathname === "/dashboard" || pathname === "/")) || 
-                  (route.href !== "/dashboard" && pathname?.startsWith(route.href))) && 
-                  "bg-neutral-100 dark:bg-neutral-800/50 font-medium",
-                  isCollapsed ? "justify-center px-3" : "justify-start px-4"
-                )}
-              >
-                {route.icon}
-                {!isCollapsed && (
-                  <span className="text-sm tracking-wide">{route.label}</span>
-                )}
-              </Link>
-            ))}
-
-            {/* Search Button */}
-            <Button
-              variant="ghost"
-              size="lg"
-              onClick={handleSearchClick}
+        {/* Main Navigation */}
+        <div className="flex-1 flex flex-col gap-1 px-3">
+          {/* Primary Navigation Items */}
+          {mainRoutes.map((route) => (
+            <Link
+              key={route.href}
+              href={route.href}
               className={cn(
+                buttonVariants({ variant: "ghost", size: "lg" }),
                 "w-full flex items-center gap-4 py-3",
                 "transition-all duration-200",
                 "hover:bg-neutral-100 dark:hover:bg-neutral-800/50",
-                isSearchOpen && "bg-neutral-100 dark:bg-neutral-800/50 font-medium",
+                ((route.href === "/dashboard" && (pathname === "/dashboard" || pathname === "/")) || 
+                (route.href !== "/dashboard" && pathname?.startsWith(route.href))) && 
+                "bg-neutral-100 dark:bg-neutral-800/50 font-medium",
                 isCollapsed ? "justify-center px-3" : "justify-start px-4"
               )}
             >
-              <SearchIcon className="w-6 h-6" />
-              {!isCollapsed && <span className="text-sm tracking-wide">Search</span>}
-            </Button>
+              {route.icon}
+              {!isCollapsed && (
+                <span className="text-sm tracking-wide">{route.label}</span>
+              )}
+            </Link>
+          ))}
 
-            {/* Notifications Button */}
-            <Button
-              variant="ghost"
-              size="lg"
-              onClick={handleNotificationsClick}
+          {/* Search Button */}
+          <Button
+            variant="ghost"
+            size="lg"
+            onClick={handleSearchClick}
+            className={cn(
+              "w-full flex items-center gap-4 py-3",
+              "transition-all duration-200",
+              "hover:bg-neutral-100 dark:hover:bg-neutral-800/50",
+              isSearchOpen && "bg-neutral-100 dark:bg-neutral-800/50 font-medium",
+              isCollapsed ? "justify-center px-3" : "justify-start px-4"
+            )}
+          >
+            <SearchIcon className="w-6 h-6" />
+            {!isCollapsed && <span className="text-sm tracking-wide">Search</span>}
+          </Button>
+
+          {/* Notifications Button */}
+          <Button
+            variant="ghost"
+            size="lg"
+            onClick={handleNotificationsClick}
+            className={cn(
+              "w-full flex items-center gap-4 py-3 relative",
+              "transition-all duration-200",
+              "hover:bg-neutral-100 dark:hover:bg-neutral-800/50",
+              isNotificationsOpen && "bg-neutral-100 dark:bg-neutral-800/50 font-medium",
+              isCollapsed ? "justify-center px-3" : "justify-start px-4"
+            )}
+          >
+            <HeartIcon className="w-6 h-6" />
+            {!isCollapsed && <span className="text-sm tracking-wide">Notifications</span>}
+            {!isLoading && hasUnreadNotifications && (
+              <span className={cn(
+                "absolute w-2.5 h-2.5 bg-red-500 rounded-full",
+                "ring-4 ring-white dark:ring-black",
+                isCollapsed ? "top-2 right-2" : "top-2 right-4"
+              )} />
+            )}
+          </Button>
+
+          {/* Create Button */}
+          <CreateModal>
+            <button
               className={cn(
-                "w-full flex items-center gap-4 py-3 relative",
+                buttonVariants({ variant: "ghost", size: "lg" }),
+                "w-full flex items-center gap-4 py-3",
                 "transition-all duration-200",
                 "hover:bg-neutral-100 dark:hover:bg-neutral-800/50",
-                isNotificationsOpen && "bg-neutral-100 dark:bg-neutral-800/50 font-medium",
                 isCollapsed ? "justify-center px-3" : "justify-start px-4"
               )}
             >
-              <HeartIcon className="w-6 h-6" />
-              {!isCollapsed && <span className="text-sm tracking-wide">Notifications</span>}
-              {!isLoading && hasUnreadNotifications && (
-                <span className={cn(
-                  "absolute w-2.5 h-2.5 bg-red-500 rounded-full",
-                  "ring-4 ring-white dark:ring-black",
-                  isCollapsed ? "top-2 right-2" : "top-2 right-4"
-                )} />
+              <PlusSquareIcon className="w-6 h-6" />
+              {!isCollapsed && <span className="text-sm tracking-wide">Create</span>}
+            </button>
+          </CreateModal>
+        </div>
+
+        {/* Bottom Navigation */}
+        <div className="flex flex-col gap-1 mt-auto p-3 border-t border-neutral-200 dark:border-neutral-800">
+          {isAdmin && (
+            <Link
+              href="/dashboard/admin"
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "lg" }),
+                "w-full flex items-center gap-4 py-3",
+                "transition-all duration-200",
+                "hover:bg-neutral-100 dark:hover:bg-neutral-800/50",
+                pathname === "/dashboard/admin" && "bg-neutral-100 dark:bg-neutral-800/50 font-medium",
+                isCollapsed ? "justify-center px-3" : "justify-start px-4"
               )}
-            </Button>
+            >
+              <ShieldCheckIcon className="w-6 h-6" />
+              {!isCollapsed && <span className="text-sm tracking-wide">Admin</span>}
+            </Link>
+          )}
 
-            {/* Create Button */}
-            <CreateModal>
-              <button
+          {session?.user && (
+            <ProfileLink
+              user={{
+                id: session.user.id,
+                username: session.user.username || null,
+                name: session.user.name || null,
+                image: session.user.image || null,
+                verified: session.user.verified || false,
+                isPrivate: false
+              }}
+            />
+          )}
+
+          <DropdownMenu open={showDropdown}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="lg"
+                onClick={() => setStates(prev => ({
+                  ...prev,
+                  showDropdown: !prev.showDropdown
+                }))}
                 className={cn(
-                  buttonVariants({ variant: "ghost", size: "lg" }),
                   "w-full flex items-center gap-4 py-3",
                   "transition-all duration-200",
                   "hover:bg-neutral-100 dark:hover:bg-neutral-800/50",
                   isCollapsed ? "justify-center px-3" : "justify-start px-4"
                 )}
               >
-                <PlusSquareIcon className="w-6 h-6" />
-                {!isCollapsed && <span className="text-sm tracking-wide">Create</span>}
-              </button>
-            </CreateModal>
-          </div>
+                <MoreHorizontalIcon className="w-6 h-6" />
+                {!isCollapsed && <span className="text-sm tracking-wide">More</span>}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent 
+              ref={dropdownRef}
+              className={cn(
+                "w-64 dark:bg-black !rounded-xl !p-0",
+                !showDropdown && "opacity-0"
+              )}
+              align="end"
+              alignOffset={-40}
+            >
+              {!showModeToggle && !showLanguageToggle && (
+                <>
+                  <DropdownMenuItem
+                    className="flex items-center gap-2 p-3 cursor-pointer"
+                    onClick={() => router.push("/dashboard/edit-profile")}
+                  >
+                    <Settings className="w-5 h-5" />
+                    <p>Edit Profile</p>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="flex items-center gap-2 p-3 cursor-pointer"
+                    onClick={() => router.push("/dashboard/activity")}
+                  >
+                    <Activity className="w-5 h-5" />
+                    <p>Your Activity</p>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="flex items-center gap-2 p-3 cursor-pointer"
+                    onClick={() => router.push(`/dashboard/${session?.user?.username}/saved`)}
+                  >
+                    <Bookmark className="w-5 h-5" />
+                    <p>Saved</p>
+                  </DropdownMenuItem>
 
-          {/* Bottom Navigation */}
-          <div className="flex flex-col gap-1 mt-auto p-3 border-t border-neutral-200 dark:border-neutral-800">
-            {isAdmin && (
-              <Link
-                href="/dashboard/admin"
-                className={cn(
-                  buttonVariants({ variant: "ghost", size: "lg" }),
-                  "w-full flex items-center gap-4 py-3",
-                  "transition-all duration-200",
-                  "hover:bg-neutral-100 dark:hover:bg-neutral-800/50",
-                  pathname === "/dashboard/admin" && "bg-neutral-100 dark:bg-neutral-800/50 font-medium",
-                  isCollapsed ? "justify-center px-3" : "justify-start px-4"
-                )}
-              >
-                <ShieldCheckIcon className="w-6 h-6" />
-                {!isCollapsed && <span className="text-sm tracking-wide">Admin</span>}
-              </Link>
-            )}
-
-            {session?.user && (
-              <ProfileLink
-                user={{
-                  id: session.user.id,
-                  username: session.user.username || null,
-                  name: session.user.name || null,
-                  image: session.user.image || null,
-                  verified: session.user.verified || false,
-                  isPrivate: false
-                }}
-              />
-            )}
-
-            <DropdownMenu open={showDropdown}>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="lg"
-                  onClick={() => setStates(prev => ({
-                    ...prev,
-                    showDropdown: !prev.showDropdown
-                  }))}
-                  className={cn(
-                    "w-full flex items-center gap-4 py-3",
-                    "transition-all duration-200",
-                    "hover:bg-neutral-100 dark:hover:bg-neutral-800/50",
-                    isCollapsed ? "justify-center px-3" : "justify-start px-4"
+                  {profile?.verified || session?.user?.verified ? (
+                    <DropdownMenuItem
+                      className="flex items-center gap-2 p-3 cursor-pointer"
+                      onClick={() => router.push("/dashboard/verify")}
+                    >
+                      <BadgeCheckIcon className="w-5 h-5 text-green-500" />
+                      <p className="text-green-500 font-semibold">Verified Account</p>
+                    </DropdownMenuItem>
+                  ) : verificationStatus.hasRequest ? (
+                    <DropdownMenuItem
+                      className="flex items-center gap-2 p-3 cursor-pointer"
+                      onClick={() => router.push("/dashboard/verify")}
+                    >
+                      <Clock className="w-5 h-5 text-yellow-500" />
+                      <p className="text-yellow-500 font-semibold">Pending Verification</p>
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      className="flex items-center gap-2 p-3 cursor-pointer"
+                      onClick={() => router.push("/dashboard/verify")}
+                    >
+                      <BadgeCheckIcon className="w-5 h-5 text-blue-500" />
+                      <p className="text-blue-500 font-semibold">Get Verified</p>
+                    </DropdownMenuItem>
                   )}
-                >
-                  <MoreHorizontalIcon className="w-6 h-6" />
-                  {!isCollapsed && <span className="text-sm tracking-wide">More</span>}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent 
-                ref={dropdownRef}
-                className={cn(
-                  "w-64 dark:bg-black !rounded-xl !p-0",
-                  !showDropdown && "opacity-0"
-                )}
-                align="end"
-                alignOffset={-40}
-              >
-                {!showModeToggle && !showLanguageToggle && (
-                  <>
-                    <DropdownMenuItem
-                      className="flex items-center gap-2 p-3 cursor-pointer"
-                      onClick={() => router.push("/dashboard/edit-profile")}
-                    >
-                      <Settings className="w-5 h-5" />
-                      <p>Edit Profile</p>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="flex items-center gap-2 p-3 cursor-pointer"
-                      onClick={() => router.push("/dashboard/activity")}
-                    >
-                      <Activity className="w-5 h-5" />
-                      <p>Your Activity</p>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="flex items-center gap-2 p-3 cursor-pointer"
-                      onClick={() => router.push(`/dashboard/${session?.user?.username}/saved`)}
-                    >
-                      <Bookmark className="w-5 h-5" />
-                      <p>Saved</p>
-                    </DropdownMenuItem>
 
-                    {profile?.verified || session?.user?.verified ? (
-                      <DropdownMenuItem
-                        className="flex items-center gap-2 p-3 cursor-pointer"
-                        onClick={() => router.push("/dashboard/verify")}
-                      >
-                        <BadgeCheckIcon className="w-5 h-5 text-green-500" />
-                        <p className="text-green-500 font-semibold">Verified Account</p>
-                      </DropdownMenuItem>
-                    ) : verificationStatus.hasRequest ? (
-                      <DropdownMenuItem
-                        className="flex items-center gap-2 p-3 cursor-pointer"
-                        onClick={() => router.push("/dashboard/verify")}
-                      >
-                        <Clock className="w-5 h-5 text-yellow-500" />
-                        <p className="text-yellow-500 font-semibold">Pending Verification</p>
-                      </DropdownMenuItem>
-                    ) : (
-                      <DropdownMenuItem
-                        className="flex items-center gap-2 p-3 cursor-pointer"
-                        onClick={() => router.push("/dashboard/verify")}
-                      >
-                        <BadgeCheckIcon className="w-5 h-5 text-blue-500" />
-                        <p className="text-blue-500 font-semibold">Get Verified</p>
-                      </DropdownMenuItem>
-                    )}
+                  <DropdownMenuSeparator className="dark:border-neutral-800" />
 
-                    <DropdownMenuSeparator className="dark:border-neutral-800" />
+                  <DropdownMenuItem
+                    className="flex items-center gap-2 p-3 cursor-pointer"
+                    onClick={() => {
+                      const newTheme = theme === "dark" ? "light" : "dark";
+                      console.log("Toggling theme from", theme, "to", newTheme);
+                      setTheme(newTheme);
+                      // Keep the dropdown open
+                      setStates(prev => ({
+                        ...prev,
+                        showDropdown: true
+                      }));
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      {theme === "dark" ? (
+                        <Moon className="w-5 h-5" />
+                      ) : (
+                        <Sun className="w-5 h-5" />
+                      )}
+                      <Label htmlFor="dark-mode" className="cursor-pointer">
+                        {theme === "dark" ? "Dark" : "Light"} mode
+                      </Label>
+                    </div>
+                  </DropdownMenuItem>
 
-                    <DropdownMenuItem
-                      className="flex items-center gap-2 p-3 cursor-pointer"
-                      onClick={() => {
-                        const newTheme = theme === "dark" ? "light" : "dark";
-                        console.log("Toggling theme from", theme, "to", newTheme);
-                        setTheme(newTheme);
-                        // Keep the dropdown open
-                        setStates(prev => ({
-                          ...prev,
-                          showDropdown: true
-                        }));
-                      }}
-                    >
+                  <DropdownMenuItem
+                    className="flex items-center gap-2 p-3 cursor-pointer"
+                    onClick={() => setShowLanguageToggle(true)}
+                  >
+                    <Globe className="w-5 h-5" />
+                    <p>Language</p>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator className="dark:border-neutral-800" />
+
+                  <DropdownMenuItem
+                    className="flex items-center gap-2 p-3 cursor-pointer text-red-500"
+                    onClick={() => signOut()}
+                  >
+                    <LogOut className="w-5 h-5" />
+                    <p>Log out</p>
+                  </DropdownMenuItem>
+                </>
+              )}
+
+              {showModeToggle && (
+                <>
+                  <div className="flex items-center border-b border-neutral-200 dark:border-neutral-800 py-3.5 px-3">
+                    <ChevronLeftIcon className="w-5 h-5 cursor-pointer" onClick={() => setShowModeToggle(false)} />
+                    <p className="font-semibold ml-2">Switch appearance</p>
+                  </div>
+                  <div className="p-4">
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         {theme === "dark" ? (
                           <Moon className="w-5 h-5" />
@@ -664,84 +705,43 @@ export default function Navbar() {
                           {theme === "dark" ? "Dark" : "Light"} mode
                         </Label>
                       </div>
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem
-                      className="flex items-center gap-2 p-3 cursor-pointer"
-                      onClick={() => setShowLanguageToggle(true)}
-                    >
-                      <Globe className="w-5 h-5" />
-                      <p>Language</p>
-                    </DropdownMenuItem>
-
-                    <DropdownMenuSeparator className="dark:border-neutral-800" />
-
-                    <DropdownMenuItem
-                      className="flex items-center gap-2 p-3 cursor-pointer text-red-500"
-                      onClick={() => signOut()}
-                    >
-                      <LogOut className="w-5 h-5" />
-                      <p>Log out</p>
-                    </DropdownMenuItem>
-                  </>
-                )}
-
-                {showModeToggle && (
-                  <>
-                    <div className="flex items-center border-b border-neutral-200 dark:border-neutral-800 py-3.5 px-3">
-                      <ChevronLeftIcon className="w-5 h-5 cursor-pointer" onClick={() => setShowModeToggle(false)} />
-                      <p className="font-semibold ml-2">Switch appearance</p>
+                      <Switch
+                        id="dark-mode"
+                        checked={theme === "dark"}
+                        defaultChecked={true}
+                        onCheckedChange={handleThemeChange}
+                      />
                     </div>
-                    <div className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {theme === "dark" ? (
-                            <Moon className="w-5 h-5" />
-                          ) : (
-                            <Sun className="w-5 h-5" />
-                          )}
-                          <Label htmlFor="dark-mode" className="cursor-pointer">
-                            {theme === "dark" ? "Dark" : "Light"} mode
-                          </Label>
-                        </div>
-                        <Switch
-                          id="dark-mode"
-                          checked={theme === "dark"}
-                          defaultChecked={true}
-                          onCheckedChange={handleThemeChange}
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
+                  </div>
+                </>
+              )}
 
-                {showLanguageToggle && (
-                  <>
-                    <div className="flex items-center border-b border-neutral-200 dark:border-neutral-800 py-3.5 px-3">
-                      <ChevronLeftIcon className="w-5 h-5 cursor-pointer" onClick={() => setShowLanguageToggle(false)} />
-                      <p className="font-semibold ml-2">Language</p>
+              {showLanguageToggle && (
+                <>
+                  <div className="flex items-center border-b border-neutral-200 dark:border-neutral-800 py-3.5 px-3">
+                    <ChevronLeftIcon className="w-5 h-5 cursor-pointer" onClick={() => setShowLanguageToggle(false)} />
+                    <p className="font-semibold ml-2">Language</p>
+                  </div>
+                  <div className="p-4">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="language-toggle">RO / EN</Label>
+                      <Switch
+                        id="language-toggle"
+                        checked={language === "ro"}
+                        onCheckedChange={(checked) => setLanguage(checked ? "ro" : "en")}
+                      />
                     </div>
-                    <div className="p-4">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="language-toggle">RO / EN</Label>
-                        <Switch
-                          id="language-toggle"
-                          checked={language === "ro"}
-                          onCheckedChange={(checked) => setLanguage(checked ? "ro" : "en")}
-                        />
-                      </div>
-                    </div>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                  </div>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </nav>
 
       <SearchSidebar
         isOpen={isSearchOpen}
-        onClose={() => setStates(prev => ({ ...prev, isSearchOpen: false }))}
+        onClose={handleSearchClose}
       />
 
       <NotificationSidebar
