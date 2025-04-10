@@ -786,20 +786,24 @@ export default function StoryModal() {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const width = rect.width;
-
-    // If clicked on the left half, go to previous story
+  
     if (x < width / 2) {
+      // Go to previous story
       if (currentStoryIndex > 0) {
         setCurrentStoryIndex(currentStoryIndex - 1);
         setProgress(0);
       } else if (storyModal.currentUserIndex > 0) {
-        // Move to the last story of the previous user
-        storyModal.setCurrentUserIndex(storyModal.currentUserIndex - 1);
-        setCurrentStoryIndex(storyModal.userStories[storyModal.currentUserIndex - 1].stories.length - 1);
-        setProgress(0);
+        const newUserIndex = storyModal.currentUserIndex - 1;
+        const newUserStories = storyModal.userStories[newUserIndex]?.stories;
+  
+        if (newUserStories?.length) {
+          storyModal.setCurrentUserIndex(newUserIndex);
+          setCurrentStoryIndex(newUserStories.length - 1);
+          setProgress(0);
+        }
       }
     } else {
-      // If clicked on the right half, go to next story
+      // Go to next story
       progressToNextStory();
     }
   };
@@ -812,10 +816,14 @@ export default function StoryModal() {
           setCurrentStoryIndex(currentStoryIndex - 1);
           setProgress(0);
         } else if (storyModal.currentUserIndex > 0) {
-          // Move to the last story of the previous user
-          storyModal.setCurrentUserIndex(storyModal.currentUserIndex - 1);
-          setCurrentStoryIndex(storyModal.userStories[storyModal.currentUserIndex - 1].stories.length - 1);
-          setProgress(0);
+          const newUserIndex = storyModal.currentUserIndex - 1;
+          const newStories = storyModal.userStories[newUserIndex]?.stories;
+      
+          if (newStories?.length) {
+            storyModal.setCurrentUserIndex(newUserIndex);
+            setCurrentStoryIndex(newStories.length - 1);
+            setProgress(0);
+          }
         }
       } else if (e.key === 'ArrowRight') {
         progressToNextStory();
@@ -1013,8 +1021,18 @@ export default function StoryModal() {
                   onClick={() => {
                     if (currentStoryIndex > 0) {
                       setCurrentStoryIndex(prev => prev - 1);
-                    } else {
-                      storyModal.setCurrentUserIndex(storyModal.currentUserIndex - 1);
+                      setProgress(0);
+                      setIsPaused(false);
+                    } else if (storyModal.currentUserIndex > 0) {
+                      const newUserIndex = storyModal.currentUserIndex - 1;
+                      const newStories = storyModal.userStories[newUserIndex]?.stories;
+                  
+                      if (newStories?.length) {
+                        storyModal.setCurrentUserIndex(newUserIndex);
+                        setCurrentStoryIndex(newStories.length - 1);
+                        setProgress(0);
+                        setIsPaused(false);
+                      }
                     }
                   }}
                 >
@@ -1030,8 +1048,13 @@ export default function StoryModal() {
                   onClick={() => {
                     if (currentStoryIndex < currentUserStories.stories.length - 1) {
                       setCurrentStoryIndex(prev => prev + 1);
-                    } else {
+                      setProgress(0);
+                      setIsPaused(false);
+                    } else if (storyModal.currentUserIndex < storyModal.userStories.length - 1) {
                       storyModal.setCurrentUserIndex(storyModal.currentUserIndex + 1);
+                      setCurrentStoryIndex(0);
+                      setProgress(0);
+                      setIsPaused(false);
                     }
                   }}
                 >
@@ -1087,6 +1110,12 @@ export default function StoryModal() {
                           Report
                         </DropdownMenuItem>
                       )}
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onClick={storyModal.onClose}
+                      >
+                        Cancel
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
 
