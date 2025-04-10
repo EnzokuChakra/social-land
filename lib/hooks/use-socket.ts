@@ -54,8 +54,6 @@ export function useSocket() {
           url: socketUrl,
           timestamp: new Date().toISOString()
         });
-        
-        toast.error('Connection error. Retrying...');
       });
 
       globalSocket.on('disconnect', (reason) => {
@@ -66,7 +64,6 @@ export function useSocket() {
         });
         
         if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
-          toast.error('Connection lost. Reconnecting...');
           globalSocket?.connect();
         }
       });
@@ -81,7 +78,6 @@ export function useSocket() {
           url: socketUrl,
           timestamp: new Date().toISOString()
         });
-        toast.error('Socket error occurred');
       });
       
       // Add event listeners for specific events
