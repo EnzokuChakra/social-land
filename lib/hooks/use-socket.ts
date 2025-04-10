@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { toast } from 'sonner';
 
 // Create a single socket instance that can be reused
 let globalSocket: Socket | null = null;
@@ -22,7 +21,7 @@ export function useSocket() {
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 45000,
-        forceNew: false, // Don't create a new connection if one exists
+        forceNew: false,
         withCredentials: true,
         path: '/socket.io/',
         secure: true,
