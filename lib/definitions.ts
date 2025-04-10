@@ -28,6 +28,7 @@ export type User = {
   hasActiveStory?: boolean;
   blockedBy?: Block[];
   blockedUsers?: Block[];
+  isFollowing?: boolean;
 };
 
 export type Post = {

@@ -198,47 +198,71 @@ export async function fetchPosts(userId?: string) {
       take: 20
     });
 
-    // If userId is provided, get follow status for each user in likes array
-    if (userId) {
-      const postsWithFollowStatus = await Promise.all(
-        posts.map(async (post: PostWithExtras) => {
-          const likesWithFollowStatus = await Promise.all(
-            post.likes.map(async (like: Like & { user: UserWithFollowStatus | null }) => {
-              if (!like.user) return like;
-
-              // Get follow relationship
-              const follow = await db.follows.findFirst({
-                where: {
-                  followerId: userId,
-                  followingId: like.user.id,
-                  status: {
-                    in: ["ACCEPTED", "PENDING"]
-                  }
-                }
-              });
-
-              return {
-                ...like,
-                user: {
-                  ...like.user,
-                  isFollowing: follow?.status === "ACCEPTED" || false,
-                  hasPendingRequest: follow?.status === "PENDING" || false
-                }
-              };
-            })
-          );
-
-          return {
-            ...post,
-            likes: likesWithFollowStatus
-          };
-        })
-      );
-
-      return postsWithFollowStatus;
+    // Get follow status for each user in likes array
+    const session = await auth();
+    if (!session?.user?.id) {
+      throw new Error("Not authenticated");
     }
 
-    return posts;
+    // Get follow status for post owners
+    const postOwnerFollows = await prisma.follows.findMany({
+      where: {
+        followerId: session.user.id,
+        followingId: {
+          in: posts.map(post => post.user.id)
+        }
+      }
+    });
+
+    const postsWithFollowStatus = await Promise.all(
+      posts.map(async (post) => {
+        // Get follow status for post owner
+        const postOwnerFollow = postOwnerFollows.find(
+          follow => follow.followingId === post.user.id
+        );
+
+        // Get follow status for users in likes array
+        const likesWithFollowStatus = await Promise.all(
+          post.likes.map(async (like) => {
+            if (!like.user) {
+              return like;
+            }
+            
+            const follow = await prisma.follows.findUnique({
+              where: {
+                followerId_followingId: {
+                  followerId: session.user.id,
+                  followingId: like.user.id
+                }
+              }
+            });
+
+            return {
+              ...like,
+              user: {
+                ...like.user,
+                isFollowing: follow?.status === "ACCEPTED" || false,
+                hasPendingRequest: follow?.status === "PENDING" || false,
+                isPrivate: like.user.isPrivate || false
+              }
+            };
+          })
+        );
+
+        return {
+          ...post,
+          likes: likesWithFollowStatus,
+          user: {
+            ...post.user,
+            hasActiveStory: post.user.stories && post.user.stories.length > 0,
+            isFollowing: postOwnerFollow?.status === "ACCEPTED" || false,
+            hasPendingRequest: postOwnerFollow?.status === "PENDING" || false
+          }
+        };
+      })
+    );
+
+    return postsWithFollowStatus;
   } catch (error) {
     console.error("Database Error:", error);
     throw new Error("Failed to fetch posts");
@@ -412,6 +436,16 @@ export async function fetchPostById(postId: string) {
       throw new Error("Not authenticated");
     }
 
+    // Get follow status for post owner
+    const postOwnerFollow = await prisma.follows.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId: session.user.id,
+          followingId: post.user.id
+        }
+      }
+    });
+
     const likesWithFollowStatus = await Promise.all(
       post.likes.map(async (like: Like & { user: UserWithFollowStatus | null }) => {
         if (!like.user) {
@@ -445,7 +479,9 @@ export async function fetchPostById(postId: string) {
       likes: likesWithFollowStatus,
       user: {
         ...post.user,
-        hasActiveStory: post.user.stories && post.user.stories.length > 0
+        hasActiveStory: post.user.stories && post.user.stories.length > 0,
+        isFollowing: postOwnerFollow?.status === "ACCEPTED" || false,
+        hasPendingRequest: postOwnerFollow?.status === "PENDING" || false
       },
       hasMore: totalComments > post.comments.length,
       totalComments

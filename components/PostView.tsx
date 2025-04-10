@@ -120,6 +120,13 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const [viewedStories, setViewedStories] = useState<Record<string, boolean>>({});
   const [stories, setStories] = useState<any[]>([]);
   
+  // Add shouldShowStoryRing logic
+  const shouldShowStoryRing = useMemo(() => {
+    const isCurrentUser = session?.user?.id === post.user.id;
+    const isFollowing = post.user.isFollowing;
+    return isCurrentUser || (!post.user.isPrivate && post.user.hasActiveStory) || (post.user.isPrivate && isFollowing && post.user.hasActiveStory);
+  }, [session?.user?.id, post.user.id, post.user.isPrivate, post.user.hasActiveStory, post.user.isFollowing]);
+
   // Initialize currentPost with expanded likes data
   const [currentPost, setCurrentPost] = useState<PostWithExtras>(() => ({
     ...post,
@@ -640,22 +647,18 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   };
 
   const handleBookmarkUpdate = useCallback((savedBy: (SavedPost & { user: User })[]) => {
-    setCurrentPost(prev => {
-      const updatedSavedBy = savedBy.map(bookmark => ({
+    setCurrentPost((prev: PostWithExtras) => ({
+      ...prev,
+      savedBy: savedBy.map(bookmark => ({
         ...bookmark,
         user: {
           ...bookmark.user,
-          isFollowing: bookmark.user.isFollowing || false,
-          hasPendingRequest: bookmark.user.hasPendingRequest || false,
-          isPrivate: bookmark.user.isPrivate || false
+          isFollowing: false,
+          hasPendingRequest: false,
+          isPrivate: false
         }
-      }));
-
-      return {
-        ...prev,
-        savedBy: updatedSavedBy
-      };
-    });
+      }))
+    }));
   }, []);
 
   if (!mount) return null;
@@ -729,13 +732,13 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                     onClick={handleAvatarClick}
                     className={cn(
                       "relative cursor-pointer",
-                      post.user.hasActiveStory && hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]",
-                      post.user.hasActiveStory && !hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-neutral-300 dark:before:bg-neutral-700 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]"
+                      shouldShowStoryRing && hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]",
+                      shouldShowStoryRing && !hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-neutral-300 dark:before:bg-neutral-700 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]"
                     )}
                   >
                     <div className={cn(
                       "relative rounded-full overflow-hidden w-[32px] h-[32px]",
-                      post.user.hasActiveStory && "p-[2px] bg-white dark:bg-black"
+                      shouldShowStoryRing && "p-[2px] bg-white dark:bg-black"
                     )}>
                       <UserAvatar 
                         user={post.user}
@@ -928,13 +931,13 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                       onClick={handleAvatarClick}
                       className={cn(
                         "relative cursor-pointer",
-                        post.user.hasActiveStory && hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]",
-                        post.user.hasActiveStory && !hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-neutral-300 dark:before:bg-neutral-700 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]"
+                        shouldShowStoryRing && hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]",
+                        shouldShowStoryRing && !hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-neutral-300 dark:before:bg-neutral-700 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]"
                       )}
                     >
                       <div className={cn(
                         "relative rounded-full overflow-hidden w-[32px] h-[32px]",
-                        post.user.hasActiveStory && "p-[2px] bg-white dark:bg-black"
+                        shouldShowStoryRing && "p-[2px] bg-white dark:bg-black"
                       )}>
                         <UserAvatar 
                           user={post.user}

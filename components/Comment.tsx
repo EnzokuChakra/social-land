@@ -38,6 +38,7 @@ type CommentLikeState = {
     name: string | null;
     image: string | null;
     verified: boolean;
+    isFollowing?: boolean;
   };
 };
 
@@ -53,7 +54,8 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
       username: like.user.username || null,
       name: like.user.name || null,
       image: like.user.image || null,
-      verified: like.user.verified || false
+      verified: like.user.verified || false,
+      isFollowing: like.user.isFollowing || false
     }
   })) || []);
   const [isLiked, setIsLiked] = useState(false);
@@ -179,7 +181,8 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
                   username: session?.user?.username || null,
                   name: session?.user?.name || null,
                   image: session?.user?.image || null,
-                  verified: session?.user?.verified || false
+                  verified: session?.user?.verified || false,
+                  isFollowing: session?.user?.isFollowing || false
                 }
               }];
             } else {
@@ -355,7 +358,8 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
             username: session.user.username || null,
             name: session.user.name || null,
             image: session.user.image || null,
-            verified: session.user.verified || false
+            verified: session.user.verified || false,
+            isFollowing: session.user.isFollowing || false
           }
         }]);
         setIsLiked(true);
@@ -530,44 +534,57 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
           <div className="flex-1 overflow-y-auto">
             <div className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-800">
               {likes && likes.length > 0 ? (
-                likes.map((like) => (
-                  <div
-                    key={like.id}
-                    className="flex items-center justify-between p-4"
-                  >
-                    <div className="flex items-center gap-x-2">
-                      <Link href={`/dashboard/${like.user.username}`}>
-                        <UserAvatar user={like.user} />
-                      </Link>
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-x-1">
-                          <Link href={`/dashboard/${like.user.username}`}>
-                            <p className="font-semibold text-sm hover:underline">
-                              {like.user.username}
-                            </p>
-                          </Link>
-                          {like.user.verified && (
-                            <VerifiedBadge className="h-4 w-4" />
-                          )}
+                [...likes]
+                  .sort((a, b) => {
+                    // Current user first
+                    if (a.user_id === session?.user?.id) return -1;
+                    if (b.user_id === session?.user?.id) return 1;
+                    
+                    // Then followed users
+                    if (a.user.isFollowing && !b.user.isFollowing) return -1;
+                    if (!a.user.isFollowing && b.user.isFollowing) return 1;
+                    
+                    // Then sort by username
+                    return (a.user.username || '').localeCompare(b.user.username || '');
+                  })
+                  .map((like) => (
+                    <div
+                      key={like.id}
+                      className="flex items-center justify-between p-4"
+                    >
+                      <div className="flex items-center gap-x-2">
+                        <Link href={`/dashboard/${like.user.username}`}>
+                          <UserAvatar user={like.user} />
+                        </Link>
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-x-1">
+                            <Link href={`/dashboard/${like.user.username}`}>
+                              <p className="font-semibold text-sm hover:underline">
+                                {like.user.username}
+                              </p>
+                            </Link>
+                            {like.user.verified && (
+                              <VerifiedBadge className="h-4 w-4" />
+                            )}
+                          </div>
+                          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                            {like.user.name}
+                          </p>
                         </div>
-                        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-                          {like.user.name}
-                        </p>
                       </div>
-                    </div>
 
-                    {session?.user?.id !== like.user.id && (
-                      <FollowButton
-                        followingId={like.user.id}
-                        isFollowing={false}
-                        hasPendingRequest={false}
-                        isPrivate={false}
-                        className="h-9 min-w-[120px] w-[120px]"
-                        variant="profile"
-                      />
-                    )}
-                  </div>
-                ))
+                      {session?.user?.id !== like.user.id && (
+                        <FollowButton
+                          followingId={like.user.id}
+                          isFollowing={false}
+                          hasPendingRequest={false}
+                          isPrivate={false}
+                          className="h-9 min-w-[120px] w-[120px]"
+                          variant="profile"
+                        />
+                      )}
+                    </div>
+                  ))
               ) : (
                 <div className="flex items-center justify-center flex-1 p-4">
                   <p className="text-sm text-neutral-500 dark:text-neutral-400">
