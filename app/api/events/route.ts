@@ -7,6 +7,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { unlink } from 'fs/promises';
 import { getSocket } from "@/lib/socket";
+import fs from 'fs';
 
 // Ensure db is available
 if (!db) {
@@ -22,7 +23,14 @@ export const config = {
 // Helper function to get the correct upload path
 function getUploadPath() {
   // Use process.cwd() to get the current working directory
-  return path.join(process.cwd(), 'public', 'uploads', 'events');
+  const uploadPath = path.join(process.cwd(), 'public', 'uploads', 'events');
+  
+  // Ensure the directory exists
+  if (!fs.existsSync(uploadPath)) {
+    fs.mkdirSync(uploadPath, { recursive: true });
+  }
+  
+  return uploadPath;
 }
 
 export async function POST(req: Request) {
@@ -85,8 +93,7 @@ export async function POST(req: Request) {
       console.log("[EVENTS_POST] File written successfully");
       
       // Verify file exists
-      const fs = require('fs').promises;
-      const stats = await fs.stat(filepath);
+      const stats = await fs.promises.stat(filepath);
       console.log("[EVENTS_POST] File stats:", {
         size: stats.size,
         path: filepath,
@@ -134,7 +141,7 @@ export async function POST(req: Request) {
         await db.event.update({
           where: { id: event.id },
           data: {
-            prizes: formData.get("prizes") as string
+            prize: formData.get("prizes") as string
           }
         });
       }
@@ -200,8 +207,7 @@ export async function POST(req: Request) {
       console.error("[EVENTS_POST_DB]", error);
       // Try to clean up the uploaded file if database operation fails
       try {
-        const fs = require('fs').promises;
-        await fs.unlink(filepath);
+        await fs.promises.unlink(filepath);
       } catch (unlinkError) {
         console.error("[EVENTS_POST] Failed to clean up file:", unlinkError);
       }
@@ -314,8 +320,13 @@ export async function DELETE(req: Request) {
         const filepath = path.join(getUploadPath(), filename || '');
         console.log("[EVENTS_DELETE] Deleting photo file:", filepath);
         
-        await unlink(filepath);
-        console.log("[EVENTS_DELETE] Photo file deleted successfully");
+        // Check if file exists before trying to delete
+        if (fs.existsSync(filepath)) {
+          await fs.promises.unlink(filepath);
+          console.log("[EVENTS_DELETE] Photo file deleted successfully");
+        } else {
+          console.log("[EVENTS_DELETE] Photo file not found:", filepath);
+        }
       } catch (error) {
         console.error("[EVENTS_DELETE] Error deleting photo file:", error);
         // Don't throw here - the event is already deleted from DB
