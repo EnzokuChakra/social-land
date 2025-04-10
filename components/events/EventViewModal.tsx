@@ -29,18 +29,17 @@ export default function EventViewModal({ event, isOpen, onClose }: EventViewModa
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContentWithoutClose className="max-w-4xl w-[95%] max-h-[90vh] overflow-y-auto p-0 gap-0 bg-background border-border">
-        <div className="relative w-full aspect-[16/9]">
+        <div className="relative w-full h-[300px]">
           <Image
             src={event.photoUrl}
             alt={event.name}
             fill
-            className="object-cover"
+            className="object-cover rounded-t-lg"
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
           
           {/* Header Content */}
-          <div className="absolute bottom-0 left-0 right-0 p-6">
+          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background/80 to-transparent">
             <div className="flex items-start justify-between">
               <div className="space-y-2">
                 <h2 className="text-3xl font-bold text-white">{event.name}</h2>
