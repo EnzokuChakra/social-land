@@ -65,21 +65,37 @@ export default function EventViewModal({ event, isOpen, onClose }: EventViewModa
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-sm text-neutral-400">
                   <Trophy className="w-4 h-4" />
-                  <span>Prize</span>
+                  <span>Prizes</span>
                 </div>
-                <div className="bg-neutral-900/50 rounded-lg p-4 text-sm flex items-center justify-between border border-neutral-800 hover:border-neutral-700 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-primary">
-                      #1
+                <div className="space-y-2">
+                  {event.prizes ? (
+                    JSON.parse(event.prizes).map((prize: string, index: number) => (
+                      <div key={index} className="bg-neutral-900/50 rounded-lg p-4 text-sm flex items-center justify-between border border-neutral-800 hover:border-neutral-700 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-primary">
+                            #{index + 1}
+                          </div>
+                          <span className="text-white font-medium">{formatCurrency(prize)}</span>
+                        </div>
+                        <Trophy className="w-4 h-4 text-yellow-500" />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="bg-neutral-900/50 rounded-lg p-4 text-sm flex items-center justify-between border border-neutral-800 hover:border-neutral-700 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-primary">
+                          #1
+                        </div>
+                        <span className="text-white font-medium">{formatCurrency(event.prize)}</span>
+                      </div>
+                      <Trophy className="w-4 h-4 text-yellow-500" />
                     </div>
-                    <span className="text-white font-medium">{formatCurrency(event.prize)}</span>
-                  </div>
-                  <Trophy className="w-4 h-4 text-yellow-500" />
+                  )}
                 </div>
                 <div className="text-sm text-neutral-400 mt-2 flex items-center justify-between border-t border-neutral-800 pt-4">
-                  <span>Total Prize</span>
+                  <span>Total Prize Pool</span>
                   <span className="text-primary font-semibold">
-                    {formatCurrency(calculateTotalPrizePool(event.prize).toString())}
+                    {formatCurrency(calculateTotalPrizePool(event.prizes ? JSON.parse(event.prizes)[0] : event.prize).toString())}
                   </span>
                 </div>
               </div>

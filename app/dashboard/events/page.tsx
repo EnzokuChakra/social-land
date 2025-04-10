@@ -30,6 +30,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import EventCard from "@/components/events/EventCard";
 
 const container = {
   hidden: { opacity: 0 },
@@ -116,14 +117,16 @@ export default function EventsPage() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        console.log("[EventsPage] Fetching events from API...");
         const response = await fetch("/api/events");
         if (!response.ok) throw new Error("Failed to fetch events");
         const data = await response.json();
-        console.log("[EventsPage] Events fetched successfully:", { count: data.length });
-        setEvents(data);
+        // Add prizes field if missing
+        const eventsWithPrizes = data.map((event: EventWithUser) => ({
+          ...event,
+          prizes: event.prizes || null
+        }));
+        setEvents(eventsWithPrizes);
       } catch (error) {
-        console.error("[EventsPage] Error fetching events:", error);
         toast.error("Failed to load events");
       } finally {
         setLoading(false);
@@ -134,35 +137,15 @@ export default function EventsPage() {
   }, []);
 
   useEffect(() => {
-    if (!socket) {
-      console.log("[EventsPage] Socket not available");
-      return;
-    }
-
-    console.log("[EventsPage] Socket connected, setting up event listeners", {
-      socketId: socket.id,
-      connected: socket.connected,
-      timestamp: new Date().toISOString()
-    });
+    if (!socket) return;
 
     // Handle new event
     const handleNewEvent = (newEvent: EventWithUser) => {
-      console.log("[EventsPage] Received newEvent socket event:", { 
-        eventId: newEvent.id, 
-        eventName: newEvent.name,
-        eventType: newEvent.type,
-        eventStartDate: newEvent.startDate,
-        userId: newEvent.user_id,
-        timestamp: new Date().toISOString()
-      });
-      
       setEvents(prev => {
         // Check if event already exists to avoid duplicates
         if (prev.some(event => event.id === newEvent.id)) {
-          console.log("[EventsPage] Event already exists in list, skipping update");
           return prev;
         }
-        console.log("[EventsPage] Adding new event to list");
         return [newEvent, ...prev];
       });
       toast.success("New event created!");
@@ -170,22 +153,16 @@ export default function EventsPage() {
 
     // Handle event deletion
     const handleEventDeleted = (eventId: string) => {
-      console.log("[EventsPage] Received deleteEvent socket event:", { 
-        eventId,
-        timestamp: new Date().toISOString()
-      });
       setEvents(prev => prev.filter(event => event.id !== eventId));
       toast.success("Event deleted successfully");
     };
 
     // Subscribe to socket events
-    console.log("[EventsPage] Subscribing to socket events");
     socket.on("newEvent", handleNewEvent);
     socket.on("deleteEvent", handleEventDeleted);
 
     // Cleanup
     return () => {
-      console.log("[EventsPage] Cleaning up socket event listeners");
       socket.off("newEvent", handleNewEvent);
       socket.off("deleteEvent", handleEventDeleted);
     };
@@ -193,8 +170,10 @@ export default function EventsPage() {
 
   if (loading) {
     return (
-      <div className="container max-w-5xl px-4 min-h-[calc(100vh-80px)] flex items-center justify-center">
-        <CustomLoader size="default" />
+      <div className="flex flex-col max-w-[935px] mx-auto pt-4 md:pt-8 gap-8">
+        <div className="flex-grow max-w-[630px] w-full mx-auto md:mx-0">
+          <CustomLoader size="default" />
+        </div>
       </div>
     );
   }
@@ -281,150 +260,44 @@ export default function EventsPage() {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="container mx-auto max-w-7xl px-4 py-12 space-y-10 pt-20"
-      suppressHydrationWarning
-    >
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white dark:bg-black p-6 rounded-xl shadow-sm" suppressHydrationWarning>
-        <div className="flex items-center gap-4" suppressHydrationWarning>
-          <div className="p-3 rounded-xl bg-primary/10" suppressHydrationWarning>
-            <CalendarDays className="w-8 h-8 text-primary" />
+    <div className="flex flex-col max-w-[935px] mx-auto pt-4 md:pt-8 gap-8">
+      <div className="flex-grow max-w-[935px] w-full mx-auto md:mx-0">
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex-1 min-w-[200px] max-w-[400px]">
+              <Input
+                placeholder="Search events..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            <CreateEventButton />
           </div>
-          <div className="space-y-1" suppressHydrationWarning>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              Events
-            </h1>
-            <p className="text-muted-foreground text-lg">Discover and join amazing events</p>
-          </div>
-        </div>
-        {session?.user?.verified && (
-          <CreateEventButton />
-        )}
-      </div>
 
-      {/* Search and Filter */}
-      <div className="flex flex-col md:flex-row gap-6 bg-white dark:bg-black p-6 rounded-xl shadow-sm" suppressHydrationWarning>
-        <div className="relative flex-1" suppressHydrationWarning>
-          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <Input
-            placeholder="Search events..."
-            className="pl-12 py-6 text-lg border-2 focus:border-primary"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* Events Timeline */}
-      {sortedEvents.length === 0 ? (
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center py-20 bg-white dark:bg-black rounded-xl shadow-sm"
-          suppressHydrationWarning
-        >
-          <CalendarClock className="w-20 h-20 mx-auto text-muted-foreground mb-6" />
-          <h3 className="text-2xl font-semibold mb-3">No events found</h3>
-          <p className="text-muted-foreground text-lg">Try adjusting your search or filter criteria</p>
-        </motion.div>
-      ) : (
-        <motion.div
-          variants={container}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-          suppressHydrationWarning
-        >
-          {sortedEvents.map((event: EventWithUser) => {
-            const { bg, text } = getStatusColor(new Date(event.startDate));
-            const statusText = getStatusText(new Date(event.startDate));
-            const prizeAmount = event.prize ? parseFloat(event.prize.replace(/[^0-9.]/g, '')) : 0;
-
-            return (
-              <motion.div
-                key={event.id}
-                variants={item}
-                className="group cursor-pointer relative bg-white dark:bg-black rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
-                onClick={() => setSelectedEvent(event)}
-              >
-                <div className="relative h-[280px] overflow-hidden">
-                  <Image
-                    src={event.photoUrl}
-                    alt={event.name}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-110"
+          {sortedEvents.length === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-muted-foreground">No events found</p>
+            </div>
+          ) : (
+            <motion.div
+              variants={container}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 gap-4"
+            >
+              {sortedEvents.map((event) => (
+                <motion.div key={event.id} variants={item}>
+                  <EventCard 
+                    event={event} 
+                    status={getStatusText(new Date(event.startDate))} 
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                  
-                  {/* Action buttons - Only show for authorized users */}
-                  {(session?.user?.role === "MASTER_ADMIN" || 
-                    session?.user?.role === "ADMIN" || 
-                    session?.user?.id === event.user_id) && (
-                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="secondary"
-                            size="icon"
-                            className="h-10 w-10 rounded-full bg-white/90 hover:bg-white dark:bg-black/90 dark:hover:bg-black"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreVertical className="h-5 w-5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem
-                            className="text-red-500 focus:text-red-500 cursor-pointer py-3"
-                            onClick={async (e) => {
-                              e.stopPropagation();
-                              if (!confirm('Are you sure you want to delete this event?')) return;
-                              await handleDeleteEvent(event.id);
-                            }}
-                          >
-                            <Trash2 className="mr-2 h-5 w-5" />
-                            Delete Event
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  )}
-
-                  <div className="absolute bottom-0 left-0 right-0 p-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-xl font-semibold text-white line-clamp-2 flex-1 mr-3">{event.name}</h3>
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium whitespace-nowrap ${bg} ${text}`}>
-                        {statusText}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-                      <CalendarClock className="w-4 h-4" />
-                      <span>{formatDateToBucharest(event.startDate)}</span>
-                    </div>
-                    {event.prize && (
-                      <div className="flex items-center justify-between mt-3">
-                        <div className="flex items-center gap-3">
-                          <Trophy className="w-5 h-5 text-yellow-500 flex-shrink-0" />
-                          <span className="text-base font-medium text-white">
-                            {formatCurrency(parseFloat(event.prize))}
-                          </span>
-                        </div>
-                        <span className="text-sm text-white/80">
-                          Total: {formatCurrency(prizeAmount.toString())}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            );
-          })}
-        </motion.div>
-      )}
-
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+        </div>
+      </div>
       {selectedEvent && (
         <EventViewModal
           event={selectedEvent}
@@ -432,6 +305,6 @@ export default function EventsPage() {
           onClose={() => setSelectedEvent(null)}
         />
       )}
-    </motion.div>
+    </div>
   );
 } 

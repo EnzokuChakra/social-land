@@ -8,6 +8,11 @@ import path from 'path';
 import { unlink } from 'fs/promises';
 import { getSocket } from "@/lib/socket";
 
+// Ensure db is available
+if (!db) {
+  throw new Error("Database connection not available");
+}
+
 export const config = {
   api: {
     bodyParser: false,
@@ -48,8 +53,8 @@ export async function POST(req: Request) {
     const ext = path.extname(photo.name);
     const filename = `${nanoid()}${ext}`;
     
-    // Use the correct absolute path for OG-GRAM
-    const uploadDir = path.join('/var/www/OG-GRAM/public/uploads/events');
+    // Use relative path from project root
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'events');
     const filepath = path.join(uploadDir, filename);
     
     console.log("[EVENTS_POST] Saving photo:", { 
@@ -92,26 +97,41 @@ export async function POST(req: Request) {
     // Create event in database
     try {
       console.log("[EVENTS_POST] Creating event in database...");
-      const prizes = formData.get("prizes") ? JSON.parse(formData.get("prizes") as string) : [];
+      const prizesData = formData.get("prizes") ? JSON.parse(formData.get("prizes") as string) : [];
+      
+      if (!db) {
+        throw new Error("Database connection not available");
+      }
+      
+      // Create the event with all required fields
       const event = await db.event.create({
         data: {
           id: nanoid(),
           name: formData.get("name") as string,
           type: formData.get("type") as string,
           description: formData.get("description") as string,
-          rules: formData.get("rules") as string,
-          prize: prizes.length > 0 ? prizes[0] : null,
-          prizes: prizes.length > 0 ? JSON.stringify(prizes) : null,
+          rules: formData.get("rules") as string || null,
+          prize: formData.get("prize") as string || null,
           location: formData.get("location") as string,
           startDate: new Date(formData.get("startDate") as string),
-          photoUrl,
+          photoUrl: photoUrl,
           user_id: session.user.id,
           updatedAt: new Date(),
         },
         include: {
-          user: true,
-        },
+          user: true
+        }
       });
+
+      // Update the prizes field separately if needed
+      if (formData.get("prizes")) {
+        await db.event.update({
+          where: { id: event.id },
+          data: {
+            prizes: formData.get("prizes") as string
+          }
+        });
+      }
 
       console.log("[EVENTS_POST] Event created successfully:", { 
         eventId: event.id,
@@ -122,6 +142,10 @@ export async function POST(req: Request) {
       });
       
       // Get all users except the event creator
+      if (!db) {
+        throw new Error("Database connection not available");
+      }
+      
       const users = await db.user.findMany({
         where: {
           id: {
@@ -139,6 +163,10 @@ export async function POST(req: Request) {
       });
 
       // Create notifications for all users
+      if (!db) {
+        throw new Error("Database connection not available");
+      }
+      
       await Promise.all(users.map((user: { id: string }) => 
         db.notification.create({
           data: {

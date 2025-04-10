@@ -40,60 +40,47 @@ export default function EventCard({ event, status }: EventCardProps) {
   const router = useRouter();
 
   // Parse prizes from JSON string or use single prize
-  console.log('Raw prizes data:', event.prizes);
-  console.log('Raw prize data:', event.prize);
-  
   const prizes = event.prizes 
     ? (typeof event.prizes === 'string' ? JSON.parse(event.prizes) : event.prizes) 
     : (event.prize ? [event.prize] : []);
-  
-  console.log('Parsed prizes:', prizes);
-  
+
   // Ensure all prizes are valid numbers
   const validPrizes = prizes.filter((prize: string | number) => {
-    console.log('Processing prize:', prize, 'type:', typeof prize);
     if (!prize) return false;
     const numericValue = typeof prize === 'string' ? prize.replace(/[^0-9.]/g, '') : prize.toString();
-    console.log('Numeric value:', numericValue);
-    const isValid = !isNaN(parseFloat(numericValue));
-    console.log('Is valid:', isValid);
-    return isValid;
+    return !isNaN(parseFloat(numericValue));
   });
-  
-  console.log('Valid prizes:', validPrizes);
 
-  // Simple mount test
-  useEffect(() => {
-    alert(`Component mounted!
-Event name: ${event.name}
-Session status: ${sessionStatus}
-User email: ${session?.user?.email || 'No email'}`);
-  }, []); // Empty deps array so it only runs once on mount
-
-  // Debug session state with more prominent logging
-  useEffect(() => {
-    console.log('========================');
-    console.log('🔍 EVENT CARD DEBUG INFO');
-    console.log('========================');
-    console.log('Session Status:', sessionStatus);
-    console.log('Session Data:', session);
-    console.log('User Role:', session?.user?.role);
-    console.log('User ID:', session?.user?.id);
-    console.log('Event Creator ID:', event.user_id);
-    console.log('========================');
-  }, [session, sessionStatus, event]);
-
-  // Add a simple test button at the top of the card
-  const testSession = () => {
-    alert(`
-      Session Test:
-      Status: ${sessionStatus}
-      User: ${session?.user?.email || 'No user'}
-      Role: ${session?.user?.role || 'No role'}
-    `);
+  // Parse and validate the start date
+  const parseAndValidateDate = (dateStr: string | Date): Date | null => {
+    try {
+      const date = new Date(dateStr);
+      return isNaN(date.getTime()) ? null : date;
+    } catch (error) {
+      console.error('Error parsing date:', error);
+      return null;
+    }
   };
 
-  const endDate = new Date(event.startDate.getTime() + (3 * 60 * 60 * 1000));
+  const startDate = parseAndValidateDate(event.startDate);
+  if (!startDate) {
+    console.error('Invalid start date:', event.startDate);
+    return null;
+  }
+
+  const endDate = new Date(startDate.getTime() + (3 * 60 * 60 * 1000));
+
+  // Format dates safely with validation
+  const formatDateSafely = (date: Date | null, formatString: string): string => {
+    if (!date) return 'Invalid date';
+    try {
+      return format(date, formatString);
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Invalid date';
+    }
+  };
+
   const statusColor = {
     UPCOMING: "bg-blue-500/10 text-blue-500 border-blue-500/20",
     ONGOING: "bg-green-500/10 text-green-500 border-green-500/20",
@@ -110,14 +97,10 @@ User email: ${session?.user?.email || 'No email'}`);
   );
 
   const handleDelete = async () => {
-    if (!isAuthorized) {
-      console.log('[EventCard] Delete attempted without authorization');
-      return;
-    }
+    if (!isAuthorized) return;
 
     try {
       setIsDeleting(true);
-      console.log('[EventCard] Deleting event:', event.id);
       const response = await fetch(`/api/events?id=${event.id}`, {
         method: "DELETE",
       });
@@ -129,7 +112,6 @@ User email: ${session?.user?.email || 'No email'}`);
       toast.success("Event deleted successfully");
       router.refresh();
     } catch (error) {
-      console.error("[EventCard] Error deleting event:", error);
       toast.error("Failed to delete event");
     } finally {
       setIsDeleting(false);
@@ -138,55 +120,6 @@ User email: ${session?.user?.email || 'No email'}`);
 
   return (
     <>
-      {/* Test banner with !important styles */}
-      <div 
-        style={{
-          all: 'revert',
-          position: 'fixed',
-          top: '0',
-          left: '0',
-          right: '0',
-          backgroundColor: '#ff0000',
-          color: '#ffffff',
-          padding: '20px',
-          fontSize: '16px',
-          fontFamily: 'Arial, sans-serif',
-          zIndex: '2147483647',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '5px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.5)',
-          margin: '0',
-          border: 'none',
-          textAlign: 'left',
-          lineHeight: '1.5',
-          pointerEvents: 'auto',
-          visibility: 'visible',
-          opacity: '1'
-        }}
-      >
-        <div style={{ fontWeight: 'bold', fontSize: '18px' }}>🔍 Session Debug Info</div>
-        <div>Status: {sessionStatus}</div>
-        <div>Email: {session?.user?.email || 'No email'}</div>
-        <div>Role: {session?.user?.role || 'No role'}</div>
-        <div>User ID: {session?.user?.id || 'No ID'}</div>
-        <button
-          onClick={() => alert(JSON.stringify(session, null, 2))}
-          style={{
-            backgroundColor: '#ffffff',
-            color: '#ff0000',
-            border: 'none',
-            padding: '8px 16px',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            marginTop: '10px',
-            fontWeight: 'bold'
-          }}
-        >
-          Show Full Session Data
-        </button>
-      </div>
-
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -217,13 +150,7 @@ User email: ${session?.user?.email || 'No email'}`);
                 className="h-8 w-8 rounded-full"
                 onClick={(e) => {
                   e.stopPropagation();
-                  alert(`
-                    Menu clicked!
-                    Session status: ${sessionStatus}
-                    User email: ${session?.user?.email || 'No email'}
-                    User role: ${session?.user?.role || 'No role'}
-                    Is authorized: ${isAuthorized}
-                  `);
+                  handleDelete();
                 }}
               >
                 <MoreVertical className="h-4 w-4" />
@@ -241,11 +168,11 @@ User email: ${session?.user?.email || 'No email'}`);
             <div className="space-y-2 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-primary" />
-                <span>{format(event.startDate, "PPP")}</span>
+                <span>{formatDateSafely(startDate, "PPP")}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-primary" />
-                <span>{format(event.startDate, "HH:mm")} - {format(endDate, "HH:mm")}</span>
+                <span>{formatDateSafely(startDate, "HH:mm")} - {formatDateSafely(endDate, "HH:mm")}</span>
               </div>
               <div className="flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-primary" />
@@ -317,9 +244,9 @@ User email: ${session?.user?.email || 'No email'}`);
                   <div>
                     <p className="font-medium">Date & Time</p>
                     <p className="text-muted-foreground">
-                      {format(event.startDate, "PPP")}
+                      {formatDateSafely(startDate, "PPP")}
                       <br />
-                      {format(event.startDate, "HH:mm")} - {format(endDate, "HH:mm")}
+                      {formatDateSafely(startDate, "HH:mm")} - {formatDateSafely(endDate, "HH:mm")}
                     </p>
                   </div>
                 </div>

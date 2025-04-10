@@ -93,7 +93,6 @@ export default function CreateEventButton() {
 
   async function onSubmit(data: FormData) {
     try {
-      console.log("[CreateEvent] Starting event creation...");
       if (!photo) {
         toast.error("Please select a photo for the event");
         return;
@@ -102,45 +101,34 @@ export default function CreateEventButton() {
       // Convert the date to Bucharest timezone
       const bucharestDate = new Date(formatInTimeZone(data.startDate, TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX"));
       
-      console.log("[CreateEvent] Creating FormData with:", {
-        name: data.name,
-        type: data.type,
-        location: data.location,
-        startDate: bucharestDate,
-        hasRules: !!data.rules,
-        hasPrizes: !!(data.prizes && data.prizes.length > 0),
-        photoSize: photo.size,
-        photoType: photo.type
-      });
-
       const formData = new FormData();
       formData.append("photo", photo);
       formData.append("name", data.name);
       formData.append("type", data.type);
       formData.append("description", data.description);
       if (data.rules) formData.append("rules", data.rules);
-      if (data.prizes && data.prizes.length > 0) {
-        formData.append("prizes", JSON.stringify(data.prizes.filter(prize => prize.trim() !== "")));
+      
+      // Handle prizes - send all valid prizes
+      const validPrizes = prizes.filter(prize => prize.trim() !== "");
+      if (validPrizes.length > 0) {
+        formData.append("prizes", JSON.stringify(validPrizes));
+        formData.append("prize", validPrizes[0]); // Keep the first prize for backward compatibility
       }
+      
       formData.append("location", data.location);
       formData.append("startDate", bucharestDate.toISOString());
 
-      console.log("[CreateEvent] Sending request to /api/events...");
       const response = await fetch("/api/events", {
         method: "POST",
         body: formData,
       });
-
-      console.log("[CreateEvent] Response status:", response.status);
       
       if (!response.ok) {
         const error = await response.text();
-        console.error("[CreateEvent] Error response:", error);
         throw new Error(error || "Failed to create event");
       }
 
       const result = await response.json();
-      console.log("[CreateEvent] Success response:", result);
 
       toast.success("Event created successfully");
       setOpen(false);
@@ -149,7 +137,6 @@ export default function CreateEventButton() {
       setPhotoPreview(undefined);
       setPrizes([""]);
     } catch (error) {
-      console.error("[CreateEvent] Error:", error);
       if (error instanceof Error) {
         toast.error(error.message);
       } else {

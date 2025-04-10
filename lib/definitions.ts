@@ -424,6 +424,8 @@ export type EventWithUser = Event & {
     role: UserRole;
     status: UserStatus;
   };
+  prize: string | null;
+  prizes: string | null;
 };
 
 export type EventWithUserData = {

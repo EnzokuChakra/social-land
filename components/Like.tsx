@@ -81,7 +81,28 @@ function LikeButton({
           // Revert optimistic update if there was an error
           addOptimisticLike(optimisticLike);
         }
+        if (res) {
+          const eventData = {
+            post: res.post,
+            likedBy: res.likedBy,
+            unlike: res.unlike,
+            action: res.unlike ? "unlike" : "like",
+            user_id: session.data?.user?.id as string,
+          };
+          // Emit the event to notify other clients
+          if (socket) {
+            try {
+              socket.emit("like", eventData);
+            } catch (error) {
+              toast.error("Failed to send like update. Please try again.");
+            }
+          } else {
+            console.error("[LikeButton] Socket is undefined.");
+            toast.error("Real-time updates are unavailable.");
+          }
+        }
       });
+
     } catch (error) {
       console.error("Error liking post:", error);
       toast.error("Something went wrong");
