@@ -394,19 +394,25 @@ function ProfileAvatar({
 
   const handleViewStory = async () => {
     try {
-      const response = await fetch(`/api/stories/${user.id}`);
+      const response = await fetch(`/api/stories?userId=${user.id}`);
       if (!response.ok) {
         throw new Error('Failed to fetch story');
       }
       const data = await response.json();
-      const formattedStories = data.stories.map((story: any) => ({
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to fetch stories');
+      }
+      
+      const formattedStories = data.data.map((story: any) => ({
         id: story.id,
-        userId: story.userId,
+        userId: story.user_id,
         username: story.user.username,
-        imageUrl: story.imageUrl,
+        imageUrl: story.fileUrl,
         createdAt: new Date(story.createdAt),
-        viewedBy: story.viewedBy.map((view: any) => view.userId),
+        viewedBy: story.views?.map((view: any) => view.user.id) || [],
       }));
+      
       setStories(formattedStories);
       storyModal.setUserId(user.id);
       storyModal.onOpen();
