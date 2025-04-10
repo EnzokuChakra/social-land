@@ -324,7 +324,7 @@ export default function StoryModal() {
         localStorage.setItem(storageKey, JSON.stringify(viewedStories));
 
         // Dispatch event to update UI
-        const event = new CustomEvent('storyViewed', {
+       /* const event = new CustomEvent('storyViewed', {
           detail: {
             userId: currentStory.user.id,
             storyId: currentStory.id,
@@ -333,7 +333,7 @@ export default function StoryModal() {
             isOwnStory: true
           }
         });
-        window.dispatchEvent(event);
+        window.dispatchEvent(event);*/
       }
       return;
     }
@@ -379,7 +379,7 @@ export default function StoryModal() {
             localStorage.setItem(storageKey, JSON.stringify(viewedStories));
 
             // Dispatch event to update UI
-            const event = new CustomEvent('storyViewed', {
+           /* const event = new CustomEvent('storyViewed', {
               detail: {
                 userId: currentStory.user.id,
                 storyId: currentStory.id,
@@ -387,7 +387,7 @@ export default function StoryModal() {
                 viewedStories
               }
             });
-            window.dispatchEvent(event);
+            window.dispatchEvent(event);*/
           }
 
           // Update local state with the new view
@@ -421,7 +421,7 @@ export default function StoryModal() {
     };
 
     trackView();
-  }, [currentStory?.id, session?.user?.id, progress]);
+  }, [session?.user?.id, progress]);
 
   // Handle story transitions
   useEffect(() => {

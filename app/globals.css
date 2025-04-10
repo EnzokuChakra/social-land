@@ -48,7 +48,7 @@
     scrollbar-color: #404040 transparent;
   }
 
-  /* CEF non-accelerated input styles */
+  /* Input styles */
   input, 
   textarea, 
   [contenteditable],
@@ -68,54 +68,7 @@
     transform: translateZ(0);
     backface-visibility: hidden;
     perspective: 1000;
-    /* CEF specific cursor handling */
     cursor: text !important;
-    /* Force caret display for CEF */
-    -webkit-text-fill-color: currentColor !important;
-    caret-color: currentColor !important;
-    -webkit-caret-color: currentColor !important;
-  }
-
-  /* CEF focus state handling */
-  input:focus,
-  textarea:focus,
-  [contenteditable]:focus,
-  .comment-input:focus,
-  [type="text"]:focus,
-  [type="password"]:focus,
-  [type="email"]:focus,
-  [type="search"]:focus {
-    /* Use inset box-shadow instead of outline for CEF */
-    box-shadow: inset 0 0 0 2px #2563eb !important;
-    border-color: #2563eb !important;
-    /* Force caret in focused state */
-    caret-color: #2563eb !important;
-    -webkit-caret-color: #2563eb !important;
-  }
-
-  /* CEF dark mode handling */
-  .dark input,
-  .dark textarea,
-  .dark [contenteditable],
-  .dark .comment-input,
-  .dark [type="text"],
-  .dark [type="password"],
-  .dark [type="email"],
-  .dark [type="search"] {
-    caret-color: #60a5fa !important;
-    -webkit-caret-color: #60a5fa !important;
-  }
-
-  .dark input:focus,
-  .dark textarea:focus,
-  .dark [contenteditable]:focus,
-  .dark .comment-input:focus,
-  .dark [type="text"]:focus,
-  .dark [type="password"]:focus,
-  .dark [type="email"]:focus,
-  .dark [type="search"]:focus {
-    box-shadow: inset 0 0 0 2px #60a5fa !important;
-    border-color: #60a5fa !important;
   }
 
   /* Prevent image dragging */

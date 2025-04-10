@@ -170,8 +170,8 @@ export default function EventsPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col max-w-[935px] mx-auto pt-4 md:pt-8 gap-8">
-        <div className="flex-grow max-w-[630px] w-full mx-auto md:mx-0">
+      <div className="flex flex-col max-w-[1200px] mx-auto pt-4 md:pt-8 gap-8 px-4">
+        <div className="flex-grow w-full mx-auto">
           <CustomLoader size="default" />
         </div>
       </div>
@@ -214,6 +214,7 @@ export default function EventsPage() {
       description: formData.get('description') as string,
       rules: formData.get('rules') as string,
       prize: formData.get('prize') as string,
+      prizes: formData.get('prize') as string, // Add prizes property
       location: formData.get('location') as string,
       startDate: new Date(formData.get('startDate') as string),
       photoUrl: '/placeholder.jpg', // Temporary placeholder
@@ -260,44 +261,54 @@ export default function EventsPage() {
   };
 
   return (
-    <div className="flex flex-col max-w-[935px] mx-auto pt-4 md:pt-8 gap-8">
-      <div className="flex-grow max-w-[935px] w-full mx-auto md:mx-0">
-        <div className="flex flex-col gap-6">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex-1 min-w-[200px] max-w-[400px]">
-              <Input
-                placeholder="Search events..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full"
-              />
-            </div>
-            <CreateEventButton />
+    <div className="flex flex-col max-w-[1200px] mx-auto pt-4 md:pt-8 gap-8 px-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-3xl font-bold">Events</h1>
+          <p className="text-muted-foreground">Discover and join exciting gaming events</p>
+        </div>
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="relative flex-grow md:flex-grow-0">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search events..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 w-full md:w-[300px]"
+            />
           </div>
-
-          {sortedEvents.length === 0 ? (
-            <div className="text-center py-6">
-              <p className="text-muted-foreground">No events found</p>
-            </div>
-          ) : (
-            <motion.div
-              variants={container}
-              initial="hidden"
-              animate="show"
-              className="grid grid-cols-1 gap-4"
-            >
-              {sortedEvents.map((event) => (
-                <motion.div key={event.id} variants={item}>
-                  <EventCard 
-                    event={event} 
-                    status={getStatusText(new Date(event.startDate))} 
-                  />
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
+          <CreateEventButton />
         </div>
       </div>
+
+      <motion.div
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+      >
+        {sortedEvents.map((event) => (
+          <motion.div key={event.id} variants={item}>
+            <EventCard
+              event={event}
+              status={getStatusText(new Date(event.startDate))}
+            />
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {sortedEvents.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <CalendarDays className="h-12 w-12 text-muted-foreground mb-4" />
+          <h3 className="text-xl font-semibold mb-2">No events found</h3>
+          <p className="text-muted-foreground">
+            {searchQuery
+              ? "Try adjusting your search query"
+              : "Be the first to create an event!"}
+          </p>
+        </div>
+      )}
+
       {selectedEvent && (
         <EventViewModal
           event={selectedEvent}

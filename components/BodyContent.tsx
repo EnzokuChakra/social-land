@@ -103,7 +103,7 @@ export default function BodyContent({ children }: { children: React.ReactNode })
           storageKey="theme-preference"
           disableTransitionOnChange={false}
         >
-          <HydrationSafeDiv className="pb-14 md:pb-0">
+          <HydrationSafeDiv className="pt-16 md:pt-20 pb-14 md:pb-0">
             {children}
           </HydrationSafeDiv>
           <MemoizedToaster />
