@@ -29,17 +29,18 @@ export default function EventViewModal({ event, isOpen, onClose }: EventViewModa
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContentWithoutClose className="max-w-4xl w-[95%] max-h-[90vh] overflow-y-auto p-0 gap-0 bg-background border-border">
-        <div className="relative w-full h-[300px]">
+        <div className="relative w-full h-[300px] bg-black/5">
           <Image
             src={event.photoUrl}
             alt={event.name}
             fill
-            className="object-cover rounded-t-lg"
+            className="object-contain rounded-t-lg"
             priority
+            sizes="(max-width: 4xl) 95vw, 1400px"
           />
           
           {/* Header Content */}
-          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-background/80 to-transparent">
+          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/60 to-transparent">
             <div className="flex items-start justify-between">
               <div className="space-y-2">
                 <h2 className="text-3xl font-bold text-white">{event.name}</h2>
@@ -57,10 +58,10 @@ export default function EventViewModal({ event, isOpen, onClose }: EventViewModa
               <Button
                 variant="outline"
                 size="icon"
-                className="rounded-full bg-background/80 backdrop-blur-sm hover:bg-background/90 border-primary/20 hover:border-primary/40"
+                className="rounded-full bg-white/10 backdrop-blur-sm hover:bg-white/20 border-white/20"
                 onClick={onClose}
               >
-                <X className="w-4 h-4 text-primary" />
+                <X className="w-4 h-4 text-white" />
               </Button>
             </div>
           </div>
