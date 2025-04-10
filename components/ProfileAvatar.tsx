@@ -380,96 +380,52 @@ function ProfileAvatar({
 
   const handleProfileClick = () => {
     const isFollowing = user.followers?.some(follow => follow.followerId === session?.user?.id && follow.status === "ACCEPTED");
-    if (hasStories && (isCurrentUser || !user.isPrivate || isFollowing)) {
-      const activeStories = stories.filter(story => {
-        if (!story?.fileUrl) return false;
-        const storyDate = new Date(story.createdAt);
-        const now = new Date();
-        const diff = now.getTime() - storyDate.getTime();
-        const hours = diff / (1000 * 60 * 60);
-        return hours < 24;
-      });
-
-      if (activeStories.length === 0) {
-        if (isCurrentUser) {
-          editProfileModal.onOpen();
-        }
-        return;
-      }
-
-      // If all stories are viewed, show the options modal instead
-      if (!hasUnviewedStories) {
-        setShowOptionsModal(true);
-        return;
-      }
-
-      // First fetch the latest story data to ensure we have current views/likes
+    
+    // Check if we should allow story access based on the same conditions as shouldShowStoryRing
+    const canAccessStories = isCurrentUser || (!user.isPrivate && hasStories) || (user.isPrivate && isFollowing && hasStories);
+    
+    if (canAccessStories) {
       const fetchStoryData = async () => {
         try {
-          const response = await fetch(`/api/stories?userId=${user.id}`);
-          if (!response.ok) throw new Error('Failed to fetch stories');
+          const response = await fetch(`/api/user-stories/${user.id}`);
+          const { success, data } = await response.json();
           
-          const data = await response.json();
-          if (!data.success) throw new Error(data.error || 'Failed to fetch stories');
+          if (success && data) {
+            const formattedStories = data.map((story: Story) => ({
+              ...story,
+              createdAt: new Date(story.createdAt)
+            }));
 
-          const formattedStories = data.data.map((story: Story) => ({
-            id: story.id,
-            fileUrl: story.fileUrl,
-            createdAt: story.createdAt,
-            scale: story.scale || 1,
-            views: story.views || [],
-            likes: story.likes || [],
-            user: {
-              id: user.id,
-              username: user.username,
-              name: user.name,
-              image: user.image,
-              verified: user.verified,
-              isPrivate: user.isPrivate,
-              role: user.role,
-              status: user.status
+            // Update viewed stories in localStorage and state
+            if (typeof window !== 'undefined' && session?.user?.id) {
+              const storageKey = `viewed_stories_${user.id}_${session.user.id}`;
+              const newViewedStories = { ...viewedStories };
+              
+              // Mark all stories as viewed
+              formattedStories.forEach((story: Story) => {
+                newViewedStories[story.id] = true;
+              });
+              
+              // Update state and localStorage
+              setViewedStories(newViewedStories);
+              localStorage.setItem(storageKey, JSON.stringify(newViewedStories));
+              
+              // If it's the user's own story, update the last viewed timestamp
+              if (isCurrentUser) {
+                const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
+                localStorage.setItem(lastViewedKey, new Date().toISOString());
+              }
+              
+              console.log("[ProfileAvatar] Updated viewed stories on click:", {
+                storageKey,
+                newViewedStories
+              });
+              
+              // Force a re-render to update the story ring color
+              setTimeout(() => {
+                setViewedStories(prevStories => ({...prevStories}));
+              }, 100);
             }
-          }));
-
-          const allStories = [{
-            userId: user.id,
-            stories: formattedStories
-          }];
-
-          storyModal.setUserStories(allStories);
-          storyModal.setCurrentUserIndex(0);
-          storyModal.setUserId(user.id);
-          storyModal.onOpen();
-
-          // Update viewed stories in localStorage and state
-          if (typeof window !== 'undefined' && session?.user?.id) {
-            const storageKey = `viewed_stories_${user.id}_${session.user.id}`;
-            const newViewedStories = { ...viewedStories };
-            
-            // Mark all stories as viewed
-            formattedStories.forEach((story: Story) => {
-              newViewedStories[story.id] = true;
-            });
-            
-            // Update state and localStorage
-            setViewedStories(newViewedStories);
-            localStorage.setItem(storageKey, JSON.stringify(newViewedStories));
-            
-            // If it's the user's own story, update the last viewed timestamp
-            if (isCurrentUser) {
-              const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
-              localStorage.setItem(lastViewedKey, new Date().toISOString());
-            }
-            
-            console.log("[ProfileAvatar] Updated viewed stories on click:", {
-              storageKey,
-              newViewedStories
-            });
-            
-            // Force a re-render to update the story ring color
-            setTimeout(() => {
-              setViewedStories(prevStories => ({...prevStories}));
-            }, 100);
           }
         } catch (error) {
           toast.error('Failed to load story');
