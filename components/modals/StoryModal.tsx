@@ -102,6 +102,7 @@ export default function StoryModal() {
   const closingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const storyIdRef = useRef<string | null>(null);
 
+
   const currentUserStories = storyModal.userStories[storyModal.currentUserIndex];
   // const currentStory = currentUserStories?.stories[currentStoryIndex];
 
@@ -109,7 +110,9 @@ export default function StoryModal() {
   const [isStoryOwner, setIsStoryOwner] = useState(false)
   const [sortedViewers, setSortedViewers] = useState<StoryView[]>([])
 
-
+  const [isLastStory, setIsLastStory] =  useState(false)
+  const [isLastUser, setIsLastUser] =  useState(false)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   // const isStoryOwner = session?.user?.id === currentStory?.user.id;
   const isMasterAdmin = session?.user?.role === "MASTER_ADMIN";
   const isAdmin = session?.user?.role === "ADMIN";
@@ -195,7 +198,6 @@ export default function StoryModal() {
     } else {
       // Find next unviewed story
       const nextUnviewed = findNextUnviewedStory();
-      
       if (nextUnviewed) {
         // Move to the next unviewed story
         storyModal.setCurrentUserIndex(nextUnviewed.userIndex);
@@ -746,9 +748,10 @@ export default function StoryModal() {
     if (!storyModal.isOpen || !updatedUserStories?.stories) return;
 
     // Check if we're on the last story of the last user
-    const isLastStory = currentStoryIndex === updatedUserStories.stories.length - 1;
-    const isLastUser = storyModal.currentUserIndex === storyModal.userStories.length - 1;
-
+    console.log("currentStoryIndex", currentStoryIndex)
+    console.log("updatedUserStories.stories.length ", updatedUserStories.stories.length )
+    setIsLastStory(currentStoryIndex === updatedUserStories.stories.length - 1)
+    setIsLastUser(storyModal.currentUserIndex === storyModal.userStories.length - 1)
     // Emit storyViewed event when a story is viewed
     if (currentStory && session?.user?.id) {
       const isOwnStory = currentStory.user.id === session.user.id;
@@ -770,17 +773,25 @@ export default function StoryModal() {
       });
       window.dispatchEvent(event);
     }
-
-    if (isLastStory && isLastUser) {
-      // Set a timeout to close the modal after the last story is viewed
-      const timeout = setTimeout(() => {
-        storyModal.onClose();
-      }, 5000); // Close after 5 seconds of viewing the last story
-
-      return () => clearTimeout(timeout);
-    }
   }, [currentStoryIndex, storyModal.currentUserIndex, updatedUserStories?.stories?.length, storyModal.isOpen, storyModal.onClose]);
 
+
+  useEffect(() => {
+    if (isLastStory && isLastUser) {
+      console.log("isLastStory", isLastStory);
+      console.log("isLastUser", isLastUser);
+
+      timeoutRef.current = setTimeout(() => {
+        storyModal.onClose();
+      }, 5000);
+
+      return () => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+      };
+    }
+  }, [isLastStory, isLastUser]);
   // Handle story click for navigation
   const handleStoryClick = (e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
