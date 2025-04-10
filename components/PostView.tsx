@@ -60,6 +60,8 @@ const MemoizedImage = memo(({ src, alt, aspectRatio, onDoubleClick }: {
     priority={true}
     quality={100}
     onDoubleClick={onDoubleClick}
+    placeholder="blur"
+    blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSIxMjAwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNlZWUiLz48L3N2Zz4="
   />
 ), (prevProps, nextProps) => prevProps.src === nextProps.src);
 MemoizedImage.displayName = "MemoizedImage";
@@ -89,6 +91,8 @@ const MemoizedDesktopImage = memo(({ src, alt, aspectRatio }: {
         decoding="sync"
         priority={true}
         quality={100}
+        placeholder="blur"
+        blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSIxMjAwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNlZWUiLz48L3N2Zz4="
       />
     </div>
   </div>
@@ -120,9 +124,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
   const [lastDoubleTapTime, setLastDoubleTapTime] = useState(0);
-  const [showDoubleClickHint, setShowDoubleClickHint] = useState(false);
-
-  // Lazy load stories and viewed stories
   const [stories, setStories] = useState<any[]>([]);
   const [viewedStories, setViewedStories] = useState<Record<string, boolean>>({});
 
@@ -184,7 +185,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
 
   const [currentPost, setCurrentPost] = useState<PostWithExtras>(initialPostData);
 
-  // Load viewed stories after initial render
+  // Load viewed stories after initial render - use a more efficient approach
   useEffect(() => {
     if (!session?.user?.id || !post.user.id) return;
 
@@ -203,12 +204,12 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
       }
     };
 
-    // Defer loading viewed stories
-    const timer = setTimeout(loadViewedStories, 0);
-    return () => clearTimeout(timer);
+    // Use requestAnimationFrame for smoother rendering
+    const frameId = requestAnimationFrame(loadViewedStories);
+    return () => cancelAnimationFrame(frameId);
   }, [session?.user?.id, post.user.id]);
 
-  // Fetch stories only if needed and after initial render
+  // Fetch stories only if needed and after initial render - use a more efficient approach
   useEffect(() => {
     if (!post.user.hasActiveStory) return;
 
@@ -224,9 +225,9 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
       }
     };
 
-    // Defer fetching stories
-    const timer = setTimeout(fetchStories, 0);
-    return () => clearTimeout(timer);
+    // Use requestAnimationFrame for smoother rendering
+    const frameId = requestAnimationFrame(fetchStories);
+    return () => cancelAnimationFrame(frameId);
   }, [post.user.id, post.user.hasActiveStory]);
 
   // Optimize story view event listener
@@ -495,17 +496,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     };
   }, [isPostModal, mount, id]);
 
-  // Show double-click hint when post is first opened and not liked
-  useEffect(() => {
-    if (user?.id && !currentPost.likes.some(like => like.user_id === user.id)) {
-      setShowDoubleClickHint(true);
-      const timer = setTimeout(() => {
-        setShowDoubleClickHint(false);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [user?.id, currentPost.likes]);
-
   // Transform comments to include all required fields
   const transformedComments = post.comments.map(comment => ({
     ...comment,
@@ -679,8 +669,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     }));
   }, []);
 
-  if (!mount) return null;
-
   return (
     <Dialog 
       open={isOpen} 
@@ -693,7 +681,9 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
           "h-[100dvh] md:h-[calc(100vh-80px)]",
           "max-h-[100dvh] md:max-h-[calc(100vh-80px)]",
           "bg-white dark:bg-neutral-950",
-          "overflow-y-auto md:overflow-hidden"
+          "overflow-y-auto md:overflow-hidden",
+          "transition-opacity duration-300",
+          mount ? "opacity-100" : "opacity-0"
         )}
         tabIndex={0}
         aria-modal="true"
@@ -725,18 +715,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
               {showHeartAnimation && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Heart className="h-24 w-24 text-red-500 fill-red-500 animate-float-heart" />
-                </div>
-              )}
-              {showDoubleClickHint && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="relative">
-                      <Heart className="h-16 w-16 text-white/80 animate-pulse" />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="h-20 w-20 rounded-full bg-white/10 animate-ping" />
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
@@ -915,18 +893,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                 {showHeartAnimation && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Heart className="h-24 w-24 text-red-500 fill-red-500 animate-float-heart" />
-                  </div>
-                )}
-                {showDoubleClickHint && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="relative">
-                        <Heart className="h-16 w-16 text-white/80 animate-pulse" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="h-20 w-20 rounded-full bg-white/10 animate-ping" />
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 function useMount() {
-  const [mount, setMount] = useState(false);
+  const [mount, setMount] = useState(true);
 
   useEffect(() => {
     setMount(true);
