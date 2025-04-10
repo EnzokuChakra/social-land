@@ -39,31 +39,81 @@ import Timestamp from "@/components/Timestamp";
 import { useSocket } from "@/hooks/use-socket";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { getSocket } from "@/lib/socket";
+import { motion } from "framer-motion";
+
+// Add debugging utility
+const DEBUG = true; // Set to true to enable debugging in production
+const debugLog = (message: string, data?: any) => {
+  if (DEBUG) {
+    console.log(`[PostView Debug] ${message}`, data || '');
+  }
+};
 
 const MemoizedImage = memo(({ src, alt, aspectRatio, onDoubleClick }: { 
   src: string;
   alt: string;
   aspectRatio: number;
   onDoubleClick?: () => void;
-}) => (
-  <Image
-    src={src}
-    alt={alt}
-    className={cn(
-      "w-full h-auto select-none",
-      aspectRatio === 1 ? "object-cover" : "object-contain"
-    )}
-    width={1200}
-    height={1200}
-    loading="eager"
-    decoding="sync"
-    priority={true}
-    quality={100}
-    onDoubleClick={onDoubleClick}
-    placeholder="blur"
-    blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSIxMjAwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNlZWUiLz48L3N2Zz4="
-  />
-), (prevProps, nextProps) => prevProps.src === nextProps.src);
+}) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [loadAttempts, setLoadAttempts] = useState(0);
+  const maxLoadAttempts = 3;
+  
+  // Debug image loading
+  useEffect(() => {
+    debugLog(`Image loading state for ${src}`, { 
+      isLoading, 
+      error, 
+      loadAttempts,
+      aspectRatio
+    });
+  }, [isLoading, error, loadAttempts, src, aspectRatio]);
+  
+  const handleLoad = () => {
+    debugLog(`Image loaded successfully: ${src}`);
+    setIsLoading(false);
+    setError(null);
+  };
+  
+  const handleError = () => {
+    debugLog(`Image load error for ${src}`, { 
+      attempt: loadAttempts + 1,
+      maxAttempts: maxLoadAttempts
+    });
+    
+    setLoadAttempts(prev => prev + 1);
+    
+    if (loadAttempts >= maxLoadAttempts - 1) {
+      setError('Failed to load image after multiple attempts');
+      setIsLoading(false);
+    }
+  };
+  
+  return (
+    <div className="relative w-full h-full">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+          <div className="w-8 h-8 border-4 border-blue-500 rounded-full animate-spin border-t-transparent"></div>
+        </div>
+      )}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+          <p className="text-red-500">{error}</p>
+        </div>
+      )}
+      <img
+        src={src}
+        alt={alt}
+        className={`w-full h-full object-cover ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+        style={{ aspectRatio: `${aspectRatio}` }}
+        onLoad={handleLoad}
+        onError={handleError}
+        onDoubleClick={onDoubleClick}
+      />
+    </div>
+  );
+});
 MemoizedImage.displayName = "MemoizedImage";
 
 const MemoizedDesktopImage = memo(({ src, alt, aspectRatio }: {
@@ -99,6 +149,51 @@ const MemoizedDesktopImage = memo(({ src, alt, aspectRatio }: {
 ), (prevProps, nextProps) => prevProps.src === nextProps.src);
 MemoizedDesktopImage.displayName = "MemoizedDesktopImage";
 
+const HeartAnimation = memo(() => {
+  const [isVisible, setIsVisible] = useState(true);
+  const [renderCount, setRenderCount] = useState(0);
+  
+  useEffect(() => {
+    setRenderCount(prev => prev + 1);
+    debugLog(`HeartAnimation rendered`, { 
+      renderCount: renderCount + 1,
+      isVisible,
+      timestamp: new Date().toISOString()
+    });
+    
+    const timer = setTimeout(() => {
+      debugLog(`HeartAnimation hiding after timeout`);
+      setIsVisible(false);
+    }, 1000);
+    
+    return () => {
+      debugLog(`HeartAnimation cleanup`);
+      clearTimeout(timer);
+    };
+  }, []);
+  
+  if (!isVisible) {
+    debugLog(`HeartAnimation not visible, skipping render`);
+    return null;
+  }
+  
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      <motion.div
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0, opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className="text-red-500"
+      >
+        <Heart className="w-24 h-24 fill-current" />
+      </motion.div>
+    </div>
+  );
+});
+
+HeartAnimation.displayName = "HeartAnimation";
+
 function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -126,6 +221,51 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const [lastDoubleTapTime, setLastDoubleTapTime] = useState(0);
   const [stories, setStories] = useState<any[]>([]);
   const [viewedStories, setViewedStories] = useState<Record<string, boolean>>({});
+  const [renderCount, setRenderCount] = useState(0);
+
+  // Debug component lifecycle
+  useEffect(() => {
+    debugLog(`PostView mounted for post ${id}`, { 
+      postId: id, 
+      userId: user?.id,
+      isPostModal,
+      socketConnected: socket?.connected,
+      renderCount: renderCount + 1
+    });
+    setRenderCount(prev => prev + 1);
+    
+    return () => {
+      debugLog(`PostView unmounted for post ${id}`);
+    };
+  }, [id, user?.id, isPostModal, socket?.connected, renderCount]);
+
+  // Debug socket connection
+  useEffect(() => {
+    if (socket) {
+      debugLog(`Socket connection status for post ${id}`, {
+        connected: socket.connected,
+        id: socket.id,
+        postId: id
+      });
+      
+      // Add socket connection event listeners for debugging
+      const handleConnect = () => {
+        debugLog(`Socket connected for post ${id}`, { socketId: socket.id });
+      };
+      
+      const handleDisconnect = (reason: string) => {
+        debugLog(`Socket disconnected for post ${id}`, { reason });
+      };
+      
+      socket.on('connect', handleConnect);
+      socket.on('disconnect', handleDisconnect);
+      
+      return () => {
+        socket.off('connect', handleConnect);
+        socket.off('disconnect', handleDisconnect);
+      };
+    }
+  }, [socket, id]);
 
   // Memoize shouldShowStoryRing to prevent unnecessary calculations
   const shouldShowStoryRing = useMemo(() => {
@@ -623,36 +763,80 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     }
   };
 
-  const handleImageDoubleClick = async () => {
-    if (!user?.id) return;
+  const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    debugLog(`Double click detected on post ${id}`, {
+      target: e.target,
+      currentTarget: e.currentTarget,
+      timestamp: new Date().toISOString()
+    });
     
-    // Prevent multiple rapid double-clicks
-    const now = Date.now();
-    if (now - lastDoubleTapTime < 1000) {
+    if (!user) {
+      debugLog(`User not logged in, redirecting to login`);
+      router.push('/login');
       return;
     }
-    setLastDoubleTapTime(now);
     
-    // Always show heart animation on double-click
+    if (post.is_liked) {
+      debugLog(`Post already liked, skipping like action`);
+      return;
+    }
+    
+    debugLog(`Triggering like action for post ${id}`);
     setShowHeartAnimation(true);
-    setTimeout(() => setShowHeartAnimation(false), 1000);
+    likePost();
     
-    // Check if post is already liked by the user
-    const isAlreadyLiked = currentPost.likes.some(like => like.user_id === user.id);
-    if (isAlreadyLiked) {
-      return;
-    }
-
-    try {
-      // Find the like button and click it
-      const likeButton = document.querySelector(`button[data-post-id="${currentPost.id}"]`);
-      if (likeButton && !likeButton.hasAttribute('disabled')) {
-        (likeButton as HTMLButtonElement).click();
+    // Reset heart animation after 1 second
+    setTimeout(() => {
+      debugLog(`Resetting heart animation for post ${id}`);
+      setShowHeartAnimation(false);
+    }, 1000);
+  }, [user, post.is_liked, likePost, router, id]);
+  
+  const handleDoubleTap = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    debugLog(`Touch event detected on post ${id}`, {
+      type: e.type,
+      timestamp: new Date().toISOString()
+    });
+    
+    const currentTime = new Date().getTime();
+    const tapLength = currentTime - lastDoubleTapTime;
+    
+    debugLog(`Tap timing for post ${id}`, {
+      currentTime,
+      lastTapTime: lastDoubleTapTime,
+      tapLength,
+      threshold: 300
+    });
+    
+    if (tapLength < 300 && tapLength > 0) {
+      debugLog(`Double tap detected on post ${id}`);
+      setLastDoubleTapTime(currentTime);
+      
+      if (!user) {
+        debugLog(`User not logged in, redirecting to login`);
+        router.push('/login');
+        return;
       }
-    } catch (error) {
-      // Silently handle error
+      
+      if (post.is_liked) {
+        debugLog(`Post already liked, skipping like action`);
+        return;
+      }
+      
+      debugLog(`Triggering like action for post ${id}`);
+      setShowHeartAnimation(true);
+      likePost();
+      
+      // Reset heart animation after 1 second
+      setTimeout(() => {
+        debugLog(`Resetting heart animation for post ${id}`);
+        setShowHeartAnimation(false);
+      }, 1000);
+    } else {
+      debugLog(`Single tap detected on post ${id}`);
+      setLastDoubleTapTime(currentTime);
     }
-  };
+  }, [user, post.is_liked, likePost, router, id, lastDoubleTapTime]);
 
   const handleBookmarkUpdate = useCallback((savedBy: (SavedPost & { user: User })[]) => {
     setCurrentPost((prev: PostWithExtras) => ({
@@ -668,6 +852,14 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
       }))
     }));
   }, []);
+
+  // Debug heart animation state
+  useEffect(() => {
+    debugLog(`Heart animation state changed for post ${id}`, {
+      showHeartAnimation,
+      timestamp: new Date().toISOString()
+    });
+  }, [showHeartAnimation, id]);
 
   return (
     <Dialog 
@@ -710,12 +902,10 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                 src={post.fileUrl}
                 alt={post.caption || "Post image"}
                 aspectRatio={post.aspectRatio}
-                onDoubleClick={handleImageDoubleClick}
+                onDoubleClick={handleDoubleClick}
               />
               {showHeartAnimation && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Heart className="h-24 w-24 text-red-500 fill-red-500 animate-float-heart" />
-                </div>
+                <HeartAnimation />
               )}
             </div>
 
@@ -888,12 +1078,10 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                   src={post.fileUrl}
                   alt={post.caption || "Post image"}
                   aspectRatio={post.aspectRatio}
-                  onDoubleClick={handleImageDoubleClick}
+                  onDoubleClick={handleDoubleClick}
                 />
                 {showHeartAnimation && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Heart className="h-24 w-24 text-red-500 fill-red-500 animate-float-heart" />
-                  </div>
+                  <HeartAnimation />
                 )}
               </div>
             </div>
