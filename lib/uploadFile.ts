@@ -20,8 +20,8 @@ export async function uploadFile(file: File | Blob | Buffer) {
     // Create a unique filename
     const filename = `${nanoid()}-${file instanceof File ? file.name : 'blob'}`;
     
-    // Save to the events directory
-    const uploadDir = join(process.cwd(), 'public', 'uploads', 'events');
+    // Save to the events directory using the absolute path
+    const uploadDir = join('/var/www/OG-GRAM/public/uploads', 'events');
     const filepath = join(uploadDir, filename);
     
     await writeFile(filepath, buffer);

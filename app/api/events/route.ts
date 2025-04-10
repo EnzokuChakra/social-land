@@ -53,8 +53,8 @@ export async function POST(req: Request) {
     const ext = path.extname(photo.name);
     const filename = `${nanoid()}${ext}`;
     
-    // Use relative path from project root
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'events');
+    // Use absolute path for uploads
+    const uploadDir = path.join('/var/www/OG-GRAM/public/uploads', 'events');
     const filepath = path.join(uploadDir, filename);
     
     console.log("[EVENTS_POST] Saving photo:", { 
