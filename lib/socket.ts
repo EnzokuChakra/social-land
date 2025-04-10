@@ -23,11 +23,44 @@ export const getSocket = (): Socket => {
         });
 
         socket.on('connect', () => {
-            console.log('Socket connected');
+            console.log('[SOCKET] Connected', {
+                socketId: socket?.id,
+                timestamp: new Date().toISOString()
+            });
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('[SOCKET] Connection error:', {
+                error: error instanceof Error ? {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name
+                } : String(error),
+                timestamp: new Date().toISOString()
+            });
+            socket?.connect();
         });
 
         socket.on('disconnect', (reason) => {
-            console.log('Socket disconnected', reason);
+            console.log('[SOCKET] Disconnected:', {
+                reason,
+                timestamp: new Date().toISOString()
+            });
+            
+            if (reason === 'io server disconnect' || reason === 'transport close' || reason === 'ping timeout') {
+                socket?.connect();
+            }
+        });
+
+        socket.on('error', (error) => {
+            console.error('[SOCKET] Error:', {
+                error: error instanceof Error ? {
+                    message: error.message,
+                    stack: error.stack,
+                    name: error.name
+                } : String(error),
+                timestamp: new Date().toISOString()
+            });
         });
     }
     return socket;
