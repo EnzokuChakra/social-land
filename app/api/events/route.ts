@@ -19,6 +19,12 @@ export const config = {
   },
 };
 
+// Helper function to get the correct upload path
+function getUploadPath() {
+  // Use process.cwd() to get the current working directory
+  return path.join(process.cwd(), 'public', 'uploads', 'events');
+}
+
 export async function POST(req: Request) {
   try {
     console.log("[EVENTS_POST] Starting event creation...");
@@ -53,8 +59,8 @@ export async function POST(req: Request) {
     const ext = path.extname(photo.name);
     const filename = `${nanoid()}${ext}`;
     
-    // Use absolute path for uploads
-    const uploadDir = path.join('/var/www/OG-GRAM/public/uploads', 'events');
+    // Use the helper function to get the correct upload path
+    const uploadDir = getUploadPath();
     const filepath = path.join(uploadDir, filename);
     
     console.log("[EVENTS_POST] Saving photo:", { 
@@ -304,7 +310,8 @@ export async function DELETE(req: Request) {
     if (event.photoUrl) {
       try {
         const filename = event.photoUrl.split('/').pop();
-        const filepath = path.join('/var/www/OG-GRAM/public/uploads/events', filename || '');
+        // Use the helper function to get the correct upload path
+        const filepath = path.join(getUploadPath(), filename || '');
         console.log("[EVENTS_DELETE] Deleting photo file:", filepath);
         
         await unlink(filepath);
