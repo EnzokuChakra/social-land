@@ -193,6 +193,33 @@
   body {
     transition: background-color 0.2s ease-out;
   }
+
+  /* Theme transition styles */
+  :root {
+    color-scheme: light;
+  }
+
+  .dark {
+    color-scheme: dark;
+  }
+
+  /* Gentle theme transition */
+  * {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity;
+    transition-timing-function: cubic-bezier(0.2, 0, 0.1, 1);
+    transition-duration: 500ms;
+  }
+
+  /* Add a slight opacity change during theme transition */
+  body[data-theme-transitioning="true"] {
+    opacity: 0.95;
+  }
+
+  /* Disable transitions for specific elements that shouldn't animate */
+  .no-transition,
+  .no-transition * {
+    transition: none !important;
+  }
 }
 
 @layer base {

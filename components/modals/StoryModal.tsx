@@ -192,7 +192,9 @@ export default function StoryModal() {
     const startProgress = () => {
       // Prevent multiple progress trackers
       if (isProgressRunning.current) return;
+      
       isProgressRunning.current = true;
+      setIsPaused(false);
 
       if (storyTimeout.current) 
       {
@@ -299,6 +301,12 @@ export default function StoryModal() {
       setIsClosing(false);
     }
   }, [storyModal.isOpen]);
+
+  useEffect(() => {
+    if (storyModal.isOpen) {
+      setIsPaused(false);
+    }
+  }, [currentStoryIndex, storyModal.currentUserIndex]);
 
   // Track view when story is opened
   useEffect(() => {
