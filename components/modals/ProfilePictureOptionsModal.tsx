@@ -33,6 +33,14 @@ export default function ProfilePictureOptionsModal({
 
   const handleViewStory = () => {
     onOpenChange(false);
+    
+    // If onViewStory is provided, use it
+    if (onViewStory) {
+      onViewStory();
+      return;
+    }
+    
+    // Otherwise use the default behavior
     setTimeout(() => {
       storyModal.setUserId(userId);
       storyModal.onOpen();
@@ -53,26 +61,21 @@ export default function ProfilePictureOptionsModal({
         <DialogDescription className="sr-only">
           Options for profile picture interaction
         </DialogDescription>
-        <div className="flex flex-col divide-y divide-neutral-200 dark:divide-neutral-700">
+        <div className="flex flex-col">
           {isOwnProfile && (
             <Button
               variant="ghost"
               className="w-full h-12 font-semibold text-blue-500 hover:text-blue-500 hover:bg-neutral-100 dark:hover:bg-neutral-700/70 transition-colors duration-200"
-              onClick={() => {
-                onOpenChange(false);
-                editProfileModal.onOpen();
-              }}
+              onClick={handleChangeProfilePicture}
             >
               Change profile picture
             </Button>
           )}
-          {hasStory && onViewStory && (
+          {hasStory && (
             <Button
               variant="ghost"
               className="w-full h-12 font-semibold text-blue-500 hover:text-blue-500 hover:bg-neutral-100 dark:hover:bg-neutral-700/70 transition-colors duration-200"
-              onClick={() => {
-                onViewStory();
-              }}
+              onClick={handleViewStory}
             >
               View Story
             </Button>

@@ -385,64 +385,42 @@ function ProfileAvatar({
     const canAccessStories = isCurrentUser || (!user.isPrivate && hasStories) || (user.isPrivate && isFollowing && hasStories);
     
     if (canAccessStories) {
-      const fetchStoryData = async () => {
-        try {
-          const response = await fetch(`/api/user-stories/${user.id}`);
-          const { success, data } = await response.json();
-          
-          if (success && data) {
-            const formattedStories = data.map((story: Story) => ({
-              ...story,
-              createdAt: new Date(story.createdAt)
-            }));
-
-            // Update viewed stories in localStorage and state
-            if (typeof window !== 'undefined' && session?.user?.id) {
-              const storageKey = `viewed_stories_${user.id}_${session.user.id}`;
-              const newViewedStories = { ...viewedStories };
-              
-              // Mark all stories as viewed
-              formattedStories.forEach((story: Story) => {
-                newViewedStories[story.id] = true;
-              });
-              
-              // Update state and localStorage
-              setViewedStories(newViewedStories);
-              localStorage.setItem(storageKey, JSON.stringify(newViewedStories));
-              
-              // If it's the user's own story, update the last viewed timestamp
-              if (isCurrentUser) {
-                const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
-                localStorage.setItem(lastViewedKey, new Date().toISOString());
-              }
-              
-              console.log("[ProfileAvatar] Updated viewed stories on click:", {
-                storageKey,
-                newViewedStories
-              });
-              
-              // Force a re-render to update the story ring color
-              setTimeout(() => {
-                setViewedStories(prevStories => ({...prevStories}));
-              }, 100);
-            }
-          }
-        } catch (error) {
-          toast.error('Failed to load story');
-        }
-      };
-
-      fetchStoryData();
+      // Show the options modal instead of directly opening the story
+      setShowOptionsModal(true);
     } else if (isCurrentUser) {
       editProfileModal.onOpen();
+    }
+  };
+
+  const handleViewStory = async () => {
+    try {
+      const response = await fetch(`/api/stories/${user.id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch story');
+      }
+      const data = await response.json();
+      const formattedStories = data.stories.map((story: any) => ({
+        id: story.id,
+        userId: story.userId,
+        username: story.user.username,
+        imageUrl: story.imageUrl,
+        createdAt: new Date(story.createdAt),
+        viewedBy: story.viewedBy.map((view: any) => view.userId),
+      }));
+      setStories(formattedStories);
+      storyModal.setUserId(user.id);
+      storyModal.onOpen();
+    } catch (error) {
+      console.error('Error fetching story:', error);
+      toast.error('Failed to load story');
     }
   };
 
   if (!mount) return null;
 
   return (
-    <>
-      <div 
+    <div className="relative">
+      <div
         className={cn(
           "relative cursor-pointer",
           shouldShowStoryRing && hasStories && !hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-neutral-300 dark:before:bg-neutral-700 before:p-[0.5px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-0.5 before:-top-0.5",
@@ -465,49 +443,9 @@ function ProfileAvatar({
         hasStory={hasStories}
         userId={user.id}
         isOwnProfile={isCurrentUser}
-        onViewStory={() => {
-          setShowOptionsModal(false);
-          const fetchStoryData = async () => {
-            try {
-              const response = await fetch(`/api/stories?userId=${user.id}`);
-              if (!response.ok) throw new Error('Failed to fetch stories');
-              
-              const data = await response.json();
-              if (!data.success) throw new Error(data.error || 'Failed to fetch stories');
-
-              const formattedStories = data.data.map((story: Story) => ({
-                id: story.id,
-                fileUrl: story.fileUrl,
-                createdAt: story.createdAt,
-                scale: story.scale || 1,
-                views: story.views || [],
-                likes: story.likes || [],
-                user: {
-                  id: user.id,
-                  username: user.username,
-                  name: user.name,
-                  image: user.image
-                }
-              }));
-
-              const allStories = [{
-                userId: user.id,
-                stories: formattedStories
-              }];
-
-              storyModal.setUserStories(allStories);
-              storyModal.setCurrentUserIndex(0);
-              storyModal.setUserId(user.id);
-              storyModal.onOpen();
-            } catch (error) {
-              toast.error('Failed to load story');
-            }
-          };
-
-          fetchStoryData();
-        }}
+        onViewStory={handleViewStory}
       />
-    </>
+    </div>
   );
 }
 
