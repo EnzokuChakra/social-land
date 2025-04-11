@@ -41,6 +41,9 @@ export default function ExplorePage() {
   // Memoize the query function
   const fetchExplorePosts = useCallback(async ({ pageParam }: { pageParam: number }) => {
     const res = await fetch(`/api/posts/explore?page=${pageParam}&limit=24`);
+    if (!res.ok) {
+      throw new Error('Failed to fetch posts');
+    }
     return res.json();
   }, []);
 
@@ -131,7 +134,7 @@ export default function ExplorePage() {
         </motion.div>
       ))}
     </div>
-  ), [allPosts, ref, handleImageLoad]);
+  ), [allPosts, ref, handleImageLoad, hoveredPost]);
 
   if (status === "pending") {
     return (
@@ -145,6 +148,15 @@ export default function ExplorePage() {
     return (
       <div className="container max-w-7xl px-4 min-h-[calc(100vh-80px)] flex items-center justify-center">
         <p className="text-red-500">Error loading posts</p>
+      </div>
+    );
+  }
+
+  // Check if we have any posts
+  if (!allPosts || allPosts.length === 0) {
+    return (
+      <div className="container max-w-7xl px-4 min-h-[calc(100vh-80px)] flex items-center justify-center">
+        <p className="text-muted-foreground">No posts found</p>
       </div>
     );
   }
