@@ -188,7 +188,7 @@ export async function POST(request: NextRequest) {
       console.log('File written successfully to:', fullPath);
       
       // Return the public URL with forward slashes for web use
-      const publicUrl = `/public${relativePath}`;
+      const publicUrl = relativePath;
       console.log('Upload successful, returning URL:', publicUrl);
       
       console.log("[UPLOAD] File uploaded successfully:", { fileUrl: publicUrl });
