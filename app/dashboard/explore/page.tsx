@@ -36,7 +36,6 @@ interface ExploreResponse {
 export default function ExplorePage() {
   const { data: session } = useSession();
   const [hoveredPost, setHoveredPost] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
   const loadedImages = useRef<Set<string>>(new Set());
 
   // Infinite scroll implementation with optimized settings
@@ -56,8 +55,9 @@ export default function ExplorePage() {
         }
         return undefined;
       },
-      staleTime: 10 * 1000, // Cache for 10 seconds
+      staleTime: 30 * 1000, // Cache for 30 seconds
       refetchOnWindowFocus: false,
+      retry: 1,
     });
 
   // Intersection observer for infinite scroll with optimized threshold
@@ -72,10 +72,6 @@ export default function ExplorePage() {
     }
   }, [inView, fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   const handleImageLoad = useCallback((postId: string) => {
     loadedImages.current.add(postId);
   }, []);
@@ -83,11 +79,7 @@ export default function ExplorePage() {
   const allPosts = data?.pages.flatMap((page) => page.posts) ?? [];
 
   if (status === "pending") {
-    return (
-      <div className="container max-w-7xl px-4 min-h-[calc(100vh-80px)] flex items-center justify-center">
-        <CustomLoader size="default" />
-      </div>
-    );
+    return null; // Return null to prevent layout shift
   }
 
   if (status === "error") {
@@ -100,7 +92,7 @@ export default function ExplorePage() {
 
   return (
     <div className="container max-w-7xl px-4">
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         <div className="grid grid-cols-3 gap-1 md:gap-2 mt-8">
           {allPosts.map((post: PostWithUser, index: number) => (
             <motion.div
@@ -127,7 +119,6 @@ export default function ExplorePage() {
                   loading={index < 12 ? "eager" : "lazy"}
                   onLoadingComplete={() => handleImageLoad(post.id)}
                 />
-                {/* Hover overlay */}
                 <div
                   className={cn(
                     "absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity",
