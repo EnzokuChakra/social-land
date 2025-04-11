@@ -54,44 +54,57 @@ export async function POST(req: Request) {
     const filename = `${nanoid()}${ext}`;
     
     // Use absolute path for uploads
-    const uploadDir = path.join('/var/www/OG-GRAM/public/uploads', 'events');
-    const filepath = path.join(uploadDir, filename);
+    const uploadDir = path.join('/var/www/OG-GRAM/public/uploads/events');
+    const relativePath = `/public/uploads/events/${filename}`;
+    const fullPath = path.join(uploadDir, filename);
     
     console.log("[EVENTS_POST] Saving photo:", { 
       filename,
-      filepath,
+      filepath: relativePath,
       uploadDir,
       photoName: photo.name,
-      photoSize: photo.size,
-      photoType: photo.type
+      size: photo.size
     });
 
+    // Create directory if it doesn't exist
     try {
-      // Ensure directory exists
       await mkdir(uploadDir, { recursive: true });
-      
-      // Convert file to buffer and save
-      const bytes = await photo.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      
+      console.log("[EVENTS_POST] Directory created/verified:", uploadDir);
+    } catch (mkdirError) {
+      console.error("[EVENTS_POST] Failed to create directory:", mkdirError);
+      return NextResponse.json(
+        { error: "Failed to create upload directory" },
+        { status: 500 }
+      );
+    }
+
+    // Convert file to buffer and save
+    const bytes = await photo.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    
+    // Write file
+    try {
       console.log("[EVENTS_POST] Writing file...");
-      await writeFile(filepath, buffer);
+      await writeFile(fullPath, buffer);
       console.log("[EVENTS_POST] File written successfully");
       
       // Verify file exists
       const fs = require('fs').promises;
-      const stats = await fs.stat(filepath);
+      const fileStats = await fs.stat(fullPath);
       console.log("[EVENTS_POST] File stats:", {
-        size: stats.size,
-        path: filepath,
+        size: fileStats.size,
+        path: fullPath,
         exists: true
       });
-    } catch (error) {
-      console.error("[EVENTS_POST] Error saving file:", error);
-      throw error;
+    } catch (writeError) {
+      console.error("[EVENTS_POST] Failed to write file:", writeError);
+      return NextResponse.json(
+        { error: "Failed to save photo" },
+        { status: 500 }
+      );
     }
 
-    const photoUrl = `/uploads/events/${filename}`;
+    const photoUrl = relativePath;
     console.log("[EVENTS_POST] Photo URL:", photoUrl);
 
     // Create event in database
@@ -99,6 +112,7 @@ export async function POST(req: Request) {
       console.log("[EVENTS_POST] Creating event in database...");
       const prizesData = formData.get("prizes") ? JSON.parse(formData.get("prizes") as string) : [];
       
+      const db = await connectDB();
       if (!db) {
         throw new Error("Database connection not available");
       }
@@ -111,7 +125,7 @@ export async function POST(req: Request) {
           type: formData.get("type") as string,
           description: formData.get("description") as string,
           rules: formData.get("rules") as string || null,
-          prize: formData.get("prize") as string || null,
+          prize: prizesData.length > 0 ? prizesData[0].prize : null,
           location: formData.get("location") as string,
           startDate: new Date(formData.get("startDate") as string),
           photoUrl: photoUrl,
@@ -128,7 +142,7 @@ export async function POST(req: Request) {
         await db.event.update({
           where: { id: event.id },
           data: {
-            prizes: formData.get("prizes") as string
+            prizes: JSON.stringify(prizesData)
           }
         });
       }
@@ -193,12 +207,15 @@ export async function POST(req: Request) {
     } catch (error) {
       console.error("[EVENTS_POST_DB]", error);
       // Try to clean up the uploaded file if database operation fails
-      try {
-        const fs = require('fs').promises;
-        await fs.unlink(filepath);
-      } catch (unlinkError) {
-        console.error("[EVENTS_POST] Failed to clean up file:", unlinkError);
-      }
+      const cleanup = async () => {
+        try {
+          const fs = require('fs').promises;
+          await fs.unlink(fullPath);
+        } catch (unlinkError) {
+          console.error("[EVENTS_POST] Failed to clean up file:", unlinkError);
+        }
+      };
+      await cleanup();
       return new NextResponse(
         error instanceof Error ? error.message : "Failed to create event in database",
         { status: 500 }

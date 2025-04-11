@@ -27,7 +27,7 @@ export async function uploadFile(file: File | Blob | Buffer) {
     await writeFile(filepath, buffer);
 
     // Return the URL path
-    return `/uploads/events/${filename}`;
+    return `/public/uploads/events/${filename}`;
   } catch (error) {
     console.error('Error uploading file:', error);
     if (error instanceof Error) {
