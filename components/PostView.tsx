@@ -127,14 +127,20 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const [stories, setStories] = useState<any[]>([]);
   const [viewedStories, setViewedStories] = useState<Record<string, boolean>>({});
   const [currentPost, setCurrentPost] = useState<PostWithExtras>(post);
+  const [isInitialRender, setIsInitialRender] = useState(true);
 
-  // Prevent initial animation on mount
+  // Prevent initial animation and API calls on mount
   useEffect(() => {
+    if (isInitialRender) {
+      setIsInitialRender(false);
+      return;
+    }
+
     const timer = setTimeout(() => {
       setIsOpen(true);
-    }, 0);
+    }, 50);
     return () => clearTimeout(timer);
-  }, []);
+  }, [isInitialRender]);
 
   // Memoize shouldShowStoryRing to prevent unnecessary calculations
   const shouldShowStoryRing = useMemo(() => {
@@ -172,25 +178,29 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     }
   }, [post.user.hasActiveStory, post.user.id, session?.user?.id, stories]);
 
-  // Memoize the initial post data to prevent unnecessary re-renders
-  const initialPostData = useMemo(() => {
-    const processedPost: PostWithExtras = {
-      ...post,
-      likes: post.likes.map(like => ({
-        ...like,
-        user: {
-          ...like.user,
-          isFollowing: Boolean(like.user.isFollowing),
-          hasPendingRequest: Boolean(like.user.hasPendingRequest),
-          isPrivate: Boolean(like.user.isPrivate)
-        }
-      })),
-      savedBy: post.savedBy || [],
-      comments: post.comments || [],
-      tags: post.tags || []
-    };
-    return processedPost;
-  }, [post]);
+  // Memoize the initial post data
+  const initialPostData = useMemo(() => ({
+    ...post,
+    likes: post.likes.map(like => ({
+      ...like,
+      user: {
+        ...like.user,
+        isFollowing: Boolean(like.user.isFollowing),
+        hasPendingRequest: Boolean(like.user.hasPendingRequest),
+        isPrivate: Boolean(like.user.isPrivate)
+      }
+    })),
+    savedBy: post.savedBy || [],
+    comments: post.comments || [],
+    tags: post.tags || []
+  }), [post]);
+
+  // Update currentPost only when necessary
+  useEffect(() => {
+    if (!isInitialRender) {
+      setCurrentPost(initialPostData);
+    }
+  }, [initialPostData, isInitialRender]);
 
   // Load viewed stories after initial render - use a more efficient approach
   useEffect(() => {
@@ -237,33 +247,38 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     return () => cancelAnimationFrame(frameId);
   }, [post.user.id, post.user.hasActiveStory]);
 
-  // Optimize story view event listener
+  // Optimize story view event listener with debouncing
   useEffect(() => {
-    if (!session?.user?.id || !post.user.id) return;
+    if (!session?.user?.id || !post.user.id || isInitialRender) return;
 
+    let timeoutId: NodeJS.Timeout;
     const handleStoryViewed = (event: CustomEvent) => {
       if (event.detail.userId !== post.user.id) return;
 
-      const storageKey = `viewed_stories_${post.user.id}_${session.user.id}`;
-      const viewedStories = event.detail.viewedStories || {};
-      
-      if (event.detail.isOwnStory) {
-        const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
-        localStorage.setItem(lastViewedKey, new Date().toISOString());
-      }
-      
-      setViewedStories(prevStories => {
-        const newStories = { ...prevStories, ...viewedStories };
-        localStorage.setItem(storageKey, JSON.stringify(newStories));
-        return newStories;
-      });
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        const storageKey = `viewed_stories_${post.user.id}_${session.user.id}`;
+        const viewedStories = event.detail.viewedStories || {};
+        
+        if (event.detail.isOwnStory) {
+          const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
+          localStorage.setItem(lastViewedKey, new Date().toISOString());
+        }
+        
+        setViewedStories(prevStories => {
+          const newStories = { ...prevStories, ...viewedStories };
+          localStorage.setItem(storageKey, JSON.stringify(newStories));
+          return newStories;
+        });
+      }, 100);
     };
 
     window.addEventListener('storyViewed', handleStoryViewed as EventListener);
     return () => {
       window.removeEventListener('storyViewed', handleStoryViewed as EventListener);
+      clearTimeout(timeoutId);
     };
-  }, [post.user.id, session?.user?.id]);
+  }, [post.user.id, session?.user?.id, isInitialRender]);
 
   // Save previous focus when opening modal
   useEffect(() => {
@@ -283,19 +298,19 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     };
   }, []);
 
-  // Handle modal close with cleanup
+  // Handle modal close with cleanup and prevent multiple calls
   const handleModalClose = useCallback((open: boolean) => {
-    if (!open) {
+    if (!open && isOpen) {
       setIsOpen(false);
-      // Small delay to ensure smooth transition
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (previousFocusRef.current && typeof previousFocusRef.current.focus === 'function') {
           previousFocusRef.current.focus();
         }
         router.back();
       }, 200);
+      return () => clearTimeout(timer);
     }
-  }, [router]);
+  }, [router, isOpen]);
 
   // Socket event handlers for comments
   useEffect(() => {
@@ -395,26 +410,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     };
   }, [socket, id]);
 
-  // Update currentPost when post prop changes
-  useEffect(() => {
-    setCurrentPost(prevPost => ({
-      ...prevPost,
-      ...post,
-      likes: post.likes.map(like => ({
-        ...like,
-        user: {
-          ...like.user,
-          isFollowing: like.user.isFollowing || false,
-          hasPendingRequest: like.user.hasPendingRequest || false,
-          isPrivate: like.user.isPrivate || false
-        }
-      })),
-      savedBy: post.savedBy || prevPost.savedBy,
-      comments: post.comments || prevPost.comments,
-      tags: post.tags || prevPost.tags
-    }));
-  }, [post]);
-
   // Socket handler for likes updates
   useEffect(() => {
     if (!socket) return;
@@ -458,11 +453,11 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     };
   }, [socket]);
 
-  // Real-time updates polling
+  // Real-time updates polling with increased interval and conditions
   useEffect(() => {
     let intervalId: NodeJS.Timeout | undefined;
     
-    if (isPostModal && mount) {
+    if (isPostModal && mount && !isInitialRender) {
       const refreshPostData = async () => {
         try {
           const response = await fetch(`/api/posts/${id}/comments`);
@@ -486,7 +481,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
       };
       
       refreshPostData();
-      intervalId = setInterval(refreshPostData, 15000);
+      intervalId = setInterval(refreshPostData, 30000); // Increased to 30 seconds
     }
     
     return () => {
@@ -494,7 +489,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
         clearInterval(intervalId);
       }
     };
-  }, [isPostModal, mount, id]);
+  }, [isPostModal, mount, id, isInitialRender]);
 
   // Transform comments to include all required fields
   const transformedComments = post.comments.map(comment => ({
