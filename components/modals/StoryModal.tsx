@@ -88,9 +88,10 @@ export default function StoryModal() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [storyToReport, setStoryToReport] = useState<Story | null>(null);
   const [storiesConfig, setStoriesConfig] = useState<any[]>([]);
+  const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
 
   const currentUserStories = storyModal.userStories[storyModal.currentUserIndex];
-  const currentStory = currentUserStories?.stories[0];
+  const currentStory = currentUserStories?.stories[currentStoryIndex];
 
   const isStoryOwner = session?.user?.id === currentStory?.user.id;
   const isMasterAdmin = session?.user?.role === "MASTER_ADMIN";
@@ -122,6 +123,39 @@ export default function StoryModal() {
 
     setStoriesConfig(config);
   }, [currentUserStories?.stories]);
+
+  // Reset currentStoryIndex when user changes
+  useEffect(() => {
+    setCurrentStoryIndex(0);
+  }, [storyModal.currentUserIndex]);
+
+  // Handle navigation between stories
+  const handlePrevStory = () => {
+    if (currentStoryIndex > 0) {
+      setCurrentStoryIndex(prev => prev - 1);
+    } else if (storyModal.currentUserIndex > 0) {
+      // Go to the last story of the previous user
+      const prevUserIndex = storyModal.currentUserIndex - 1;
+      const prevUserStories = storyModal.userStories[prevUserIndex];
+      if (prevUserStories && prevUserStories.stories.length > 0) {
+        storyModal.setCurrentUserIndex(prevUserIndex);
+        setCurrentStoryIndex(prevUserStories.stories.length - 1);
+      }
+    }
+  };
+
+  const handleNextStory = () => {
+    if (currentStoryIndex < (currentUserStories?.stories.length || 0) - 1) {
+      setCurrentStoryIndex(prev => prev + 1);
+    } else if (storyModal.currentUserIndex < storyModal.userStories.length - 1) {
+      // Go to the first story of the next user
+      storyModal.setCurrentUserIndex(storyModal.currentUserIndex + 1);
+      setCurrentStoryIndex(0);
+    } else {
+      // Close the modal if we're at the last story of the last user
+      storyModal.onClose();
+    }
+  };
 
   // Track view when story is opened
   useEffect(() => {
@@ -318,10 +352,10 @@ export default function StoryModal() {
           showCloseButton={false}
         >
           <DialogTitle className="sr-only">
-            {currentUserStories?.stories[0]?.user.username}'s Story
+            {currentUserStories?.stories[currentStoryIndex]?.user.username}'s Story
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Story viewer showing {currentUserStories?.stories[0]?.user.username}'s content.
+            Story viewer showing {currentUserStories?.stories[currentStoryIndex]?.user.username}'s content.
           </DialogDescription>
           {isLoading ? (
             <div className="h-full w-full flex items-center justify-center">
@@ -345,12 +379,13 @@ export default function StoryModal() {
                     defaultInterval={5000}
                     width="100%"
                     height="100%"
+                    currentIndex={currentStoryIndex}
                     onAllStoriesEnd={() => {
-                      storyModal.onClose();
+                      handleNextStory();
                     }}
                     renderers={[
                       {
-                        renderer: (props) => {
+                        renderer: (props: any) => {
                           const { story } = props;
                           const mediaUrl = story?.url 
                             ? (story.url.startsWith('http') 
@@ -390,6 +425,29 @@ export default function StoryModal() {
                   />
                 </div>
               )}
+
+              {/* Navigation arrows */}
+              <div className="absolute inset-0 flex items-center justify-between z-10 pointer-events-auto">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-white hover:text-white ml-4"
+                  onClick={handlePrevStory}
+                  disabled={currentStoryIndex === 0 && storyModal.currentUserIndex === 0}
+                >
+                  <ChevronLeft className="h-8 w-8" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-white hover:text-white mr-4"
+                  onClick={handleNextStory}
+                  disabled={currentStoryIndex === (currentUserStories?.stories.length || 0) - 1 && 
+                           storyModal.currentUserIndex === storyModal.userStories.length - 1}
+                >
+                  <ChevronRight className="h-8 w-8" />
+                </Button>
+              </div>
 
               {/* User info and options */}
               <div className="absolute top-8 left-4 right-4 flex items-center justify-between z-10 pointer-events-auto">
