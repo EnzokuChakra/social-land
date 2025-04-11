@@ -35,57 +35,70 @@ export default function VerifyPage() {
   const socket = useSocket();
 
   useEffect(() => {
-    if (sessionStatus === "unauthenticated") {
-      router.push("/login");
-      return;
+    let mounted = true;
+
+    async function initializeVerification() {
+      if (sessionStatus === "unauthenticated") {
+        router.push("/login");
+        return;
+      }
+
+      if (sessionStatus === "authenticated" && mounted) {
+        try {
+          const response = await fetch("/api/verification/status");
+          const data = await response.json();
+          if (mounted) {
+            setStatus(data);
+            setLoading(false);
+          }
+        } catch (error) {
+          console.error("Error checking verification status:", error);
+          if (mounted) {
+            setLoading(false);
+          }
+        }
+      }
     }
 
-    if (sessionStatus === "authenticated") {
-      checkVerificationStatus();
-    }
+    initializeVerification();
 
     // Listen for verification status updates
     if (socket && session?.user) {
       socket.on(`user:${session.user.id}`, async (data: any) => {
-        if (data.type === "VERIFICATION_APPROVED") {
+        if (data.type === "VERIFICATION_APPROVED" && mounted) {
           try {
-            // Update the session
-            await updateSession();
-            
-            // Force refresh the page to ensure all components update
-            router.refresh();
-            
-            // Show success message
-            toast.success(data.data.message);
+            // Update the session with the new verified status
+            await updateSession({
+              ...session,
+              user: {
+                ...session.user,
+                verified: true
+              }
+            });
             
             // Update local state
             setStatus(prev => ({
               ...prev,
-              status: "APPROVED"
+              status: "APPROVED",
+              isVerified: true
             }));
+
+            // Show success message
+            toast.success(data.data.message);
           } catch (error) {
             console.error("Error updating session:", error);
           }
         }
       });
+    }
 
-      return () => {
+    return () => {
+      mounted = false;
+      if (socket && session?.user) {
         socket.off(`user:${session.user.id}`);
-      };
-    }
+      }
+    };
   }, [session, sessionStatus, socket, router, updateSession]);
-
-  async function checkVerificationStatus() {
-    try {
-      const response = await fetch("/api/verification/status");
-      const data = await response.json();
-      setStatus(data);
-    } catch (error) {
-      console.error("Error checking verification status:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function handleVerificationRequest() {
     try {

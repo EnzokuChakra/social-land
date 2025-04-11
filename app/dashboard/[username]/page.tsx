@@ -433,40 +433,42 @@ export default async function ProfilePage({ params }: { params: { username: stri
             </div>
           </section>
 
-          {!isCurrentUser && profileWithExtras.isPrivate && !isFollowing ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center border-t border-neutral-200 dark:border-neutral-800" suppressHydrationWarning>
-              <Lock className="w-12 h-12 text-neutral-500 mb-4" />
-              <h1 className="text-2xl font-semibold mb-2">This Account is Private</h1>
-              <p className="text-neutral-500 max-w-sm px-4">
-                Follow this account to see their photos and videos.
-              </p>
-              {hasPendingRequest && (
-                <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-4">
-                  Follow request pending
+          <div className="px-4 md:px-8">
+            {isBlocked ? (
+              <BlockedUserSection userId={profileWithExtras.id} />
+            ) : !isCurrentUser && profileWithExtras.isPrivate && !isFollowing ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center border-t border-neutral-200 dark:border-neutral-800" suppressHydrationWarning>
+                <Lock className="w-12 h-12 text-neutral-500 mb-4" />
+                <h1 className="text-2xl font-semibold mb-2">This Account is Private</h1>
+                <p className="text-neutral-500 max-w-sm px-4">
+                  Follow this account to see their photos and videos.
                 </p>
-              )}
-            </div>
-          ) : profileWithExtras.status === "BANNED" ? (
-            <div className="flex flex-col items-center justify-center py-20 text-center border-t border-neutral-200 dark:border-neutral-800" suppressHydrationWarning>
-              <UserX className="w-12 h-12 text-red-500 mb-4" />
-              <h1 className="text-2xl font-semibold mb-2">This Account is Banned</h1>
-              <p className="text-neutral-500 max-w-sm px-4">
-                This user has been banned for violating our community guidelines.
-              </p>
-            </div>
-          ) : isBlocked ? (
-            <BlockedUserSection userId={profileWithExtras.id} />
-          ) : (
-            <>
-              <Suspense fallback={<ProfileTabsSkeleton />}>
-                <ProfileTabs 
-                  profile={profileWithExtras} 
-                  isCurrentUser={isCurrentUser}
-                  defaultTab="posts"
-                />
-              </Suspense>
-            </>
-          )}
+                {hasPendingRequest && (
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-4">
+                    Follow request pending
+                  </p>
+                )}
+              </div>
+            ) : profileWithExtras.status === "BANNED" ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center border-t border-neutral-200 dark:border-neutral-800" suppressHydrationWarning>
+                <UserX className="w-12 h-12 text-red-500 mb-4" />
+                <h1 className="text-2xl font-semibold mb-2">This Account is Banned</h1>
+                <p className="text-neutral-500 max-w-sm px-4">
+                  This user has been banned for violating our community guidelines.
+                </p>
+              </div>
+            ) : (
+              <>
+                <Suspense fallback={<ProfileTabsSkeleton />}>
+                  <ProfileTabs 
+                    profile={profileWithExtras} 
+                    isCurrentUser={isCurrentUser}
+                    defaultTab="posts"
+                  />
+                </Suspense>
+              </>
+            )}
+          </div>
         </div>
       </main>
       <MobileBottomNav />
