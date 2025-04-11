@@ -113,13 +113,13 @@ export default function StoryModal() {
     if (!currentUserStories?.stories) return;
 
     const config = currentUserStories.stories.map((story) => ({
-      url: story.fileUrl,
+      url: story.fileUrl.startsWith('http') ? story.fileUrl : `https://social-land.ro${story.fileUrl.startsWith('/') ? story.fileUrl : `/${story.fileUrl}`}`,
       type: story.fileUrl.match(/\.(mp4|webm|ogg)$/i) ? 'video' : 'image',
       duration: 5000,
     }));
 
     setStoriesConfig(config);
-  }, [currentUserStories?.stories, router]);
+  }, [currentUserStories?.stories]);
 
   // Track view when story is opened
   useEffect(() => {
@@ -342,19 +342,23 @@ export default function StoryModal() {
                     }}
                     renderers={[
                       {
-                        renderer: ({ action, config, story }) => {
+                        renderer: (props) => {
+                          const { story } = props;
+                          const mediaUrl = story?.url ? (story.url.startsWith('http') ? story.url : `https://social-land.ro${story.url.startsWith('/') ? story.url : `/${story.url}`}`) : '';
+                          if (!mediaUrl) return null;
+                          
                           return (
                             <div className="w-full h-full flex items-center justify-center">
                               {story.type === 'image' ? (
                                 <img
-                                  src={story.url}
+                                  src={mediaUrl}
                                   alt="Story"
                                   className="max-h-full max-w-full object-contain"
                                   style={{ transform: `scale(${currentStory?.scale || 1})` }}
                                 />
                               ) : (
                                 <video
-                                  src={story.url}
+                                  src={mediaUrl}
                                   controls
                                   className="max-h-full max-w-full"
                                   style={{ transform: `scale(${currentStory?.scale || 1})` }}
@@ -363,7 +367,7 @@ export default function StoryModal() {
                             </div>
                           );
                         },
-                        tester: (story) => {
+                        tester: (story: any) => {
                           return {
                             condition: story.type === 'image' || story.type === 'video',
                             priority: 1
