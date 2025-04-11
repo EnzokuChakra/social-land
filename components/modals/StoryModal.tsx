@@ -113,7 +113,9 @@ export default function StoryModal() {
     if (!currentUserStories?.stories) return;
 
     const config = currentUserStories.stories.map((story) => ({
-      url: story.fileUrl.startsWith('http') ? story.fileUrl : `https://social-land.ro${story.fileUrl.startsWith('/') ? story.fileUrl : `/${story.fileUrl}`}`,
+      url: story.fileUrl.startsWith('http') 
+        ? story.fileUrl 
+        : `https://social-land.ro/public/uploads/stories/${story.fileUrl.split('/').pop()}`,
       type: story.fileUrl.match(/\.(mp4|webm|ogg)$/i) ? 'video' : 'image',
       duration: 5000,
     }));
@@ -344,7 +346,11 @@ export default function StoryModal() {
                       {
                         renderer: (props) => {
                           const { story } = props;
-                          const mediaUrl = story?.url ? (story.url.startsWith('http') ? story.url : `https://social-land.ro${story.url.startsWith('/') ? story.url : `/${story.url}`}`) : '';
+                          const mediaUrl = story?.url 
+                            ? (story.url.startsWith('http') 
+                              ? story.url 
+                              : `https://social-land.ro/public/uploads/stories/${story.url.split('/').pop()}`)
+                            : '';
                           if (!mediaUrl) return null;
                           
                           return (
