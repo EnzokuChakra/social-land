@@ -146,14 +146,37 @@ export default function StoryModal() {
 
   const handleNextStory = () => {
     if (currentStoryIndex < (currentUserStories?.stories.length || 0) - 1) {
+      // If there are more stories from current user, show next story
       setCurrentStoryIndex(prev => prev + 1);
-    } else if (storyModal.currentUserIndex < storyModal.userStories.length - 1) {
-      // Go to the first story of the next user
-      storyModal.setCurrentUserIndex(storyModal.currentUserIndex + 1);
-      setCurrentStoryIndex(0);
     } else {
-      // Close the modal if we're at the last story of the last user
-      storyModal.onClose();
+      // Current user's stories are finished, look for next user with unviewed stories
+      let nextUserIndex = storyModal.currentUserIndex + 1;
+      let foundUnviewedStories = false;
+
+      // Loop through remaining users to find one with unviewed stories
+      while (nextUserIndex < storyModal.userStories.length) {
+        const nextUserStories = storyModal.userStories[nextUserIndex];
+        const hasUnviewedStories = nextUserStories.stories.some(story => {
+          if (!session?.user?.id) return true;
+          const storageKey = `viewed_stories_${story.user.id}_${session.user.id}`;
+          const storedViewedStories = localStorage.getItem(storageKey);
+          const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
+          return !viewedStories[story.id];
+        });
+
+        if (hasUnviewedStories) {
+          foundUnviewedStories = true;
+          storyModal.setCurrentUserIndex(nextUserIndex);
+          setCurrentStoryIndex(0);
+          break;
+        }
+        nextUserIndex++;
+      }
+
+      // If no more unviewed stories found, close the modal
+      if (!foundUnviewedStories) {
+        storyModal.onClose();
+      }
     }
   };
 
@@ -427,26 +450,31 @@ export default function StoryModal() {
               )}
 
               {/* Navigation arrows */}
-              <div className="absolute inset-0 flex items-center justify-between z-10 pointer-events-auto">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-white hover:text-white ml-4"
-                  onClick={handlePrevStory}
-                  disabled={currentStoryIndex === 0 && storyModal.currentUserIndex === 0}
-                >
-                  <ChevronLeft className="h-8 w-8" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-white hover:text-white mr-4"
-                  onClick={handleNextStory}
-                  disabled={currentStoryIndex === (currentUserStories?.stories.length || 0) - 1 && 
-                           storyModal.currentUserIndex === storyModal.userStories.length - 1}
-                >
-                  <ChevronRight className="h-8 w-8" />
-                </Button>
+              <div className="absolute inset-0 flex items-center z-10 pointer-events-auto">
+                <div className="flex-1 flex justify-start">
+                  {!(currentStoryIndex === 0 && storyModal.currentUserIndex === 0) && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-white hover:text-white ml-4"
+                      onClick={handlePrevStory}
+                    >
+                      <ChevronLeft className="h-8 w-8" />
+                    </Button>
+                  )}
+                </div>
+                <div className="flex-1 flex justify-end">
+                  {currentStoryIndex < (currentUserStories?.stories.length || 0) - 1 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-white hover:text-white mr-4"
+                      onClick={handleNextStory}
+                    >
+                      <ChevronRight className="h-8 w-8" />
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* User info and options */}
