@@ -1,35 +1,25 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useMediaQuery } from "./use-media-query";
 
 interface NavbarContextType {
   isCollapsed: boolean;
   setIsCollapsed: (value: boolean) => void;
-  navbarWidth: string;
+  navbarWidth: number;
 }
 
-const NavbarContext = createContext<NavbarContextType | null>(null);
+const NavbarContext = createContext<NavbarContextType | undefined>(undefined);
 
-export function NavbarProvider({ children }: { children: React.ReactNode }) {
+export function NavbarProvider({ children }: { children: ReactNode }) {
   const isMobile = useMediaQuery("(max-width: 768px)");
-  const isSmallScreen = useMediaQuery("(max-width: 1024px)");
-  const [isCollapsed, setIsCollapsed] = useState(true);
-  const [mounted, setMounted] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(isMobile);
+  const [navbarWidth, setNavbarWidth] = useState(isMobile ? 0 : 240);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (isMobile) {
-      setIsCollapsed(true);
-    } else if (isSmallScreen) {
-      setIsCollapsed(true);
-    }
-  }, [isMobile, isSmallScreen]);
-
-  const navbarWidth = mounted ? (isMobile ? "0px" : isCollapsed ? "88px" : "245px") : "0px";
+    setIsCollapsed(isMobile);
+    setNavbarWidth(isMobile ? 0 : 240);
+  }, [isMobile]);
 
   return (
     <NavbarContext.Provider value={{ isCollapsed, setIsCollapsed, navbarWidth }}>
@@ -40,7 +30,7 @@ export function NavbarProvider({ children }: { children: React.ReactNode }) {
 
 export function useNavbar() {
   const context = useContext(NavbarContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error("useNavbar must be used within a NavbarProvider");
   }
   return context;

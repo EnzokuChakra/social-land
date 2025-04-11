@@ -54,7 +54,8 @@ export function useNotifications() {
   const followRequestsRef = useRef<NotificationWithUser[]>([]);
   const lastSeenNotificationsRef = useRef<Set<string>>(new Set());
   const CACHE_DURATION = 5000; // 5 seconds cache
-  const POLLING_INTERVAL = 10000; // 10 seconds polling
+  const POLLING_INTERVAL = 30000; // 30 seconds polling
+  const isMounted = useRef(false);
 
   const transformNotification = (notification: NotificationWithUser): NotificationWithExtras => ({
     ...notification,
@@ -105,7 +106,7 @@ export function useNotifications() {
   }, [notifications, followRequests]);
 
   const fetchNotifications = useCallback(async (force = false) => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !isMounted.current) return;
 
     const now = Date.now();
     // Only fetch if cache is expired or force refresh
@@ -141,16 +142,30 @@ export function useNotifications() {
   // Initial fetch
   useEffect(() => {
     if (isAuthenticated && !isSessionLoading) {
+      isMounted.current = true;
       fetchNotifications(true);
     }
+    return () => {
+      isMounted.current = false;
+    };
   }, [isAuthenticated, isSessionLoading, fetchNotifications]);
 
-  // Set up polling for real-time updates
+  // Set up polling for real-time updates with debounce
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const interval = setInterval(fetchNotifications, POLLING_INTERVAL);
-    return () => clearInterval(interval);
+    let timeoutId: NodeJS.Timeout;
+    const poll = () => {
+      timeoutId = setTimeout(() => {
+        fetchNotifications();
+        poll();
+      }, POLLING_INTERVAL);
+    };
+    poll();
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
   }, [isAuthenticated, fetchNotifications]);
 
   // Force refresh function
