@@ -12,6 +12,7 @@ import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSocket } from "@/lib/hooks/use-socket";
+import { CustomLoader } from "@/components/ui/custom-loader";
 
 type VerificationStatus = {
   hasRequest: boolean;
@@ -24,6 +25,7 @@ export default function VerifyPage() {
   const router = useRouter();
   const { isCollapsed } = useNavbar();
   const isMobile = useMediaQuery("(max-width: 768px)");
+  const [isLoading, setIsLoading] = useState(true);
   const [status, setStatus] = useState<VerificationStatus>({
     hasRequest: false,
     status: null,
@@ -42,9 +44,13 @@ export default function VerifyPage() {
     if (sessionStatus === "authenticated") {
       fetch("/api/verification/status")
         .then(response => response.json())
-        .then(data => setStatus(data))
+        .then(data => {
+          setStatus(data);
+          setIsLoading(false);
+        })
         .catch(error => {
           console.error("Error checking verification status:", error);
+          setIsLoading(false);
         });
     }
 
@@ -116,8 +122,12 @@ export default function VerifyPage() {
     }
   }
 
-  if (sessionStatus === "loading" || !status) {
-    return null;
+  if (sessionStatus === "loading" || isLoading) {
+    return (
+      <div className="flex-1 pt-4 md:pt-6 flex items-center justify-center">
+        <CustomLoader size="default" />
+      </div>
+    );
   }
 
   return (
