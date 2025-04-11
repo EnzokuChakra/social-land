@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import useMount from "@/hooks/useMount";
-import { PostWithExtras, CommentWithExtras, SavedPost, User, CommentLike, SavedPostWithExtras } from "@/lib/definitions";
+import { PostWithExtras, CommentWithExtras, SavedPost, User, CommentLike, SavedPostWithExtras, StoryWithExtras } from "@/lib/definitions";
 import { useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -99,6 +99,25 @@ const MemoizedDesktopImage = memo(({ src, alt, aspectRatio }: {
 ), (prevProps, nextProps) => prevProps.src === nextProps.src);
 MemoizedDesktopImage.displayName = "MemoizedDesktopImage";
 
+interface Story {
+  id: string;
+  createdAt: Date;
+  user: {
+    id: string;
+  };
+}
+
+interface Follower {
+  followerId: string;
+  status: string;
+}
+
+interface StoryRingState {
+  hasStories: boolean;
+  hasUnviewedStories: boolean;
+  shouldShowStoryRing: boolean;
+}
+
 function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -124,7 +143,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
   const [lastDoubleTapTime, setLastDoubleTapTime] = useState(0);
-  const [stories, setStories] = useState<any[]>([]);
+  const [stories, setStories] = useState<StoryWithExtras[]>([]);
   const [viewedStories, setViewedStories] = useState<Record<string, boolean>>({});
   const [currentPost, setCurrentPost] = useState<PostWithExtras>(post);
   const [isInitialRender, setIsInitialRender] = useState(true);
@@ -664,6 +683,28 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     }));
   }, []);
 
+  // Memoize the story ring state to prevent unnecessary re-renders
+  const storyRingState = useMemo<StoryRingState>(() => {
+    const hasStories = Boolean(post.user.hasActiveStory);
+    const hasUnviewedStories = Boolean(hasStories && stories?.some((story) => {
+      if (!story || !story.createdAt) return false;
+      const storyDate = new Date(story.createdAt);
+      const now = new Date();
+      const diff = now.getTime() - storyDate.getTime();
+      const hours = diff / (1000 * 60 * 60);
+      return hours < 24 && !viewedStories[story.id];
+    }));
+
+    const isCurrentUser = session?.user?.id === post.user.id;
+    const isFollowing = Boolean(post.user.isFollowing);
+
+    return {
+      hasStories,
+      hasUnviewedStories,
+      shouldShowStoryRing: hasStories && (isCurrentUser || !post.user.isPrivate || (post.user.isPrivate && isFollowing))
+    };
+  }, [post.user.hasActiveStory, stories, post.user.isPrivate, post.user.isFollowing, session?.user?.id, viewedStories]);
+
   return (
     <Dialog 
       open={isOpen} 
@@ -723,13 +764,13 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                     onClick={handleAvatarClick}
                     className={cn(
                       "relative cursor-pointer",
-                      shouldShowStoryRing && hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]",
-                      shouldShowStoryRing && !hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-neutral-300 dark:before:bg-neutral-700 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]"
+                      storyRingState.shouldShowStoryRing && storyRingState.hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]",
+                      storyRingState.shouldShowStoryRing && !storyRingState.hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-neutral-300 dark:before:bg-neutral-700 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]"
                     )}
                   >
                     <div className={cn(
                       "relative rounded-full overflow-hidden w-[32px] h-[32px]",
-                      shouldShowStoryRing && "p-[2px] bg-white dark:bg-black"
+                      storyRingState.shouldShowStoryRing && "p-[2px] bg-white dark:bg-black"
                     )}>
                       <UserAvatar 
                         user={post.user}
@@ -910,13 +951,13 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
                       onClick={handleAvatarClick}
                       className={cn(
                         "relative cursor-pointer",
-                        shouldShowStoryRing && hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]",
-                        shouldShowStoryRing && !hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-neutral-300 dark:before:bg-neutral-700 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]"
+                        storyRingState.shouldShowStoryRing && storyRingState.hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-gradient-to-tr before:from-yellow-400 before:to-fuchsia-600 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]",
+                        storyRingState.shouldShowStoryRing && !storyRingState.hasUnviewedStories && "before:absolute before:inset-0 before:rounded-full before:bg-neutral-300 dark:before:bg-neutral-700 before:p-[2px] before:w-[calc(100%+4px)] before:h-[calc(100%+4px)] before:-left-[2px] before:-top-[2px]"
                       )}
                     >
                       <div className={cn(
                         "relative rounded-full overflow-hidden w-[32px] h-[32px]",
-                        shouldShowStoryRing && "p-[2px] bg-white dark:bg-black"
+                        storyRingState.shouldShowStoryRing && "p-[2px] bg-white dark:bg-black"
                       )}>
                         <UserAvatar 
                           user={post.user}
