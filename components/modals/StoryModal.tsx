@@ -115,7 +115,7 @@ export default function StoryModal() {
     const config = currentUserStories.stories.map((story) => ({
       url: story.fileUrl.startsWith('http') 
         ? story.fileUrl 
-        : `https://social-land.ro/public/uploads/stories/${story.fileUrl.split('/').pop()}`,
+        : `https://social-land.ro/uploads/stories/${story.fileUrl.split('/').pop()}`,
       type: story.fileUrl.match(/\.(mp4|webm|ogg)$/i) ? 'video' : 'image',
       duration: 5000,
     }));
@@ -158,6 +158,11 @@ export default function StoryModal() {
     // For others' stories, track view
     const trackView = async () => {
       try {
+        if (!currentStory?.id) {
+          console.error("No story ID available");
+          return;
+        }
+
         const response = await axios.post('/api/stories/view', {
           storyIds: [currentStory.id]
         });
@@ -191,6 +196,7 @@ export default function StoryModal() {
           }
         }
       } catch (error) {
+        console.error("Failed to track story view:", error);
         setError("Failed to track story view");
       }
     };
@@ -349,7 +355,7 @@ export default function StoryModal() {
                           const mediaUrl = story?.url 
                             ? (story.url.startsWith('http') 
                               ? story.url 
-                              : `https://social-land.ro/public/uploads/stories/${story.url.split('/').pop()}`)
+                              : `https://social-land.ro/uploads/stories/${story.url.split('/').pop()}`)
                             : '';
                           if (!mediaUrl) return null;
                           

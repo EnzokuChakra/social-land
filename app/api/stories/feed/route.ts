@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { Story as PrismaStory } from "@prisma/client";
+import type { story as PrismaStory } from "@prisma/client";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -41,7 +41,7 @@ export async function GET() {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     // Get user's stories with fresh user data
-    const userStories = await prisma.story.findMany({
+    const userStories = await prisma?.story.findMany({
       where: {
         user_id: userId,
         createdAt: {
@@ -89,10 +89,13 @@ export async function GET() {
       orderBy: {
         createdAt: 'asc', // Show oldest stories first
       },
-    });
+    }) || [];
+
+    // Filter out stories with null users
+    const validUserStories = userStories.filter(story => story.user !== null);
 
     // Get following users' stories
-    const following = await prisma.follows.findMany({
+    const following = await prisma?.follows.findMany({
       where: {
         followerId: userId,
         status: "ACCEPTED",
@@ -100,11 +103,11 @@ export async function GET() {
       select: {
         followingId: true,
       },
-    });
+    }) || [];
 
     const followingIds = following.map((f: { followingId: string }) => f.followingId);
 
-    const otherStories = await prisma.story.findMany({
+    const otherStories = await prisma?.story.findMany({
       where: {
         user_id: {
           in: followingIds,
@@ -154,10 +157,13 @@ export async function GET() {
       orderBy: {
         createdAt: 'asc', // Show oldest stories first
       },
-    });
+    }) || [];
+
+    // Filter out stories with null users
+    const validOtherStories = otherStories.filter(story => story.user !== null);
 
     // Group stories by user
-    const groupedOtherStories = otherStories.reduce((acc: { [key: string]: Story[] }, story: Story) => {
+    const groupedOtherStories = validOtherStories.reduce((acc: { [key: string]: Story[] }, story: Story) => {
       if (!acc[story.user.id]) {
         acc[story.user.id] = [];
       }
@@ -172,7 +178,7 @@ export async function GET() {
       ));
 
     // Get fresh user data for the current user
-    const currentUser = await prisma.user.findUnique({
+    const currentUser = await prisma?.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
@@ -184,7 +190,7 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      userStories: userStories.length > 0 ? userStories : [],
+      userStories: validUserStories.length > 0 ? validUserStories : [],
       otherStories: sortedOtherStories.flat(),
       currentUser,
     });
