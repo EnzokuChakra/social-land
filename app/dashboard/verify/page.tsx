@@ -98,6 +98,8 @@ export default function VerifyPage() {
         throw new Error(error || "Failed to submit request");
       }
 
+      const data = await response.json();
+
       // Add a small delay for the animation
       await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -107,7 +109,7 @@ export default function VerifyPage() {
         status: "PENDING"
       });
       
-      toast.success("Verification request submitted successfully");
+      toast.success(data.message || "Verification request submitted successfully");
     } catch (error) {
       console.error("Error submitting verification request:", error);
       toast.error(error instanceof Error ? error.message : "Failed to submit verification request");

@@ -33,7 +33,11 @@ export async function POST() {
       },
     });
 
-    return NextResponse.json(request);
+    // Return the request with a success message
+    return NextResponse.json({
+      request,
+      message: "Verification request submitted successfully"
+    });
   } catch (error) {
     console.error("[VERIFICATION_REQUEST_POST]", error);
     return new NextResponse("Internal Error", { status: 500 });
