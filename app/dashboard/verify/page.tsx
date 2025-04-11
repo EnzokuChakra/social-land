@@ -16,6 +16,7 @@ import { useSocket } from "@/lib/hooks/use-socket";
 type VerificationStatus = {
   hasRequest: boolean;
   status: string | null;
+  isVerified: boolean;
 };
 
 export default function VerifyPage() {
@@ -25,7 +26,8 @@ export default function VerifyPage() {
   const isMobile = useMediaQuery("(max-width: 768px)");
   const [status, setStatus] = useState<VerificationStatus>({
     hasRequest: false,
-    status: null
+    status: null,
+    isVerified: false
   });
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,23 +48,24 @@ export default function VerifyPage() {
     if (socket && session?.user) {
       socket.on(`user:${session.user.id}`, async (data: any) => {
         if (data.type === "VERIFICATION_APPROVED") {
-          // Update the session without page reload
-          await updateSession({
-            ...session,
-            user: {
-              ...session.user,
-              verified: true
-            }
-          });
-          
-          // Show success message
-          toast.success(data.data.message);
-          
-          // Update local state
-          setStatus(prev => ({
-            ...prev,
-            status: "APPROVED"
-          }));
+          try {
+            // Update the session
+            await updateSession();
+            
+            // Force refresh the page to ensure all components update
+            router.refresh();
+            
+            // Show success message
+            toast.success(data.data.message);
+            
+            // Update local state
+            setStatus(prev => ({
+              ...prev,
+              status: "APPROVED"
+            }));
+          } catch (error) {
+            console.error("Error updating session:", error);
+          }
         }
       });
 
@@ -106,7 +109,8 @@ export default function VerifyPage() {
       // Update local state immediately
       setStatus({
         hasRequest: true,
-        status: "PENDING"
+        status: "PENDING",
+        isVerified: false
       });
       
       toast.success(data.message || "Verification request submitted successfully");
@@ -125,7 +129,7 @@ export default function VerifyPage() {
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
         </div>
-      ) : session?.user?.verified ? (
+      ) : status.isVerified ? (
         // Verified user view
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -196,7 +200,7 @@ export default function VerifyPage() {
             </Card>
           </div>
         </motion.div>
-      ) : status.hasRequest ? (
+      ) : status.hasRequest && status.status === "PENDING" ? (
         // Pending verification view
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}

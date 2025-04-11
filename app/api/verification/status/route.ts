@@ -9,6 +9,17 @@ export async function GET() {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
+    // Get the latest user data to check verified status
+    const user = await prisma.user.findUnique({
+      where: {
+        id: session.user.id,
+      },
+      select: {
+        verified: true,
+      },
+    });
+
+    // Get the latest verification request
     const request = await prisma.verificationRequest.findFirst({
       where: {
         userId: session.user.id,
@@ -21,6 +32,7 @@ export async function GET() {
     const data = {
       hasRequest: !!request,
       status: request?.status || null,
+      isVerified: user?.verified || false,
     };
 
     return NextResponse.json(data);
