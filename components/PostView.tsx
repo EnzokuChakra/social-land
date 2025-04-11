@@ -126,6 +126,15 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   const [lastDoubleTapTime, setLastDoubleTapTime] = useState(0);
   const [stories, setStories] = useState<any[]>([]);
   const [viewedStories, setViewedStories] = useState<Record<string, boolean>>({});
+  const [currentPost, setCurrentPost] = useState<PostWithExtras>(post);
+
+  // Prevent initial animation on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsOpen(true);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Memoize shouldShowStoryRing to prevent unnecessary calculations
   const shouldShowStoryRing = useMemo(() => {
@@ -182,8 +191,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     };
     return processedPost;
   }, [post]);
-
-  const [currentPost, setCurrentPost] = useState<PostWithExtras>(initialPostData);
 
   // Load viewed stories after initial render - use a more efficient approach
   useEffect(() => {
@@ -269,7 +276,6 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
   useEffect(() => {
     return () => {
       if (previousFocusRef.current && typeof previousFocusRef.current.focus === 'function') {
-        // Small delay to ensure proper focus restoration in CEF
         setTimeout(() => {
           previousFocusRef.current?.focus();
         }, 0);
@@ -277,25 +283,19 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     };
   }, []);
 
-  // Handle modal close
+  // Handle modal close with cleanup
   const handleModalClose = useCallback((open: boolean) => {
-    setIsOpen(open);
     if (!open) {
-      // Force focus back to the previous element in CEF
-      if (previousFocusRef.current && typeof previousFocusRef.current.focus === 'function') {
-        setTimeout(() => {
-          previousFocusRef.current?.focus();
-          router.back();
-        }, 0);
-      } else {
+      setIsOpen(false);
+      // Small delay to ensure smooth transition
+      setTimeout(() => {
+        if (previousFocusRef.current && typeof previousFocusRef.current.focus === 'function') {
+          previousFocusRef.current.focus();
+        }
         router.back();
-      }
+      }, 200);
     }
   }, [router]);
-
-  useEffect(() => {
-    setIsOpen(true);
-  }, [id]);
 
   // Socket event handlers for comments
   useEffect(() => {

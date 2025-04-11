@@ -22,13 +22,6 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link
-          rel="preload"
-          href="/_next/static/css/app/layout.css"
-          as="style"
-        />
-      </head>
       <body className={cn("min-h-screen bg-background font-sans antialiased", inter.className)} suppressHydrationWarning>
         <div className="relative flex min-h-screen flex-col" suppressHydrationWarning>
           <SessionProvider>

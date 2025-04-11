@@ -92,6 +92,7 @@ export default function Navbar() {
   const { isCollapsed, setIsCollapsed, navbarWidth } = useNavbar();
   const { notifications, refreshNotifications, isLoading, hasUnreadNotifications, markNotificationsAsSeen } = useNotifications();
   const isMobile = useMediaQuery("(max-width: 768px)");
+  const isSmallScreen = useMediaQuery("(max-width: 1024px)");
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { language, setLanguage, showLanguageToggle, setShowLanguageToggle } = useLanguage();
@@ -211,7 +212,7 @@ export default function Navbar() {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (showDropdown && !event.target?.closest('.dropdown-container')) {
+      if (showDropdown && dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setStates(prev => ({
           ...prev,
           showDropdown: false
@@ -236,12 +237,11 @@ export default function Navbar() {
   // Auto collapse on mobile
   useEffect(() => {
     if (isMobile) {
-      setStates(prev => ({
-        ...prev,
-        isCollapsed: true
-      }));
+      setIsCollapsed(true);
+    } else if (isSmallScreen) {
+      setIsCollapsed(true);
     }
-  }, [isMobile]);
+  }, [isMobile, isSmallScreen, setIsCollapsed]);
 
   // Update verification status check
   useEffect(() => {
@@ -413,14 +413,14 @@ export default function Navbar() {
     <>
       <nav 
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex h-full w-[240px] flex-col bg-white dark:bg-black border-r border-neutral-200 dark:border-neutral-800 transition-all duration-300 ease-in-out",
+          "fixed inset-y-0 left-0 z-50 flex h-full w-[240px] flex-col bg-white dark:bg-black border-r border-neutral-200 dark:border-neutral-800 shadow-lg transition-all duration-300 ease-in-out",
           isCollapsed && "w-[72px]",
           "max-md:hidden", // Hide on mobile using CSS, not relying on JS
           isMobile ? "hidden" : "flex" // Additional JS-based toggle for client-side
         )}
       >
-        {/* Collapse Toggle Button */}
-        {!isMobile && (
+        {/* Collapse Toggle Button - Only show on larger screens */}
+        {!isMobile && !isSmallScreen && (
           <Button
             variant="ghost"
             size="icon"

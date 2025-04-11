@@ -61,19 +61,10 @@ export default function PageLayout({
     }
   }, [session, status, router]);
 
-  const contentStyle = {
-    marginLeft: isMobile ? 0 : isCollapsed ? "88px" : "245px",
-    width: isMobile ? "100%" : `calc(100% - ${isCollapsed ? "88px" : "245px"})`,
-  };
-
   const contentClassName = cn(
     "min-h-screen transition-all duration-300 ease-in-out",
-    !noPadding && "px-4 sm:px-6 md:px-8 lg:px-12",
-    "pb-20 md:pb-0",
-    "md:ml-[88px] md:w-[calc(100%-88px)]",
-    "lg:ml-[245px] lg:w-[calc(100%-245px)]",
-    isCollapsed && "lg:ml-[88px] lg:w-[calc(100%-88px)]",
-    isMobile && "ml-0 w-full",
+    !noPadding && "p-4 md:p-6 lg:p-8",
+    "pb-20 md:pb-8",
     className
   );
 
