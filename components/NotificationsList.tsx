@@ -106,10 +106,17 @@ function NotificationsList({
         return;
       }
 
+      // Update follow requests state
+      setFollowRequests(prev => prev.filter(n => n.sender?.id !== senderId));
+      
+      // If this was the last follow request, close the follow requests view
+      if (followRequests.length === 1) {
+        setShowFollowRequests(false);
+      }
+
       if (action === "delete") {
-        setFollowRequests(prev => prev.filter(n => n.sender?.id !== senderId));
+        // No need to add to notifications for delete action
       } else if (action === "accept") {
-        setFollowRequests(prev => prev.filter(n => n.sender?.id !== senderId));
         const acceptedRequest = followRequests.find(r => r.sender?.id === senderId);
         if (acceptedRequest?.sender) {
           setNotifications(prev => [
@@ -137,13 +144,14 @@ function NotificationsList({
           : "Follow request removed"
       );
 
-      router.refresh();
+      // Force a hard refresh to update all profile data
+      window.location.reload();
     } catch (error) {
       console.error("Error handling follow request:", error);
       setRequestStates(prev => ({ ...prev, [senderId]: "pending" }));
       toast.error(`Failed to ${action} follow request`);
     }
-  }, [router, followRequests]);
+  }, [followRequests]);
 
   const handleFollowRequestAction = useCallback((notificationId: string) => {
     setFollowRequests(prev => prev.filter(request => request.id !== notificationId));

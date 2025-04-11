@@ -16,6 +16,15 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { useState } from "react";
 import { Input } from "./ui/input";
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+
+async function fetchFollowing(username: string): Promise<FollowingWithExtras[]> {
+  const response = await fetch(`/api/users/following?username=${username}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch following');
+  }
+  return response.json();
+}
 
 export default function FollowingModal({
   following,
@@ -33,13 +42,22 @@ export default function FollowingModal({
   const { data: session } = useSession();
   const mount = useMount();
   const [searchQuery, setSearchQuery] = useState("");
+  const queryClient = useQueryClient();
+
+  // Use the following query
+  const { data: currentFollowing = following } = useQuery<FollowingWithExtras[]>({
+    queryKey: ['following', username],
+    queryFn: () => fetchFollowing(username),
+    initialData: following,
+    staleTime: 0
+  });
 
   console.log("[FOLLOWING_MODAL] Props:", {
     username,
     isPrivate,
     isFollowing,
-    followingCount: following?.length,
-    following: following?.map(f => ({
+    followingCount: currentFollowing?.length,
+    following: currentFollowing?.map(f => ({
       id: f.id,
       username: f.username,
       followingId: f.followingId
@@ -61,7 +79,7 @@ export default function FollowingModal({
     );
   }
 
-  const filteredFollowing = following.filter(user => 
+  const filteredFollowing = currentFollowing.filter(user => 
     user.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -120,7 +138,6 @@ export default function FollowingModal({
                       isFollowing={user.status === "ACCEPTED"}
                       hasPendingRequest={user.status === "PENDING"}
                       isPrivate={user.isPrivate}
-                      isFollowedByUser={false}
                       className="h-9 min-w-[104px]"
                       variant="profile"
                     />

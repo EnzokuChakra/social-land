@@ -89,6 +89,17 @@ export default function StoryModal() {
   const [storyToReport, setStoryToReport] = useState<Story | null>(null);
   const [storiesConfig, setStoriesConfig] = useState<any[]>([]);
   const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
+  const isMounted = useRef(true);
+
+  // Reset states when modal opens
+  useEffect(() => {
+    if (storyModal.isOpen) {
+      setIsLoading(false);
+      setError(null);
+      setCurrentStoryIndex(0);
+      setStoriesConfig([]);
+    }
+  }, [storyModal.isOpen]);
 
   const currentUserStories = storyModal.userStories[storyModal.currentUserIndex];
   const currentStory = currentUserStories?.stories[currentStoryIndex];
@@ -111,7 +122,10 @@ export default function StoryModal() {
 
   // Update the useEffect for stories configuration
   useEffect(() => {
-    if (!currentUserStories?.stories) return;
+    if (!currentUserStories?.stories) {
+      setStoriesConfig([]);
+      return;
+    }
 
     const config = currentUserStories.stories.map((story) => ({
       url: story.fileUrl.startsWith('http') 
@@ -126,11 +140,57 @@ export default function StoryModal() {
 
   // Reset currentStoryIndex when user changes
   useEffect(() => {
-    setCurrentStoryIndex(0);
+    if (isMounted.current) {
+      setCurrentStoryIndex(0);
+    }
   }, [storyModal.currentUserIndex]);
 
-  // Handle navigation between stories
-  const handlePrevStory = () => {
+  // Function to check if a story has been viewed
+  const isStoryViewed = useCallback((story: Story) => {
+    if (!session?.user?.id) return false;
+    const storageKey = `viewed_stories_${story.user.id}_${session.user.id}`;
+    const storedViewedStories = localStorage.getItem(storageKey);
+    const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
+    return !!viewedStories[story.id];
+  }, [session?.user?.id]);
+
+  // Function to find next user with unviewed stories
+  const findNextUserWithUnviewedStories = useCallback((startIndex: number) => {
+    let nextUserIndex = startIndex;
+    while (nextUserIndex < storyModal.userStories.length) {
+      const nextUserStories = storyModal.userStories[nextUserIndex];
+      const hasUnviewedStories = nextUserStories.stories.some(story => !isStoryViewed(story));
+      if (hasUnviewedStories) {
+        return nextUserIndex;
+      }
+      nextUserIndex++;
+    }
+    return -1;
+  }, [storyModal.userStories, isStoryViewed]);
+
+  const handleNextStory = useCallback(() => {
+    if (!isMounted.current) return;
+
+    if (currentStoryIndex < (currentUserStories?.stories.length || 0) - 1) {
+      // If there are more stories from current user, show next story
+      setCurrentStoryIndex(prev => prev + 1);
+    } else {
+      // Current user's stories are finished, look for next user with unviewed stories
+      const nextUserIndex = findNextUserWithUnviewedStories(storyModal.currentUserIndex + 1);
+      
+      if (nextUserIndex !== -1) {
+        storyModal.setCurrentUserIndex(nextUserIndex);
+        setCurrentStoryIndex(0);
+      } else {
+        // No more unviewed stories found, close the modal
+        storyModal.onClose();
+      }
+    }
+  }, [currentStoryIndex, currentUserStories?.stories.length, storyModal, findNextUserWithUnviewedStories]);
+
+  const handlePrevStory = useCallback(() => {
+    if (!isMounted.current) return;
+
     if (currentStoryIndex > 0) {
       setCurrentStoryIndex(prev => prev - 1);
     } else if (storyModal.currentUserIndex > 0) {
@@ -142,124 +202,57 @@ export default function StoryModal() {
         setCurrentStoryIndex(prevUserStories.stories.length - 1);
       }
     }
-  };
+  }, [currentStoryIndex, storyModal]);
 
-  const handleNextStory = () => {
-    if (currentStoryIndex < (currentUserStories?.stories.length || 0) - 1) {
-      // If there are more stories from current user, show next story
-      setCurrentStoryIndex(prev => prev + 1);
-    } else {
-      // Current user's stories are finished, look for next user with unviewed stories
-      let nextUserIndex = storyModal.currentUserIndex + 1;
-      let foundUnviewedStories = false;
+  // Handle story view tracking
+  const trackStoryView = useCallback(async (storyId: string) => {
+    if (!session?.user?.id || !isMounted.current) return;
 
-      // Loop through remaining users to find one with unviewed stories
-      while (nextUserIndex < storyModal.userStories.length) {
-        const nextUserStories = storyModal.userStories[nextUserIndex];
-        const hasUnviewedStories = nextUserStories.stories.some(story => {
-          if (!session?.user?.id) return true;
-          const storageKey = `viewed_stories_${story.user.id}_${session.user.id}`;
-          const storedViewedStories = localStorage.getItem(storageKey);
-          const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
-          return !viewedStories[story.id];
-        });
+    try {
+      const response = await axios.post('/api/stories/view', {
+        storyIds: [storyId]
+      });
 
-        if (hasUnviewedStories) {
-          foundUnviewedStories = true;
-          storyModal.setCurrentUserIndex(nextUserIndex);
-          setCurrentStoryIndex(0);
-          break;
-        }
-        nextUserIndex++;
-      }
-
-      // If no more unviewed stories found, close the modal
-      if (!foundUnviewedStories) {
-        storyModal.onClose();
-      }
-    }
-  };
-
-  // Track view when story is opened
-  useEffect(() => {
-    if (!currentStory || !session?.user?.id) {
-      return;
-    }
-
-    const isOwnStory = currentStory.user.id === session.user.id;
-
-    // For own stories, just update localStorage and UI without creating a view record
-    if (isOwnStory) {
-      if (session?.user?.id && currentStory.user.id) {
-        const storageKey = `viewed_stories_${currentStory.user.id}_${session.user.id}`;
+      if (response.data.success) {
+        // Update localStorage
+        const storageKey = `viewed_stories_${currentStory?.user.id}_${session.user.id}`;
         const storedViewedStories = localStorage.getItem(storageKey);
         const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
-        viewedStories[currentStory.id] = true;
+        viewedStories[storyId] = true;
         localStorage.setItem(storageKey, JSON.stringify(viewedStories));
 
-        // Dispatch event to update UI
-        const event = new CustomEvent('storyViewed', {
-          detail: {
-            userId: currentStory.user.id,
-            storyId: currentStory.id,
-            viewerId: session.user.id,
-            viewedStories,
-            isOwnStory: true
-          }
+        // Emit socket event
+        socket?.emit('storyViewUpdate', {
+          storyId: storyId,
+          userId: session.user.id,
+          timestamp: new Date().toISOString()
         });
-        window.dispatchEvent(event);
       }
-      return;
+    } catch (error) {
+      console.error("Failed to track story view:", error);
     }
+  }, [session?.user?.id, currentStory?.user.id, socket]);
 
-    // For others' stories, track view
-    const trackView = async () => {
-      try {
-        if (!currentStory?.id) {
-          console.error("No story ID available");
-          return;
-        }
+  // Track view when story changes
+  useEffect(() => {
+    if (currentStory?.id) {
+      trackStoryView(currentStory.id);
+    }
+  }, [currentStory?.id, trackStoryView]);
 
-        const response = await axios.post('/api/stories/view', {
-          storyIds: [currentStory.id]
-        });
-
-        if (response.data.success) {
-          // Emit socket event for real-time updates
-          socket?.emit('storyViewUpdate', {
-            storyId: currentStory.id,
-            userId: session.user.id,
-            timestamp: new Date().toISOString()
-          });
-
-          // Update localStorage
-          if (session?.user?.id && currentStory.user.id) {
-            const storageKey = `viewed_stories_${currentStory.user.id}_${session.user.id}`;
-            const storedViewedStories = localStorage.getItem(storageKey);
-            const viewedStories = storedViewedStories ? JSON.parse(storedViewedStories) : {};
-            viewedStories[currentStory.id] = true;
-            localStorage.setItem(storageKey, JSON.stringify(viewedStories));
-
-            // Dispatch event to update UI
-            const event = new CustomEvent('storyViewed', {
-              detail: {
-                userId: currentStory.user.id,
-                storyId: currentStory.id,
-                viewerId: session.user.id,
-                viewedStories
-              }
-            });
-            window.dispatchEvent(event);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to track story view:", error);
-        setError("Failed to track story view");
-      }
-    };
-
-    trackView();
-  }, [currentStory?.id, session?.user?.id, socket]);
+  // Handle modal close
+  const handleModalClose = useCallback(() => {
+    if (!isMounted.current) return;
+    
+    setIsLoading(false);
+    setError(null);
+    setCurrentStoryIndex(0);
+    setStoriesConfig([]);
+    storyModal.onClose();
+    
+    // Force refresh the stories feed
+    router.refresh();
+  }, [storyModal, router]);
 
   // Handle like functionality
   const handleLike = async () => {
@@ -369,7 +362,7 @@ export default function StoryModal() {
 
   return (
     <>
-      <Dialog open={storyModal.isOpen} onOpenChange={storyModal.onClose}>
+      <Dialog open={storyModal.isOpen} onOpenChange={handleModalClose}>
         <DialogContent 
           className="max-w-4xl h-[calc(100vh-2rem)] p-0 overflow-hidden bg-neutral-900 border-none"
           showCloseButton={false}
@@ -403,9 +396,7 @@ export default function StoryModal() {
                     width="100%"
                     height="100%"
                     currentIndex={currentStoryIndex}
-                    onAllStoriesEnd={() => {
-                      handleNextStory();
-                    }}
+                    onAllStoriesEnd={handleNextStory}
                     renderers={[
                       {
                         renderer: (props: any) => {

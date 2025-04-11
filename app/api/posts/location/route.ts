@@ -69,7 +69,14 @@ export async function GET(request: Request) {
               id: true,
               username: true,
               image: true,
-              verified: true
+              verified: true,
+              isPrivate: true,
+              followers: {
+                where: {
+                  followerId: session.user.id,
+                  status: "ACCEPTED"
+                }
+              }
             }
           },
           likes: {
@@ -99,10 +106,10 @@ export async function GET(request: Request) {
 
       console.log(`Found ${posts.length} posts for location: "${location}"`);
 
-      // Get total count for pagination
+      // Get total count for pagination with the same visibility rules
       const total = await prisma.post.count({
         where: {
-          location: location, // Exact match only
+          location: location,
           OR: [
             {
               user: {

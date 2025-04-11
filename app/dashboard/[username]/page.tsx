@@ -123,6 +123,9 @@ interface ProfilePageProps {
 }
 
 export default async function ProfilePage({ params }: { params: { username: string } }) {
+  // Add noStore() to prevent caching
+  noStore();
+  
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
@@ -136,27 +139,55 @@ export default async function ProfilePage({ params }: { params: { username: stri
     notFound();
   }
 
+  // Fetch fresh profile data
   const profile = await fetchProfile(username);
   if (!profile) {
     notFound();
   }
 
-  const profileWithExtras = {
-    ...profile,
-    followers: profile.followers || [],
-    following: profile.following || [],
-  };
+  // Check follow status directly from the database
+  const followStatus = db ? await db.follows.findUnique({
+    where: {
+      followerId_followingId: {
+        followerId: session.user.id,
+        followingId: profile.id
+      }
+    }
+  }) : null;
 
-  const isCurrentUser = session.user.id === profileWithExtras.id;
-  const isFollowing = profileWithExtras.followers.some(
-    (follow) => follow.followerId === session.user.id && follow.status === "ACCEPTED"
-  );
-  const hasPendingRequest = profileWithExtras.followers.some(
-    (follow) => follow.followerId === session.user.id && follow.status === "PENDING"
-  );
-  const isFollowedByUser = profileWithExtras.followers.some(
-    (follow) => follow.followingId === session.user.id && follow.status === "ACCEPTED"
-  );
+  const isFollowing = followStatus?.status === "ACCEPTED";
+  const hasPendingRequest = followStatus?.status === "PENDING";
+  
+  // Check if the profile owner follows the current user
+  const reverseFollowStatus = db ? await db.follows.findUnique({
+    where: {
+      followerId_followingId: {
+        followerId: profile.id,
+        followingId: session.user.id
+      }
+    }
+  }) : null;
+
+  const isFollowedByUser = reverseFollowStatus?.status === "ACCEPTED";
+  const isCurrentUser = session.user.id === profile.id;
+
+  const profileWithExtras: UserWithExtras = {
+    ...profile,
+    role: profile.role as UserRole,
+    status: profile.status as UserStatus,
+    followers: [],
+    following: [],
+    posts: profile.posts || [],
+    savedPosts: [],
+    stories: [],
+    followersCount: profile.followers?.length || 0,
+    followingCount: profile.following?.length || 0,
+    hasActiveStory: false,
+    isFollowing,
+    hasPendingRequest,
+    isFollowedByUser,
+    hasPendingRequestFromUser: false
+  };
 
   // Check if user is blocked - with error handling
   let isBlocked = false;

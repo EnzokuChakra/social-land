@@ -79,10 +79,18 @@ export default function FollowersModal({
     );
   }
 
+  // Filter followers based on search query
   const filteredFollowers = currentFollowers.filter(user => 
     user.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Sort followers: users with "ACCEPTED" status first, then others
+  const sortedFollowers = [...filteredFollowers].sort((a, b) => {
+    if (a.status === "ACCEPTED" && b.status !== "ACCEPTED") return -1;
+    if (a.status !== "ACCEPTED" && b.status === "ACCEPTED") return 1;
+    return 0;
+  });
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -106,13 +114,13 @@ export default function FollowersModal({
         </div>
 
         <ScrollArea className="h-96 overflow-y-auto">
-          {filteredFollowers.length === 0 ? (
+          {sortedFollowers.length === 0 ? (
             <div className="p-4 text-center text-muted-foreground">
               {searchQuery ? "No results found" : `${username} has no followers yet`}
             </div>
           ) : (
             <div className="flex flex-col">
-              {filteredFollowers.map((user) => (
+              {sortedFollowers.map((user) => (
                 <div 
                   key={user.id} 
                   className="flex items-center justify-between p-4 hover:bg-muted/40 transition"
@@ -138,7 +146,6 @@ export default function FollowersModal({
                       isFollowing={user.status === "ACCEPTED"}
                       hasPendingRequest={user.status === "PENDING"}
                       isPrivate={user.isPrivate}
-                      isFollowedByUser={false}
                       className="h-9 min-w-[104px]"
                       variant="profile"
                     />
