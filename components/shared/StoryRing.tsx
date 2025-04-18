@@ -50,6 +50,7 @@ export default function StoryRing({
   const [profileImage, setProfileImage] = useState<string | null>(user.image);
   const imageTimestampRef = useRef<number>(Date.now());
   const imageCheckAttemptsRef = useRef<number>(0);
+  const [hasViewedStory, setHasViewedStory] = useState(false);
   
   // Add profile update handler
   useEffect(() => {
@@ -202,20 +203,6 @@ export default function StoryRing({
   const fetchStoryViewStatus = useCallback(async () => {
     if (!session?.user?.id || !user.id || !shouldShowStoryRing) return;
 
-    // Check localStorage first for non-current users
-    if (!isCurrentUser) {
-      try {
-        const storageKey = `story_viewed_${user.id}_${session.user.id}`;
-        const isViewed = localStorage.getItem(storageKey) === 'true';
-        if (isViewed) {
-          setHasUnviewedStories(false);
-          return;
-        }
-      } catch (error) {
-        console.error('Error checking stored view state:', error);
-      }
-    }
-
     // Debounce check
     const now = Date.now();
     if (now - lastFetchRef.current < 300) return;
@@ -241,15 +228,6 @@ export default function StoryRing({
           const data = await response.json();
           if (data.success) {
             setHasUnviewedStories(!data.viewed);
-            // Store viewed state in localStorage
-            if (data.viewed) {
-              try {
-                const storageKey = `story_viewed_${user.id}_${session.user.id}`;
-                localStorage.setItem(storageKey, 'true');
-              } catch (error) {
-                console.error('Error storing view state:', error);
-              }
-            }
           }
         }
       }
@@ -280,6 +258,7 @@ export default function StoryRing({
       if (!data.success) throw new Error(data.error || 'Failed to fetch stories');
 
       setStories(data.data);
+      setHasViewedStory(true);
 
       // Open story modal
       storyModal.setUserId(user.id);
@@ -294,6 +273,28 @@ export default function StoryRing({
     }
   }, [hasStories, session?.user?.id, user.id, onAvatarClick, storyModal]);
 
+  // Initialize viewed state from localStorage
+  useEffect(() => {
+    if (user?.id) {
+      const storageKey = `viewed_story_${user.id}`;
+      const lastViewed = localStorage.getItem(storageKey);
+      const hasNewStory = stories.some(story => {
+        const storyDate = new Date(story.createdAt);
+        const lastViewedDate = lastViewed ? new Date(lastViewed) : null;
+        return !lastViewedDate || storyDate > lastViewedDate;
+      });
+      setHasViewedStory(!hasNewStory);
+    }
+  }, [user?.id, stories]);
+
+  // Update localStorage when story is viewed
+  useEffect(() => {
+    if (hasViewedStory && user?.id) {
+      const storageKey = `viewed_story_${user.id}`;
+      localStorage.setItem(storageKey, new Date().toISOString());
+    }
+  }, [hasViewedStory, user?.id]);
+
   // Handle story events with improved state management
   useEffect(() => {
     let isMounted = true;
@@ -307,6 +308,7 @@ export default function StoryRing({
           if (isCurrentUser) {
             isNewlyUploadedRef.current = false;
             setHasUnviewedStories(false);
+            setHasViewedStory(true);
           } else {
             const updatedMap = { ...viewedStoriesMap };
             stories.forEach(story => {
@@ -314,14 +316,7 @@ export default function StoryRing({
             });
             setViewedStoriesMap(updatedMap);
             setHasUnviewedStories(false);
-            
-            // Store viewed state in localStorage to prevent reverting
-            try {
-              const storageKey = `story_viewed_${user.id}_${session.user.id}`;
-              localStorage.setItem(storageKey, 'true');
-            } catch (error) {
-              console.error('Error storing view state:', error);
-            }
+            setHasViewedStory(true);
           }
         }
       }
@@ -361,6 +356,13 @@ export default function StoryRing({
         setStories(prev => [event.detail.story, ...prev]);
         setHasUnviewedStories(true);
         isNewlyUploadedRef.current = true;
+        setHasViewedStory(false);
+        
+        // Clear the viewed state from localStorage
+        if (user.id) {
+          const storageKey = `viewed_story_${user.id}`;
+          localStorage.removeItem(storageKey);
+        }
         
         // Update the user's hasActiveStory property
         if ('hasActiveStory' in user) {
@@ -441,39 +443,67 @@ export default function StoryRing({
     fetchStoryViewStatus();
   }, [shouldShowStoryRing, fetchStoryViewStatus, user.id, user.username, isCurrentUser]);
 
+  useEffect(() => {
+    if (user?.id) {
+      const fetchViewStatus = async () => {
+        try {
+          const response = await fetch(`/api/stories/${user.id}/view-status`);
+          if (response.ok) {
+            const data = await response.json();
+            setHasViewedStory(data.hasViewed);
+          }
+        } catch (error) {
+          console.error('Error fetching story view status:', error);
+        }
+      };
+
+      fetchViewStatus();
+    }
+  }, [user?.id, stories]);
+
+  useEffect(() => {
+    if (socket) {
+      socket.on('storyViewed', (data: { userId: string }) => {
+        if (data.userId === user?.id) {
+          setHasViewedStory(true);
+        }
+      });
+
+      socket.on('storyUploaded', (data: { userId: string }) => {
+        if (data.userId === user?.id) {
+          setHasViewedStory(false);
+        }
+      });
+
+      return () => {
+        socket.off('storyViewed');
+        socket.off('storyUploaded');
+      };
+    }
+  }, [socket, user?.id]);
+
+  const showRing = user?.hasActiveStory && 
+    (!user.isPrivate || user.isFollowing);
+
   return (
-    <button
-      onClick={handleStoryClick}
-      className={cn(
-        "flex flex-col items-center space-y-1",
-        !hasStories && "cursor-default",
-        className
-      )}
-    >
-      <div
-        className={cn(
-          "rounded-full h-[62px] w-[62px] flex items-center justify-center p-[2px]",
-          hasStories && !isCurrentUser && hasUnviewedStories && "bg-gradient-to-tr from-yellow-400 to-fuchsia-600",
-          hasStories && !isCurrentUser && !hasUnviewedStories && "bg-gray-400 dark:bg-gray-400",
-          hasStories && isCurrentUser && hasUnviewedStories && "bg-gradient-to-tr from-yellow-400 to-fuchsia-600",
-          hasStories && isCurrentUser && !hasUnviewedStories && "bg-gray-400 dark:bg-gray-400",
-          !hasStories && isCurrentUser && "bg-transparent"
-        )}
+    <div className="flex flex-col items-center space-y-1">
+      <button
+        onClick={handleStoryClick}
+        className={`rounded-full ${size === 'sm' ? 'h-[62px] w-[62px]' : 'h-[72px] w-[72px]'} flex items-center justify-center p-[2px] ${showRing ? (hasViewedStory ? 'bg-gray-400 dark:bg-gray-400' : 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500') : 'bg-transparent'}`}
       >
         <div className="rounded-full bg-white dark:bg-black p-[2px] h-full w-full flex items-center justify-center">
           <UserAvatar
-            user={{...user, image: profileImage}}
-            className={sizeClasses[size]}
+            user={user}
+            className={size === 'sm' ? 'h-14 w-14' : 'h-16 w-16'}
             priority={true}
           />
         </div>
-      </div>
-      
+      </button>
       {showUsername && (
         <span className="text-xs truncate max-w-[64px]">
-          {isCurrentUser ? "Your story" : user.username}
+          {user.id === session?.user?.id ? 'Your story' : user.username}
         </span>
       )}
-    </button>
+    </div>
   );
 } 

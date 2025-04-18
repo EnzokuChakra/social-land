@@ -211,27 +211,12 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
     if (typeof window === 'undefined') return false;
     
     const isCurrentUser = session?.user?.id === post.user.id;
-    const storageKey = `viewed_stories_${post.user.id}_${session?.user?.id}`;
     
     if (isCurrentUser) {
-      const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
-      const lastViewed = localStorage.getItem(lastViewedKey);
-      if (!lastViewed) return true;
-      
-      const lastViewedDate = new Date(lastViewed);
-      return stories.some(story => new Date(story.createdAt) > lastViewedDate);
+      return stories.some(story => !story.views?.some(view => view.user_id === session?.user?.id));
     }
     
-    const storedViewedStories = localStorage.getItem(storageKey);
-    if (!storedViewedStories) return true;
-    
-    try {
-      const viewedStories = JSON.parse(storedViewedStories);
-      return stories.some(story => !viewedStories[story.id]);
-    } catch (error) {
-      console.error("Error parsing viewed stories:", error);
-      return true;
-    }
+    return stories.some(story => !story.views?.some(view => view.user_id === session?.user?.id));
   }, [post.user.hasActiveStory, post.user.id, session?.user?.id, stories]);
 
   // Memoize the initial post data
@@ -313,17 +298,11 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
 
       clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        const storageKey = `viewed_stories_${post.user.id}_${session.user.id}`;
-        const viewedStories = event.detail.viewedStories || {};
-        
-        if (event.detail.isOwnStory) {
-          const lastViewedKey = `last_viewed_own_stories_${session.user.id}`;
-          localStorage.setItem(lastViewedKey, new Date().toISOString());
-        }
-        
         setViewedStories(prevStories => {
-          const newStories = { ...prevStories, ...viewedStories };
-          localStorage.setItem(storageKey, JSON.stringify(newStories));
+          const newStories = { ...prevStories };
+          stories.forEach(story => {
+            newStories[story.id] = true;
+          });
           return newStories;
         });
       }, 100);
@@ -334,7 +313,7 @@ function PostView({ id, post }: { id: string; post: PostWithExtras }) {
       window.removeEventListener('storyViewed', handleStoryViewed as EventListener);
       clearTimeout(timeoutId);
     };
-  }, [post.user.id, session?.user?.id, isInitialRender]);
+  }, [post.user.id, session?.user?.id, isInitialRender, stories]);
 
   // Save previous focus when opening modal
   useEffect(() => {

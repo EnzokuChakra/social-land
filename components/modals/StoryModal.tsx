@@ -303,14 +303,6 @@ export default function StoryModal() {
     if (!isMounted.current) return;
     
     if (currentStory && session?.user?.id) {
-      // Ensure all stories from this user are marked as viewed in localStorage
-      try {
-        const storageKey = `story_viewed_${currentStory.user.id}_${session.user.id}`;
-        localStorage.setItem(storageKey, 'true');
-      } catch (error) {
-        console.error('Error storing view state:', error);
-      }
-
       // Dispatch appropriate events
       if (currentStory.user.id === session?.user?.id) {
         window.dispatchEvent(new CustomEvent('ownStoriesViewed'));
@@ -325,6 +317,55 @@ export default function StoryModal() {
     
     storyModal.onClose();
   }, [currentStory, session?.user?.id, storyModal]);
+
+  // Record story view
+  useEffect(() => {
+    if (!currentStory?.id || !session?.user?.id || viewedStoryIds.has(currentStory.id)) return;
+
+    const recordView = async () => {
+      try {
+        const response = await fetch('/api/stories/view', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            storyIds: [currentStory.id]
+          }),
+        });
+
+        if (response.ok) {
+          // Update local state
+          const newViewedStoryIds = new Set(viewedStoryIds);
+          newViewedStoryIds.add(currentStory.id);
+          setViewedStoryIds(newViewedStoryIds);
+          setViewsCount(prev => prev + 1);
+          
+          // Emit socket event for real-time updates
+          socket.emit('storyView', {
+            userId: currentStory.user.id,
+            storyId: currentStory.id,
+            viewerId: session.user.id
+          });
+
+          // Dispatch appropriate event for story ring updates
+          if (currentStory.user.id === session.user.id) {
+            window.dispatchEvent(new CustomEvent('ownStoriesViewed'));
+          } else {
+            window.dispatchEvent(new CustomEvent('otherStoriesViewed', {
+              detail: {
+                userId: currentStory.user.id
+              }
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error recording story view:', error);
+      }
+    };
+
+    recordView();
+  }, [currentStory?.id, session?.user?.id, socket, viewedStoryIds]);
 
   // Prepare viewers data for the modal, excluding the story owner
   const viewers = useMemo<StoryViewer[]>(() => {

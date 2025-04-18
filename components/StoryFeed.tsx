@@ -314,16 +314,16 @@ export default function StoryFeed({
           <div className="flex space-x-4" ref={scrollContainerRef}>
             {/* Current user's story */}
             <div className="flex flex-col items-center space-y-1">
-              <div className="rounded-full h-[62px] w-[62px] flex items-center justify-center p-[2px] bg-transparent">
-                <div className="rounded-full bg-white dark:bg-black p-[2px] h-full w-full flex items-center justify-center">
-                  <UserAvatar
-                    user={currentUser}
-                    className="h-14 w-14"
-                    priority={true}
-                  />
-                </div>
-              </div>
-              <span className="text-xs truncate max-w-[64px]">Your story</span>
+              <StoryRing
+                user={{
+                  ...currentUser,
+                  hasActiveStory: userStories.length > 0,
+                  isFollowing: false
+                }}
+                stories={userStories}
+                showUsername
+                size="md"
+              />
             </div>
 
             {userStoriesArray.length > 0 && (

@@ -314,19 +314,11 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
 
     const handleStoryViewed = (event: CustomEvent) => {
       if (event.detail.userId === comment?.user?.id && session?.user?.id) {
-        const storageKey = `viewed_stories_${comment?.user?.id}_${session?.user?.id}`;
-        const viewedStories = event.detail.viewedStories || {};
-        
-        // If it's the user's own story, update the last viewed timestamp
-        if (event.detail.isOwnStory) {
-          const lastViewedKey = `last_viewed_own_stories_${session?.user?.id}`;
-          localStorage.setItem(lastViewedKey, new Date().toISOString());
-        }
-        
-        // Update the state with the new viewed stories
         setViewedStories(prevStories => {
-          const newStories = { ...prevStories, ...viewedStories };
-          localStorage.setItem(storageKey, JSON.stringify(newStories));
+          const newStories = { ...prevStories };
+          stories?.forEach(story => {
+            newStories[story.id] = true;
+          });
           return newStories;
         });
       }
@@ -336,7 +328,7 @@ function Comment({ comment: initialComment, replies, inputRef, postUserId, onRep
     return () => {
       window.removeEventListener('storyViewed', handleStoryViewed as EventListener);
     };
-  }, [comment?.user?.id, session?.user?.id]);
+  }, [comment?.user?.id, session?.user?.id, stories]);
 
   // Check if there are unviewed stories
   const hasUnviewedStories = useMemo(() => {
