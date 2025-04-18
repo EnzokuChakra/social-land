@@ -406,14 +406,9 @@ export default function EventsPage() {
         
         const data = await response.json();
         
-        if (!Array.isArray(data)) {
-          console.error('[EVENTS_PAGE] Received non-array data:', data);
-          setEvents([]);
-          return;
-        }
-        
-        // Removed filter validation and directly set events
-        setEvents(data);
+        // Ensure data is an array
+        const eventsArray = Array.isArray(data) ? data : [];
+        setEvents(eventsArray);
       } catch (error) {
         console.error('[EVENTS_PAGE] Error fetching events:', error);
         toast.error("Failed to load events");
