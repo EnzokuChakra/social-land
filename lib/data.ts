@@ -1337,9 +1337,6 @@ export async function fetchUserStories(userId: string) {
           }
         },
         views: {
-          where: {
-            user_id: userId
-          },
           include: {
             user: true
           }
