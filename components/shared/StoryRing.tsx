@@ -156,7 +156,7 @@ export default function StoryRing({
 
   // Initialize view state from server
   useEffect(() => {
-    if (!session?.user?.id || !user.id || !shouldShowStoryRing) return;
+    if (!session?.user?.id || !user.id) return;
 
     const fetchViewState = async () => {
       try {
@@ -183,7 +183,7 @@ export default function StoryRing({
     };
 
     fetchViewState();
-  }, [session?.user?.id, user.id, shouldShowStoryRing, isCurrentUser]);
+  }, [session?.user?.id, user.id, isCurrentUser]);
 
   // Size mappings
   const sizeClasses = {
