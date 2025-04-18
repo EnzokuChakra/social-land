@@ -44,10 +44,16 @@ export default function StoryFeed({
       name: session?.user?.name || null,
       isPrivate: false,
       isFollowing: false,
-      hasActiveStory: userStories.length > 0,
+      hasActiveStory: userStories.some(story => {
+        const storyDate = new Date(story.createdAt);
+        const now = new Date();
+        const diff = now.getTime() - storyDate.getTime();
+        const hours = diff / (1000 * 60 * 60);
+        return hours < 24;
+      }),
       verified: session?.user?.verified || false
     };
-  }, [session?.user, userStories.length, currentUserImage]);
+  }, [session?.user, userStories, currentUserImage]);
 
   // Fetch current profile picture on mount
   useEffect(() => {
@@ -315,11 +321,7 @@ export default function StoryFeed({
             {/* Current user's story */}
             <div className="flex flex-col items-center space-y-1">
               <StoryRing
-                user={{
-                  ...currentUser,
-                  hasActiveStory: userStories.length > 0,
-                  isFollowing: false
-                }}
+                user={currentUser}
                 stories={userStories}
                 showUsername
                 size="md"
