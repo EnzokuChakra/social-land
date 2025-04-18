@@ -364,21 +364,8 @@ export default function EventsPage() {
           return;
         }
         
-        // Validate each event object
-        const validEvents = data.filter(event => {
-          const isValid = event && 
-            typeof event === 'object' && 
-            event.id && 
-            event.name && 
-            event.startDate;
-            
-          if (!isValid) {
-            console.error('[EVENTS_PAGE] Invalid event object found:', event);
-          }
-          return isValid;
-        });
-        
-        setEvents(validEvents);
+        // Removed filter validation and directly set events
+        setEvents(data);
       } catch (error) {
         console.error('[EVENTS_PAGE] Error fetching events:', error);
         toast.error("Failed to load events");
