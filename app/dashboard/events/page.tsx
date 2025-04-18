@@ -276,60 +276,82 @@ export default function EventsPage() {
   };
 
   useEffect(() => {
-    console.log('[EVENTS_PAGE] Setting up socket event handlers');
-    
-    if (!socket) {
-      console.log('[EVENTS_PAGE] No socket connection available');
-      return;
-    }
+    if (!socket) return;
 
-    // Handle new event
     const handleNewEvent = (newEvent: EventWithUser) => {
-      console.log('[EVENTS_PAGE] New event received:', newEvent);
+      if (!newEvent || typeof newEvent !== 'object') {
+        console.error('[EVENTS_PAGE] Invalid new event received:', newEvent);
+        return;
+      }
       setEvents(prev => {
-        if (prev.some(event => event.id === newEvent.id)) {
-          console.log('[EVENTS_PAGE] Event already exists, skipping');
-          return prev;
+        if (!Array.isArray(prev)) {
+          console.error('[EVENTS_PAGE] Current events state is not an array:', prev);
+          return [newEvent];
         }
-        console.log('[EVENTS_PAGE] Adding new event to state');
         return [newEvent, ...prev];
       });
     };
 
-    // Handle event deletion
     const handleEventDeleted = (eventId: string) => {
-      console.log('[EVENTS_PAGE] Event deleted:', eventId);
-      setEvents(prev => prev.filter(event => event.id !== eventId));
+      if (!eventId || typeof eventId !== 'string') {
+        console.error('[EVENTS_PAGE] Invalid event ID received for deletion:', eventId);
+        return;
+      }
+      setEvents(prev => {
+        if (!Array.isArray(prev)) {
+          console.error('[EVENTS_PAGE] Current events state is not an array:', prev);
+          return [];
+        }
+        return prev.filter(event => event.id !== eventId);
+      });
     };
 
-    // Handle event interest updates
     const handleEventInterestUpdate = (data: { eventId: string, counts: { interested: number, participants: number } }) => {
-      setEvents(prev => prev.map(event => 
-        event.id === data.eventId 
-          ? { 
-              ...event, 
-              _count: { 
-                interested: data.counts.interested, 
-                participants: data.counts.participants 
+      if (!data || !data.eventId || !data.counts) {
+        console.error('[EVENTS_PAGE] Invalid interest update data:', data);
+        return;
+      }
+      setEvents(prev => {
+        if (!Array.isArray(prev)) {
+          console.error('[EVENTS_PAGE] Current events state is not an array:', prev);
+          return [];
+        }
+        return prev.map(event => 
+          event.id === data.eventId 
+            ? { 
+                ...event, 
+                _count: { 
+                  interested: data.counts.interested, 
+                  participants: data.counts.participants 
+                } 
               } 
-            } 
-          : event
-      ));
+            : event
+        );
+      });
     };
 
-    // Handle event participation updates
     const handleEventParticipateUpdate = (data: { eventId: string, counts: { interested: number, participants: number } }) => {
-      setEvents(prev => prev.map(event => 
-        event.id === data.eventId 
-          ? { 
-              ...event, 
-              _count: { 
-                interested: data.counts.interested, 
-                participants: data.counts.participants 
+      if (!data || !data.eventId || !data.counts) {
+        console.error('[EVENTS_PAGE] Invalid participation update data:', data);
+        return;
+      }
+      setEvents(prev => {
+        if (!Array.isArray(prev)) {
+          console.error('[EVENTS_PAGE] Current events state is not an array:', prev);
+          return [];
+        }
+        return prev.map(event => 
+          event.id === data.eventId 
+            ? { 
+                ...event, 
+                _count: { 
+                  interested: data.counts.interested, 
+                  participants: data.counts.participants 
+                } 
               } 
-            } 
-          : event
-      ));
+            : event
+        );
+      });
     };
 
     // Subscribe to socket events
@@ -340,11 +362,12 @@ export default function EventsPage() {
 
     // Cleanup
     return () => {
-      console.log('[EVENTS_PAGE] Cleaning up socket event handlers');
-      socket.off("newEvent", handleNewEvent);
-      socket.off("deleteEvent", handleEventDeleted);
-      socket.off("eventInterestUpdate", handleEventInterestUpdate);
-      socket.off("eventParticipateUpdate", handleEventParticipateUpdate);
+      if (socket) {
+        socket.off("newEvent", handleNewEvent);
+        socket.off("deleteEvent", handleEventDeleted);
+        socket.off("eventInterestUpdate", handleEventInterestUpdate);
+        socket.off("eventParticipateUpdate", handleEventParticipateUpdate);
+      }
     };
   }, [socket]);
 
