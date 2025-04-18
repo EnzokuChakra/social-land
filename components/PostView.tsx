@@ -40,7 +40,6 @@ import { useSocket } from "@/hooks/use-socket";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { getSocket } from "@/lib/socket";
 import { useImageCache } from "@/lib/hooks/use-image-cache";
-import LazyImage from '@/components/shared/LazyImage';
 
 const MemoizedImage = memo(function MemoizedImage({ src, alt, aspectRatio, onDoubleClick }: { 
   src: string;
@@ -48,9 +47,12 @@ const MemoizedImage = memo(function MemoizedImage({ src, alt, aspectRatio, onDou
   aspectRatio: number;
   onDoubleClick?: () => void;
 }) {
+  // Use our image caching hook
+  const { cachedSrc, blurDataURL } = useImageCache(src);
+  
   return (
-    <LazyImage
-      src={src}
+    <Image
+      src={cachedSrc || src}
       alt={alt}
       className={cn(
         "w-full h-auto select-none",
@@ -58,8 +60,13 @@ const MemoizedImage = memo(function MemoizedImage({ src, alt, aspectRatio, onDou
       )}
       width={1200}
       height={1200}
-      effect="blur"
-      onLoad={onDoubleClick}
+      loading="eager"
+      decoding="sync"
+      priority={true}
+      quality={100}
+      onDoubleClick={onDoubleClick}
+      placeholder="blur"
+      blurDataURL={blurDataURL}
     />
   );
 }, function areEqual(prevProps: { 
@@ -73,6 +80,7 @@ const MemoizedImage = memo(function MemoizedImage({ src, alt, aspectRatio, onDou
   aspectRatio: number;
   onDoubleClick?: () => void;
 }) {
+  // More strict equality check to prevent flickering
   return prevProps.src === nextProps.src && 
          prevProps.alt === nextProps.alt && 
          prevProps.aspectRatio === nextProps.aspectRatio;
