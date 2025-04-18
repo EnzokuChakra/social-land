@@ -210,7 +210,19 @@ export default function EventsPage() {
       return Promise.resolve();
     } catch (error) {
       // Remove the temporary event on error
-      setEvents(prev => prev.filter(event => event.id !== tempId));
+      setEvents(prev => {
+        if (!Array.isArray(prev)) {
+          console.error('[EVENTS_PAGE] Invalid events state during error cleanup:', prev);
+          return [];
+        }
+        const newEvents = [];
+        for (const event of prev) {
+          if (event.id !== tempId) {
+            newEvents.push(event);
+          }
+        }
+        return newEvents;
+      });
       console.error('Event creation error:', error);
       
       // Show error toast and reject the promise
@@ -223,7 +235,19 @@ export default function EventsPage() {
   const handleDelete = async (eventId: string) => {
     // Optimistically remove the event from the UI
     const eventToDelete = events.find(event => event.id === eventId);
-    setEvents(prev => prev.filter(event => event.id !== eventId));
+    setEvents(prev => {
+      if (!Array.isArray(prev)) {
+        console.error('[EVENTS_PAGE] Invalid events state during delete:', prev);
+        return [];
+      }
+      const newEvents = [];
+      for (const event of prev) {
+        if (event.id !== eventId) {
+          newEvents.push(event);
+        }
+      }
+      return newEvents;
+    });
 
     try {
       const response = await fetch(`/api/events?id=${eventId}`, {
@@ -276,7 +300,13 @@ export default function EventsPage() {
           console.error('[EVENTS_PAGE] Current events state is not an array:', prev);
           return [];
         }
-        return prev.filter(event => event.id !== eventId);
+        const newEvents = [];
+        for (const event of prev) {
+          if (event.id !== eventId) {
+            newEvents.push(event);
+          }
+        }
+        return newEvents;
       });
     };
 
