@@ -103,14 +103,17 @@ export async function POST(req: Request) {
       // Create event in database
       const event = await prisma.event.create({
         data: {
+          id: nanoid(),
           name: formData.get("name") as string,
           type: formData.get("type") as string,
           location: formData.get("location") as string,
           startDate: new Date(formData.get("startDate") as string),
           rules: formData.get("rules") as string,
           prizes: formData.get("prizes") as string,
-          photo: relativePath,
-          userId: session.user.id
+          photoUrl: relativePath,
+          user_id: session.user.id,
+          description: formData.get("description") as string || "",
+          updatedAt: new Date()
         }
       });
 
@@ -123,6 +126,12 @@ export async function POST(req: Request) {
       return NextResponse.json(event);
     } catch (writeError) {
       console.error("[EVENTS_POST] Failed to write file:", writeError);
+      // Clean up uploaded file if database operation fails
+      try {
+        await unlink(fullPath);
+      } catch (unlinkError) {
+        console.error("[EVENTS_POST] Failed to clean up file:", unlinkError);
+      }
       return NextResponse.json(
         { error: "Failed to save event photo" },
         { status: 500 }

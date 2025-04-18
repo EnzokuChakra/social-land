@@ -137,6 +137,19 @@ export function getServerSocket() {
         threshold: 32768
       }
     });
+
+    // Add connection event handlers
+    serverSocket.on("connect", () => {
+      console.log("[Server Socket] Connected to socket server");
+    });
+
+    serverSocket.on("disconnect", (reason) => {
+      console.log("[Server Socket] Disconnected:", reason);
+    });
+
+    serverSocket.on("connect_error", (error) => {
+      console.error("[Server Socket] Connection error:", error);
+    });
   }
   return serverSocket;
 }
