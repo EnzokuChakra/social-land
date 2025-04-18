@@ -114,54 +114,14 @@ export default function EventsPage() {
     };
   }, [socket]);
 
-  // Memoize filtered events to prevent unnecessary recalculations
-  const filteredEvents = useMemo(() => {
+  // Temporarily removed filtering logic
+  const sortedEvents = useMemo(() => {
     if (!Array.isArray(events)) {
       console.error('[EVENTS_PAGE] Events is not an array:', events);
       return [];
     }
 
-    let filtered = events;
-
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(event => {
-        if (!event || typeof event !== 'object') {
-          console.error('[EVENTS_PAGE] Invalid event object during search:', event);
-          return false;
-        }
-        return (
-          event.name?.toLowerCase().includes(query) ||
-          event.description?.toLowerCase().includes(query) ||
-          event.location?.toLowerCase().includes(query)
-        );
-      });
-    }
-
-    // Apply status filter
-    if (activeFilter !== "ALL") {
-      filtered = filtered.filter(event => {
-        if (!event || typeof event !== 'object') {
-          console.error('[EVENTS_PAGE] Invalid event object during status filter:', event);
-          return false;
-        }
-        const eventStatus = getStatusText(new Date(event.startDate));
-        return eventStatus === activeFilter;
-      });
-    }
-
-    return filtered;
-  }, [events, searchQuery, activeFilter]);
-
-  // Memoize sorted events
-  const sortedEvents = useMemo(() => {
-    if (!Array.isArray(filteredEvents)) {
-      console.error('[EVENTS_PAGE] Filtered events is not an array:', filteredEvents);
-      return [];
-    }
-
-    const sorted = [...filteredEvents].sort((a: EventWithUser, b: EventWithUser) => {
+    return [...events].sort((a: EventWithUser, b: EventWithUser) => {
       if (!a || !b || typeof a !== 'object' || typeof b !== 'object') {
         console.error('[EVENTS_PAGE] Invalid event objects during sort:', { a, b });
         return 0;
@@ -184,9 +144,7 @@ export default function EventsPage() {
       
       return aDate.getTime() - bDate.getTime();
     });
-
-    return sorted;
-  }, [filteredEvents]);
+  }, [events]);
 
   const handleCreateEvent = async (formData: FormData) => {
     // Generate a temporary ID for the event
