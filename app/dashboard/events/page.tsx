@@ -78,8 +78,6 @@ function getStatusText(startDate: Date): EventStatus {
 
 export default function EventsPage() {
   const [events, setEvents] = useState<EventWithUser[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeFilter, setActiveFilter] = useState<EventStatus | "ALL">("ALL");
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<EventWithUser | null>(null);
   const [socketError, setSocketError] = useState(false);
@@ -407,47 +405,6 @@ export default function EventsPage() {
             <CreateEventButton onEventCreate={handleCreateEvent} />
           )}
         </div>
-        <Input
-          placeholder="Search events..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-xs"
-        />
-      </div>
-
-      <div className="flex flex-wrap gap-2 mb-6">
-        <Button
-          variant={activeFilter === "ALL" ? "default" : "outline"}
-          onClick={() => setActiveFilter("ALL")}
-          className="flex items-center gap-2"
-        >
-          <CalendarDays className="h-4 w-4" />
-          All Events
-        </Button>
-        <Button
-          variant={activeFilter === "UPCOMING" ? "default" : "outline"}
-          onClick={() => setActiveFilter("UPCOMING")}
-          className="flex items-center gap-2"
-        >
-          <CalendarClock className="h-4 w-4" />
-          Upcoming
-        </Button>
-        <Button
-          variant={activeFilter === "ONGOING" ? "default" : "outline"}
-          onClick={() => setActiveFilter("ONGOING")}
-          className="flex items-center gap-2"
-        >
-          <Trophy className="h-4 w-4" />
-          Ongoing
-        </Button>
-        <Button
-          variant={activeFilter === "ENDED" ? "default" : "outline"}
-          onClick={() => setActiveFilter("ENDED")}
-          className="flex items-center gap-2"
-        >
-          <CalendarDays className="h-4 w-4" />
-          Ended
-        </Button>
       </div>
 
       {sortedEvents.length === 0 ? (
