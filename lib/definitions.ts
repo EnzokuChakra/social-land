@@ -439,6 +439,7 @@ export type UserAvatarUser = {
   verified?: boolean;
   isPrivate?: boolean;
   isFollowing?: boolean;
+  hasActiveStory?: boolean;
 };
 
 export type NotificationWithUser = NotificationWithExtras;
