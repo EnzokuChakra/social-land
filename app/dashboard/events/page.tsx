@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useSocket } from "@/hooks/use-socket";
 import { toast } from "sonner";
@@ -85,43 +85,51 @@ export default function EventsPage() {
   const { data: session } = useSession();
   const socket = useSocket();
 
-  const filterEvents = (events: EventWithUser[]) => {
+  // Memoize filtered events to prevent unnecessary recalculations
+  const filteredEvents = useMemo(() => {
     if (!Array.isArray(events)) {
-      console.error('filterEvents received non-array:', events);
+      console.error('Events is not an array:', events);
       return [];
     }
+    
     return events.filter((event) => {
-      const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.location.toLowerCase().includes(searchQuery.toLowerCase());
+      if (!event || typeof event !== 'object') {
+        console.error('Invalid event object:', event);
+        return false;
+      }
+      
+      const matchesSearch = event.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.location?.toLowerCase().includes(searchQuery.toLowerCase());
       
       const eventStatus = getStatusText(new Date(event.startDate));
       const matchesFilter = activeFilter === "ALL" || eventStatus === activeFilter;
       
       return matchesSearch && matchesFilter;
     });
-  };
+  }, [events, searchQuery, activeFilter]);
 
-  const sortedEvents = filterEvents(events).sort((a: EventWithUser, b: EventWithUser) => {
-    const aDate = new Date(a.startDate);
-    const bDate = new Date(b.startDate);
-    const aStatus = getStatusText(aDate);
-    const bStatus = getStatusText(bDate);
-    
-    // First sort by status priority (ONGOING > UPCOMING > ENDED)
-    const statusPriority: Record<EventStatus, number> = { 
-      ONGOING: 0, 
-      UPCOMING: 1, 
-      ENDED: 2 
-    };
-    
-    if (statusPriority[aStatus] !== statusPriority[bStatus]) {
-      return statusPriority[aStatus] - statusPriority[bStatus];
-    }
-    
-    // Then sort by date within each status
-    return aDate.getTime() - bDate.getTime();
-  });
+  // Memoize sorted events
+  const sortedEvents = useMemo(() => {
+    return [...filteredEvents].sort((a: EventWithUser, b: EventWithUser) => {
+      const aDate = new Date(a.startDate);
+      const bDate = new Date(b.startDate);
+      const aStatus = getStatusText(aDate);
+      const bStatus = getStatusText(bDate);
+      
+      const statusPriority: Record<EventStatus, number> = { 
+        ONGOING: 0, 
+        UPCOMING: 1, 
+        ENDED: 2 
+      };
+      
+      if (statusPriority[aStatus] !== statusPriority[bStatus]) {
+        return statusPriority[aStatus] - statusPriority[bStatus];
+      }
+      
+      return aDate.getTime() - bDate.getTime();
+    });
+  }, [filteredEvents]);
 
   const handleCreateEvent = async (formData: FormData) => {
     // Generate a temporary ID for the event
@@ -246,7 +254,16 @@ export default function EventsPage() {
           return;
         }
         
-        setEvents(data);
+        // Validate each event object
+        const validEvents = data.filter(event => 
+          event && 
+          typeof event === 'object' && 
+          event.id && 
+          event.name && 
+          event.startDate
+        );
+        
+        setEvents(validEvents);
       } catch (error) {
         console.error("Error fetching events:", error);
         toast.error("Failed to load events");
