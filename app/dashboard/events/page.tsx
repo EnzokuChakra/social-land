@@ -98,45 +98,46 @@ export default function EventsPage() {
 
   // Memoize filtered events to prevent unnecessary recalculations
   const filteredEvents = useMemo(() => {
-    console.log('[EVENTS_PAGE] Filtering events:', {
-      totalEvents: events.length,
-      searchQuery,
-      activeFilter
-    });
-    
     if (!Array.isArray(events)) {
       console.error('[EVENTS_PAGE] Events is not an array:', events);
       return [];
     }
-    
-    const filtered = events.filter((event) => {
-      if (!event || typeof event !== 'object') {
-        console.error('[EVENTS_PAGE] Invalid event object:', event);
-        return false;
-      }
-      
-      const matchesSearch = event.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.location?.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const eventStatus = getStatusText(new Date(event.startDate));
-      const matchesFilter = activeFilter === "ALL" || eventStatus === activeFilter;
-      
-      return matchesSearch && matchesFilter;
-    });
 
-    console.log('[EVENTS_PAGE] Filtered events count:', filtered.length);
+    let filtered = events;
+
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(event => {
+        if (!event || typeof event !== 'object') {
+          console.error('[EVENTS_PAGE] Invalid event object during search:', event);
+          return false;
+        }
+        return (
+          event.name?.toLowerCase().includes(query) ||
+          event.description?.toLowerCase().includes(query) ||
+          event.location?.toLowerCase().includes(query)
+        );
+      });
+    }
+
+    // Apply status filter
+    if (activeFilter !== "ALL") {
+      filtered = filtered.filter(event => {
+        if (!event || typeof event !== 'object') {
+          console.error('[EVENTS_PAGE] Invalid event object during status filter:', event);
+          return false;
+        }
+        const eventStatus = getStatusText(new Date(event.startDate));
+        return eventStatus === activeFilter;
+      });
+    }
+
     return filtered;
   }, [events, searchQuery, activeFilter]);
 
   // Memoize sorted events
   const sortedEvents = useMemo(() => {
-    console.log('[EVENTS_PAGE] Sorting events - Input:', {
-      filteredEventsType: typeof filteredEvents,
-      isArray: Array.isArray(filteredEvents),
-      filteredEvents
-    });
-    
     if (!Array.isArray(filteredEvents)) {
       console.error('[EVENTS_PAGE] Filtered events is not an array:', filteredEvents);
       return [];
@@ -166,7 +167,6 @@ export default function EventsPage() {
       return aDate.getTime() - bDate.getTime();
     });
 
-    console.log('[EVENTS_PAGE] Sorted events result:', sorted);
     return sorted;
   }, [filteredEvents]);
 
