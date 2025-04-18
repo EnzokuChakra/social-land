@@ -77,8 +77,6 @@ function getStatusText(startDate: Date): EventStatus {
 }
 
 export default function EventsPage() {
-  console.log('[EVENTS_PAGE] Component rendering');
-  
   const [events, setEvents] = useState<EventWithUser[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<EventStatus | "ALL">("ALL");
@@ -86,15 +84,6 @@ export default function EventsPage() {
   const [selectedEvent, setSelectedEvent] = useState<EventWithUser | null>(null);
   const { data: session } = useSession();
   const socket = useSocket();
-
-  console.log('[EVENTS_PAGE] Current state:', {
-    eventsCount: events.length,
-    searchQuery,
-    activeFilter,
-    loading,
-    hasSession: !!session,
-    hasSocket: !!socket
-  });
 
   // Memoize filtered events to prevent unnecessary recalculations
   const filteredEvents = useMemo(() => {
@@ -373,25 +362,14 @@ export default function EventsPage() {
 
   useEffect(() => {
     const fetchEvents = async () => {
-      console.log('[EVENTS_PAGE] Starting to fetch events');
       try {
         const response = await fetch("/api/events");
-        console.log('[EVENTS_PAGE] API response status:', response.status);
         
         if (!response.ok) {
-          console.error('[EVENTS_PAGE] Failed to fetch events:', {
-            status: response.status,
-            statusText: response.statusText
-          });
           throw new Error("Failed to fetch events");
         }
         
         const data = await response.json();
-        console.log('[EVENTS_PAGE] Received data:', {
-          isArray: Array.isArray(data),
-          length: Array.isArray(data) ? data.length : 'not an array',
-          data: data
-        });
         
         if (!Array.isArray(data)) {
           console.error('[EVENTS_PAGE] Received non-array data:', data);
@@ -413,20 +391,28 @@ export default function EventsPage() {
           return isValid;
         });
         
-        console.log('[EVENTS_PAGE] Valid events count:', validEvents.length);
         setEvents(validEvents);
       } catch (error) {
         console.error('[EVENTS_PAGE] Error fetching events:', error);
         toast.error("Failed to load events");
         setEvents([]);
       } finally {
-        console.log('[EVENTS_PAGE] Setting loading to false');
         setLoading(false);
       }
     };
 
     fetchEvents();
   }, []);
+
+  if (loading) {
+    return (
+      <div className="container max-w-7xl mx-auto py-8 px-4">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <CustomLoader />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container max-w-7xl mx-auto py-8 px-4">
@@ -440,10 +426,7 @@ export default function EventsPage() {
         <Input
           placeholder="Search events..."
           value={searchQuery}
-          onChange={(e) => {
-            console.log('[EVENTS_PAGE] Search query changed:', e.target.value);
-            setSearchQuery(e.target.value);
-          }}
+          onChange={(e) => setSearchQuery(e.target.value)}
           className="max-w-xs"
         />
       </div>
@@ -451,10 +434,7 @@ export default function EventsPage() {
       <div className="flex flex-wrap gap-2 mb-6">
         <Button
           variant={activeFilter === "ALL" ? "default" : "outline"}
-          onClick={() => {
-            console.log('[EVENTS_PAGE] Filter changed to ALL');
-            setActiveFilter("ALL");
-          }}
+          onClick={() => setActiveFilter("ALL")}
           className="flex items-center gap-2"
         >
           <CalendarDays className="h-4 w-4" />
@@ -486,33 +466,27 @@ export default function EventsPage() {
         </Button>
       </div>
 
-      {loading ? (
-        <div className="container max-w-7xl mx-auto py-8 px-4 flex items-center justify-center min-h-[400px]">
-          <CustomLoader />
+      {sortedEvents.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-500">No events found</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedEvents.length === 0 ? (
-            <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
-              <CalendarDays className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No events found</h3>
-              <p className="text-sm text-muted-foreground max-w-[400px]">
-                {searchQuery 
-                  ? "Try adjusting your search query or check back later for new events."
-                  : "There are no events scheduled at the moment. Check back later or create a new event."}
-              </p>
-            </div>
-          ) : (
-            sortedEvents.map((event) => (
+        <motion.div
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+        >
+          {sortedEvents.map((event) => (
+            <motion.div key={event.id} variants={item}>
               <EventCard
-                key={event.id}
                 event={event}
                 status={getStatusText(new Date(event.startDate))}
                 onDelete={() => handleDelete(event.id)}
               />
-            ))
-          )}
-        </div>
+            </motion.div>
+          ))}
+        </motion.div>
       )}
     </div>
   );
