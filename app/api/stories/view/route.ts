@@ -93,7 +93,7 @@ export async function GET(request: Request) {
       });
 
       // Check if any stories have been viewed by the current user
-      const viewed = stories.every((story: { views: { length: number } }) => story.views.length > 0);
+      const viewed = stories.length > 0 && stories.every((story: { views: { length: number } }) => story.views.length > 0);
 
       return NextResponse.json({ 
         success: true, 
@@ -138,21 +138,16 @@ export async function POST(request: Request) {
           }
         });
 
-        // Use upsert to handle both new and existing views
-        await prisma.storyview.upsert({
-          where: {
-            storyId_user_id: {
-              storyId: storyId,
-              user_id: session.user.id
+        if (!existingView) {
+          // Only create a new view if it doesn't exist
+          await prisma.storyview.create({
+            data: {
+              id: nanoid(),
+              user_id: session.user.id,
+              storyId: storyId
             }
-          },
-          create: {
-            id: nanoid(),
-            user_id: session.user.id,
-            storyId: storyId
-          },
-          update: {} // No updates needed if it exists
-        });
+          });
+        }
       } catch (error) {
         // Log the error but continue with other stories
         console.error(`[STORY_VIEW] Error processing story ${storyId}:`, error);
