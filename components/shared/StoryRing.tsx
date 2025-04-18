@@ -199,43 +199,6 @@ export default function StoryRing({
     }
   }, [hasUnviewedStories, stories, viewedStoriesMap, user.id, user.username, isCurrentUser]);
 
-  // Fetch story view status with debouncing
-  const fetchStoryViewStatus = useCallback(async () => {
-    if (!session?.user?.id || !user.id || !shouldShowStoryRing) return;
-
-    // Debounce check
-    const now = Date.now();
-    if (now - lastFetchRef.current < 300) return;
-    lastFetchRef.current = now;
-
-    try {
-      if (isCurrentUser) {
-        const response = await fetch('/api/stories/view?operation=own-status');
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success) {
-            if (data.hasUnviewedStories === false) {
-              setHasUnviewedStories(false);
-              isNewlyUploadedRef.current = false;
-            } else if (data.hasUnviewedStories === true && !hasUnviewedStories) {
-              setHasUnviewedStories(true);
-            }
-          }
-        }
-      } else {
-        const response = await fetch(`/api/stories/view?userId=${user.id}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success) {
-            setHasUnviewedStories(!data.viewed);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('[STORY_RING] Error fetching story view status:', error);
-    }
-  }, [session?.user?.id, user.id, shouldShowStoryRing, isCurrentUser, hasUnviewedStories]);
-
   // Handle story click with debouncing
   const handleStoryClick = useCallback(async (e: React.MouseEvent) => {
     if (onAvatarClick) {
@@ -381,7 +344,6 @@ export default function StoryRing({
         const now = Date.now();
         if (now - lastFetchRef.current < 300) return;
         lastFetchRef.current = now;
-        fetchStoryViewStatus();
       }
     };
 
@@ -394,7 +356,6 @@ export default function StoryRing({
         const now = Date.now();
         if (now - lastFetchRef.current < 300) return;
         lastFetchRef.current = now;
-        fetchStoryViewStatus();
       }
     };
 
@@ -422,7 +383,7 @@ export default function StoryRing({
         socket.off('storyViewUpdate', handleSocketStoryView);
       }
     };
-  }, [session?.user?.id, user.id, socket, isCurrentUser, stories, viewedStoriesMap, fetchStoryViewStatus, hasUnviewedStories, user.username]);
+  }, [session?.user?.id, user.id, socket, isCurrentUser, stories, viewedStoriesMap, hasUnviewedStories, user.username]);
 
   // Fetch initial view status with state preservation
   useEffect(() => {
@@ -439,9 +400,7 @@ export default function StoryRing({
     const now = Date.now();
     if (now - lastFetchRef.current < 300) return;
     lastFetchRef.current = now;
-
-    fetchStoryViewStatus();
-  }, [shouldShowStoryRing, fetchStoryViewStatus, user.id, user.username, isCurrentUser]);
+  }, [shouldShowStoryRing, isNewlyUploadedRef.current]);
 
   useEffect(() => {
     if (user?.id) {
