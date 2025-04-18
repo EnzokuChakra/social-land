@@ -447,10 +447,12 @@ export default function StoryRing({
     if (user?.id) {
       const fetchViewStatus = async () => {
         try {
-          const response = await fetch(`/api/stories/${user.id}/view-status`);
+          const response = await fetch(`/api/stories/view?userId=${user.id}`);
           if (response.ok) {
             const data = await response.json();
-            setHasViewedStory(data.hasViewed);
+            if (data.success) {
+              setHasViewedStory(!data.viewed);
+            }
           }
         } catch (error) {
           console.error('Error fetching story view status:', error);
