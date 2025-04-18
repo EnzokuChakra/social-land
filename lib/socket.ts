@@ -59,30 +59,45 @@ export function getSocket() {
     }
 
     socket.on("connect", () => {
-      console.log("[Socket] Connected successfully");
+      console.log("[Socket] Connected successfully to", socketUrl);
       connectionAttempts = 0;
     });
 
     socket.on("disconnect", (reason) => {
       console.log("[Socket] Disconnected:", reason);
       if (reason === "io server disconnect") {
-        // Server initiated disconnect, try to reconnect
+        console.log("[Socket] Server initiated disconnect, attempting to reconnect...");
         socket?.connect();
       }
     });
 
-    socket.on("connect_error", (error) => {
-      console.error("[Socket] Connection error:", error);
-      connectionAttempts++;
-      
-      if (connectionAttempts >= MAX_CONNECTION_ATTEMPTS) {
-        console.log("[Socket] Max connection attempts reached");
-        socket?.disconnect();
-      }
+    socket.on("connect_error", (error: Error & { type?: string; description?: string; context?: any }) => {
+      console.error("[Socket] Connection error:", error.message);
+      console.error("[Socket] Error details:", {
+        type: error.type,
+        description: error.description,
+        context: error.context
+      });
     });
 
     socket.on("error", (error) => {
-      console.error("[Socket] Error:", error);
+      console.error("[Socket] General error:", error);
+    });
+
+    socket.on("reconnect", (attemptNumber) => {
+      console.log(`[Socket] Reconnected after ${attemptNumber} attempts`);
+    });
+
+    socket.on("reconnect_attempt", (attemptNumber) => {
+      console.log(`[Socket] Reconnection attempt ${attemptNumber}/${MAX_CONNECTION_ATTEMPTS}`);
+    });
+
+    socket.on("reconnect_error", (error) => {
+      console.error("[Socket] Reconnection error:", error);
+    });
+
+    socket.on("reconnect_failed", () => {
+      console.error("[Socket] Failed to reconnect after all attempts");
     });
   }
 
