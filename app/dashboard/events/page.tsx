@@ -230,9 +230,12 @@ export default function EventsPage() {
         const response = await fetch("/api/events");
         if (!response.ok) throw new Error("Failed to fetch events");
         const data = await response.json();
-        setEvents(data);
+        // Ensure data is an array, if not set to empty array
+        setEvents(Array.isArray(data) ? data : []);
       } catch (error) {
+        console.error("Error fetching events:", error);
         toast.error("Failed to load events");
+        setEvents([]); // Set empty array on error
       } finally {
         setLoading(false);
       }
