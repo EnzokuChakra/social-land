@@ -52,9 +52,7 @@ export default async function EventPage({ params }: EventPageProps) {
   };
 
   // Parse prizes from either prizes field or use single prize
-  const parsedPrizes = eventWithUser.prizes 
-    ? JSON.parse(eventWithUser.prizes)
-    : (eventWithUser.prize ? [eventWithUser.prize] : null);
+  const parsedPrizes = Array.isArray(event.prizes) ? event.prizes : [event.prize];
 
   const totalPrizePool = parsedPrizes ? parsedPrizes.reduce((total: number, prize: string) => {
     const numericValue = parseFloat(prize.replace(/[^0-9.]/g, ''));
@@ -104,7 +102,7 @@ export default async function EventPage({ params }: EventPageProps) {
               <div className="space-y-2">
                 <h3 className="text-lg font-semibold text-white">Prizes</h3>
                 <div className="grid gap-4">
-                  {parsedPrizes.map((prize: string, index: number) => (
+                  {Array.isArray(parsedPrizes) && parsedPrizes.map((prize: string, index: number) => (
                     <div key={index} className="bg-neutral-900/50 rounded-lg p-4 flex items-center justify-between border border-neutral-800">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-primary">

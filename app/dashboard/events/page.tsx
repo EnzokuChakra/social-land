@@ -197,9 +197,21 @@ export default function EventsPage() {
       const createdEvent = await response.json();
 
       // Update the temporary event with the real one
-      setEvents(prev => prev.map(event => 
-        event.id === tempId ? createdEvent : event
-      ));
+      setEvents(prev => {
+        if (!Array.isArray(prev)) {
+          console.error('[EVENTS_PAGE] Invalid events state during update:', prev);
+          return [createdEvent];
+        }
+        const newEvents = [];
+        for (const event of prev) {
+          if (event.id === tempId) {
+            newEvents.push(createdEvent);
+          } else {
+            newEvents.push(event);
+          }
+        }
+        return newEvents;
+      });
 
       // Emit socket event for real-time updates
       if (socket) {
@@ -320,17 +332,21 @@ export default function EventsPage() {
           console.error('[EVENTS_PAGE] Current events state is not an array:', prev);
           return [];
         }
-        return prev.map(event => 
-          event.id === data.eventId 
-            ? { 
-                ...event, 
-                _count: { 
-                  interested: data.counts.interested, 
-                  participants: data.counts.participants 
-                } 
-              } 
-            : event
-        );
+        const newEvents = [];
+        for (const event of prev) {
+          if (event.id === data.eventId) {
+            newEvents.push({
+              ...event,
+              _count: {
+                interested: data.counts.interested,
+                participants: data.counts.participants
+              }
+            });
+          } else {
+            newEvents.push(event);
+          }
+        }
+        return newEvents;
       });
     };
 
@@ -344,17 +360,21 @@ export default function EventsPage() {
           console.error('[EVENTS_PAGE] Current events state is not an array:', prev);
           return [];
         }
-        return prev.map(event => 
-          event.id === data.eventId 
-            ? { 
-                ...event, 
-                _count: { 
-                  interested: data.counts.interested, 
-                  participants: data.counts.participants 
-                } 
-              } 
-            : event
-        );
+        const newEvents = [];
+        for (const event of prev) {
+          if (event.id === data.eventId) {
+            newEvents.push({
+              ...event,
+              _count: {
+                interested: data.counts.interested,
+                participants: data.counts.participants
+              }
+            });
+          } else {
+            newEvents.push(event);
+          }
+        }
+        return newEvents;
       });
     };
 
@@ -448,7 +468,7 @@ export default function EventsPage() {
           animate="show"
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
         >
-          {sortedEvents.map((event) => (
+          {Array.isArray(sortedEvents) && sortedEvents.map((event) => (
             <motion.div key={event.id} variants={item}>
               <EventCard
                 event={event}

@@ -384,7 +384,7 @@ export default function CreateEventButton({ onEventCreate }: CreateEventButtonPr
                           Add Prize
                         </Button>
                       </div>
-                      {prizes.map((prize, index) => (
+                      {Array.isArray(prizes) && prizes.map((prize, index) => (
                         <div key={index} className="flex gap-2">
                           <FormControl>
                             <Input 
