@@ -1,7 +1,14 @@
 // Assuming you have a utility function that provides the socket instance
 import { io, Socket } from "socket.io-client";
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5002";
+// Get the correct socket URL based on environment
+const getSocketUrl = () => {
+  if (typeof window === 'undefined') return ''; // SSR
+  const isProduction = process.env.NODE_ENV === 'production';
+  return isProduction
+    ? 'wss://social-land.ro'  // Use secure WebSocket in production
+    : process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5002";
+};
 
 // Global socket instance
 let socket: Socket | null = null;
@@ -13,11 +20,9 @@ const MAX_CONNECTION_ATTEMPTS = 5;
 
 // Create a singleton socket instance
 export function getSocket() {
-  if (!socket) {
-    const isProduction = process.env.NODE_ENV === 'production';
-    const socketUrl = isProduction
-      ? 'wss://social-land.ro'  // Use secure WebSocket in production
-      : process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5002";
+  if (!socket && typeof window !== 'undefined') {
+    const socketUrl = getSocketUrl();
+    if (!socketUrl) return null;
 
     socket = io(socketUrl, {
       reconnection: true,
@@ -28,7 +33,7 @@ export function getSocket() {
       autoConnect: false, // Don't connect automatically
       transports: ["websocket", "polling"], // Allow fallback to polling
       path: '/socket.io/',
-      secure: isProduction,
+      secure: process.env.NODE_ENV === 'production',
       rejectUnauthorized: false,
       // Add these options for better connection handling
       forceNew: true,
@@ -41,7 +46,11 @@ export function getSocket() {
     });
 
     // Only connect after the page is fully loaded
-    if (typeof window !== 'undefined') {
+    if (document.readyState === 'complete') {
+      if (!socket?.connected) {
+        socket?.connect();
+      }
+    } else {
       window.addEventListener('load', () => {
         if (!socket?.connected) {
           socket?.connect();
@@ -83,5 +92,7 @@ export function getSocket() {
 // Function to authenticate the socket with a user ID
 export function authenticateSocket(token: string) {
   const socket = getSocket();
-  socket.emit("authenticate", { token });
+  if (socket) {
+    socket.emit("authenticate", { token });
+  }
 }
