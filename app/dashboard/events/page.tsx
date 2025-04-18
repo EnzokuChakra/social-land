@@ -98,10 +98,10 @@ export default function EventsPage() {
 
   // Memoize filtered events to prevent unnecessary recalculations
   const filteredEvents = useMemo(() => {
-    console.log('[EVENTS_PAGE] Filtering events:', {
-      totalEvents: events.length,
-      searchQuery,
-      activeFilter
+    console.log('[EVENTS_PAGE] Filtering events - Input:', {
+      eventsType: typeof events,
+      isArray: Array.isArray(events),
+      events: events
     });
     
     if (!Array.isArray(events)) {
@@ -109,53 +109,74 @@ export default function EventsPage() {
       return [];
     }
     
-    const filtered = events.filter((event) => {
-      if (!event || typeof event !== 'object') {
-        console.error('[EVENTS_PAGE] Invalid event object:', event);
-        return false;
-      }
-      
-      const matchesSearch = event.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.location?.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const eventStatus = getStatusText(new Date(event.startDate));
-      const matchesFilter = activeFilter === "ALL" || eventStatus === activeFilter;
-      
-      return matchesSearch && matchesFilter;
-    });
+    try {
+      const filtered = events.filter((event) => {
+        console.log('[EVENTS_PAGE] Processing event:', event);
+        
+        if (!event || typeof event !== 'object') {
+          console.error('[EVENTS_PAGE] Invalid event object:', event);
+          return false;
+        }
+        
+        const matchesSearch = event.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          event.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          event.location?.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        const eventStatus = getStatusText(new Date(event.startDate));
+        const matchesFilter = activeFilter === "ALL" || eventStatus === activeFilter;
+        
+        return matchesSearch && matchesFilter;
+      });
 
-    console.log('[EVENTS_PAGE] Filtered events count:', filtered.length);
-    return filtered;
+      console.log('[EVENTS_PAGE] Filtered events result:', filtered);
+      return filtered;
+    } catch (error) {
+      console.error('[EVENTS_PAGE] Error filtering events:', error);
+      return [];
+    }
   }, [events, searchQuery, activeFilter]);
 
   // Memoize sorted events
   const sortedEvents = useMemo(() => {
-    console.log('[EVENTS_PAGE] Sorting events:', {
-      filteredEventsCount: filteredEvents.length
+    console.log('[EVENTS_PAGE] Sorting events - Input:', {
+      filteredEventsType: typeof filteredEvents,
+      isArray: Array.isArray(filteredEvents),
+      filteredEvents: filteredEvents
     });
     
-    const sorted = [...filteredEvents].sort((a: EventWithUser, b: EventWithUser) => {
-      const aDate = new Date(a.startDate);
-      const bDate = new Date(b.startDate);
-      const aStatus = getStatusText(aDate);
-      const bStatus = getStatusText(bDate);
-      
-      const statusPriority: Record<EventStatus, number> = { 
-        ONGOING: 0, 
-        UPCOMING: 1, 
-        ENDED: 2 
-      };
-      
-      if (statusPriority[aStatus] !== statusPriority[bStatus]) {
-        return statusPriority[aStatus] - statusPriority[bStatus];
-      }
-      
-      return aDate.getTime() - bDate.getTime();
-    });
+    if (!Array.isArray(filteredEvents)) {
+      console.error('[EVENTS_PAGE] Filtered events is not an array:', filteredEvents);
+      return [];
+    }
+    
+    try {
+      const sorted = [...filteredEvents].sort((a: EventWithUser, b: EventWithUser) => {
+        console.log('[EVENTS_PAGE] Sorting comparison:', { a, b });
+        
+        const aDate = new Date(a.startDate);
+        const bDate = new Date(b.startDate);
+        const aStatus = getStatusText(aDate);
+        const bStatus = getStatusText(bDate);
+        
+        const statusPriority: Record<EventStatus, number> = { 
+          ONGOING: 0, 
+          UPCOMING: 1, 
+          ENDED: 2 
+        };
+        
+        if (statusPriority[aStatus] !== statusPriority[bStatus]) {
+          return statusPriority[aStatus] - statusPriority[bStatus];
+        }
+        
+        return aDate.getTime() - bDate.getTime();
+      });
 
-    console.log('[EVENTS_PAGE] Sorted events count:', sorted.length);
-    return sorted;
+      console.log('[EVENTS_PAGE] Sorted events result:', sorted);
+      return sorted;
+    } catch (error) {
+      console.error('[EVENTS_PAGE] Error sorting events:', error);
+      return [];
+    }
   }, [filteredEvents]);
 
   const handleCreateEvent = async (formData: FormData) => {
@@ -352,11 +373,7 @@ export default function EventsPage() {
         }
         
         const data = await response.json();
-        console.log('[EVENTS_PAGE] Received data:', {
-          isArray: Array.isArray(data),
-          length: Array.isArray(data) ? data.length : 'not an array',
-          data: data
-        });
+        console.log('[EVENTS_PAGE] Raw API response:', data);
         
         if (!Array.isArray(data)) {
           console.error('[EVENTS_PAGE] Received non-array data:', data);
@@ -378,7 +395,7 @@ export default function EventsPage() {
           return isValid;
         });
         
-        console.log('[EVENTS_PAGE] Valid events count:', validEvents.length);
+        console.log('[EVENTS_PAGE] Setting valid events:', validEvents);
         setEvents(validEvents);
       } catch (error) {
         console.error('[EVENTS_PAGE] Error fetching events:', error);
