@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
         
       const finalName = sanitizedName.length < 3 ? `file${ext}` : sanitizedName;
       const uniqueFilename = `${uuidv4().split('-')[0]}_${finalName}`;
-      
+      //test
       // Determine upload type and directory
       const uploadType = isProfilePhoto ? 'profiles' : type;
       const baseUploadPath = path.join(process.cwd(), 'public', 'uploads');
