@@ -101,6 +101,9 @@ export async function POST(req: Request) {
       console.log("[EVENTS_POST] File written successfully");
       
       // Create event in database
+      const prizesData = formData.get("prizes");
+      const prizesString = prizesData ? JSON.stringify(prizesData) : null;
+
       const event = await prisma.event.create({
         data: {
           id: nanoid(),
@@ -109,7 +112,7 @@ export async function POST(req: Request) {
           location: formData.get("location") as string,
           startDate: new Date(formData.get("startDate") as string),
           rules: formData.get("rules") as string,
-          prizes: formData.get("prizes") as string,
+          prizes: prizesString,
           photoUrl: relativePath,
           user_id: session.user.id,
           description: formData.get("description") as string || "",

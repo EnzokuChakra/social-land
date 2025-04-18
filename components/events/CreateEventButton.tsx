@@ -99,49 +99,35 @@ export default function CreateEventButton({ onEventCreate }: CreateEventButtonPr
   async function onSubmit(data: EventFormData) {
     try {
       setIsCreatingEvent(true);
-      
-      if (!photo) {
-        toast.error("Please select a photo for the event");
-        setIsCreatingEvent(false);
-        return;
-      }
-
-      // Convert the date to Bucharest timezone
-      const bucharestDate = new Date(formatInTimeZone(data.startDate, TIMEZONE, "yyyy-MM-dd'T'HH:mm:ssXXX"));
-      
-      // Create FormData object for API submission
       const formData = new FormData();
-      formData.append("photo", photo);
+      
+      // Add basic fields
       formData.append("name", data.name);
       formData.append("type", data.type);
       formData.append("description", data.description);
-      if (data.rules) formData.append("rules", data.rules);
-      
-      // Handle prizes - send all valid prizes
-      const validPrizes = prizes.filter(prize => prize.trim() !== "");
-      if (validPrizes.length > 0) {
-        formData.append("prizes", JSON.stringify(validPrizes));
-        formData.append("prize", validPrizes[0]); // Keep the first prize for backward compatibility
-      }
-      
+      formData.append("rules", data.rules || "");
       formData.append("location", data.location);
-      formData.append("startDate", bucharestDate.toISOString());
-
-      // Submit to parent component handler
-      await onEventCreate(formData);
+      formData.append("startDate", data.startDate.toISOString());
       
-      // Reset form on success (don't show toast, parent component does this)
+      // Handle prizes
+      const validPrizes = prizes.filter(prize => prize.trim() !== "");
+      formData.append("prizes", JSON.stringify(validPrizes));
+      
+      // Handle photo
+      if (photo) {
+        formData.append("photo", photo);
+      }
+
+      await onEventCreate(formData);
       setOpen(false);
       form.reset();
       setPhoto(undefined);
       setPhotoPreview(undefined);
       setPrizes([""]);
+      toast.success("Event created successfully!");
     } catch (error) {
-      if (error instanceof Error) {
-        toast.error(error.message);
-      } else {
-        toast.error("Failed to create event");
-      }
+      console.error("Error creating event:", error);
+      toast.error("Failed to create event. Please try again.");
     } finally {
       setIsCreatingEvent(false);
     }
