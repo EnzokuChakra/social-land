@@ -152,6 +152,7 @@ export async function POST(req: Request) {
 export async function GET() {
   try {
     if (!prisma) {
+      console.error("[EVENTS_GET] Prisma client not available");
       return NextResponse.json(
         { error: "Database connection not available" },
         { status: 500 }
@@ -160,6 +161,7 @@ export async function GET() {
 
     const prismaClient = prisma as PrismaClient;
 
+    console.log("[EVENTS_GET] Fetching events...");
     const events = await prismaClient.event.findMany({
       orderBy: {
         createdAt: "desc",
@@ -185,13 +187,14 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(events);
+    console.log("[EVENTS_GET] Found events:", events.length);
+    
+    // Ensure we always return an array
+    return NextResponse.json(Array.isArray(events) ? events : []);
   } catch (error) {
-    console.error("[EVENTS_GET]", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    console.error("[EVENTS_GET] Error:", error);
+    // Return empty array on error
+    return NextResponse.json([], { status: 500 });
   }
 }
 

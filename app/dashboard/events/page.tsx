@@ -86,6 +86,10 @@ export default function EventsPage() {
   const socket = useSocket();
 
   const filterEvents = (events: EventWithUser[]) => {
+    if (!Array.isArray(events)) {
+      console.error('filterEvents received non-array:', events);
+      return [];
+    }
     return events.filter((event) => {
       const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -227,15 +231,26 @@ export default function EventsPage() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
+        console.log('Fetching events...');
         const response = await fetch("/api/events");
-        if (!response.ok) throw new Error("Failed to fetch events");
+        if (!response.ok) {
+          console.error('Failed to fetch events:', response.status, response.statusText);
+          throw new Error("Failed to fetch events");
+        }
         const data = await response.json();
-        // Ensure data is an array, if not set to empty array
-        setEvents(Array.isArray(data) ? data : []);
+        console.log('Received events data:', data);
+        
+        if (!Array.isArray(data)) {
+          console.error('Received non-array data:', data);
+          setEvents([]);
+          return;
+        }
+        
+        setEvents(data);
       } catch (error) {
         console.error("Error fetching events:", error);
         toast.error("Failed to load events");
-        setEvents([]); // Set empty array on error
+        setEvents([]);
       } finally {
         setLoading(false);
       }
