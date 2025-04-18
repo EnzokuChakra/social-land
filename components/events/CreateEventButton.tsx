@@ -79,8 +79,14 @@ export default function CreateEventButton({ onEventCreate }: CreateEventButtonPr
     setPrizes([...prizes, ""]);
   };
 
-  const removePrize = (index: number) => {
-    setPrizes(prizes.filter((_, i) => i !== index));
+  const handleRemovePrize = (index: number) => {
+    const newPrizes = [];
+    for (let i = 0; i < prizes.length; i++) {
+      if (i !== index) {
+        newPrizes.push(prizes[i]);
+      }
+    }
+    setPrizes(newPrizes);
   };
 
   const updatePrize = (index: number, value: string) => {
@@ -110,7 +116,12 @@ export default function CreateEventButton({ onEventCreate }: CreateEventButtonPr
       formData.append("startDate", data.startDate.toISOString());
       
       // Handle prizes
-      const validPrizes = prizes.filter(prize => prize.trim() !== "");
+      const validPrizes = [];
+      for (const prize of prizes) {
+        if (prize.trim() !== "") {
+          validPrizes.push(prize);
+        }
+      }
       formData.append("prizes", JSON.stringify(validPrizes));
       
       // Handle photo
@@ -388,7 +399,7 @@ export default function CreateEventButton({ onEventCreate }: CreateEventButtonPr
                               type="button"
                               variant="ghost"
                               size="icon"
-                              onClick={() => removePrize(index)}
+                              onClick={() => handleRemovePrize(index)}
                               className="text-red-500 hover:text-red-400"
                             >
                               <X className="w-4 h-4" />
