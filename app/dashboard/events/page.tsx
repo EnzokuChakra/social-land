@@ -137,6 +137,7 @@ export default function EventsPage() {
         startDate: new Date(formData.get('startDate') as string),
         photoUrl: '/placeholder.jpg', // Temporary placeholder
         user_id: session?.user?.id || '',
+        status: 'UPCOMING' as const,
         user: {
           id: session?.user?.id || '',
           username: session?.user?.username || null,
@@ -164,8 +165,8 @@ export default function EventsPage() {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Failed to create event');
+        const errorData = await response.json().catch(() => ({ error: 'Failed to create event' }));
+        throw new Error(errorData.error || 'Failed to create event');
       }
 
       const createdEvent = await response.json();

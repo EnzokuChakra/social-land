@@ -239,24 +239,24 @@ export default function StoryRing({
   // Initialize viewed state from localStorage
   useEffect(() => {
     if (user?.id) {
-      const storageKey = `viewed_story_${user.id}`;
-      const lastViewed = localStorage.getItem(storageKey);
-      const hasNewStory = stories.some(story => {
-        const storyDate = new Date(story.createdAt);
-        const lastViewedDate = lastViewed ? new Date(lastViewed) : null;
-        return !lastViewedDate || storyDate > lastViewedDate;
-      });
-      setHasViewedStory(!hasNewStory);
+      const fetchViewStatus = async () => {
+        try {
+          const storageKey = `viewed_story_${user.id}`;
+          const lastViewed = localStorage.getItem(storageKey);
+          const hasNewStory = stories.some(story => {
+            const storyDate = new Date(story.createdAt);
+            const lastViewedDate = lastViewed ? new Date(lastViewed) : null;
+            return !lastViewedDate || storyDate > lastViewedDate;
+          });
+          setHasViewedStory(!hasNewStory);
+        } catch (error) {
+          console.error('Error checking story view status:', error);
+        }
+      };
+
+      fetchViewStatus();
     }
   }, [user?.id, stories]);
-
-  // Update localStorage when story is viewed
-  useEffect(() => {
-    if (hasViewedStory && user?.id) {
-      const storageKey = `viewed_story_${user.id}`;
-      localStorage.setItem(storageKey, new Date().toISOString());
-    }
-  }, [hasViewedStory, user?.id]);
 
   // Handle story events with improved state management
   useEffect(() => {
@@ -401,24 +401,6 @@ export default function StoryRing({
     if (now - lastFetchRef.current < 300) return;
     lastFetchRef.current = now;
   }, [shouldShowStoryRing, isNewlyUploadedRef.current]);
-
-  useEffect(() => {
-    if (user?.id) {
-      const fetchViewStatus = async () => {
-        try {
-          const response = await fetch(`/api/stories/${user.id}/view-status`);
-          if (response.ok) {
-            const data = await response.json();
-            setHasViewedStory(data.hasViewed);
-          }
-        } catch (error) {
-          console.error('Error fetching story view status:', error);
-        }
-      };
-
-      fetchViewStatus();
-    }
-  }, [user?.id, stories]);
 
   useEffect(() => {
     if (socket) {

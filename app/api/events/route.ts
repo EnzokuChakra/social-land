@@ -270,6 +270,13 @@ export async function GET() {
 }
 
 export async function DELETE(req: Request) {
+  if (!db) {
+    return new NextResponse(
+      JSON.stringify({ error: "Database connection not available", success: false }), 
+      { status: 500 }
+    );
+  }
+
   try {
     console.log("[EVENTS_DELETE] Starting event deletion...");
     const session = await getServerSession(authOptions);
@@ -309,29 +316,34 @@ export async function DELETE(req: Request) {
       return new NextResponse("Unauthorized", { status: 403 });
     }
 
+    // First delete the event photo if it exists
+    if (event.photoUrl) {
+      try {
+        const filename = event.photoUrl.split('/').pop();
+        if (filename) {
+          const filepath = path.join(process.cwd(), 'public', 'uploads', 'events', filename);
+          console.log("[EVENTS_DELETE] Deleting photo file:", filepath);
+          
+          await unlink(filepath);
+          console.log("[EVENTS_DELETE] Photo file deleted successfully");
+        }
+      } catch (error) {
+        console.error("[EVENTS_DELETE] Error deleting photo file:", error);
+        // Continue with event deletion even if photo deletion fails
+      }
+    }
+
     console.log("[EVENTS_DELETE] Deleting event from database:", eventId);
     // Delete the event
     await db.event.delete({
       where: { id: eventId },
     });
 
-    // Delete the event photo
-    if (event.photoUrl) {
-      try {
-        const filename = event.photoUrl.split('/').pop();
-        const filepath = path.join('/var/www/OG-GRAM/public/uploads/events', filename || '');
-        console.log("[EVENTS_DELETE] Deleting photo file:", filepath);
-        
-        await unlink(filepath);
-        console.log("[EVENTS_DELETE] Photo file deleted successfully");
-      } catch (error) {
-        console.error("[EVENTS_DELETE] Error deleting photo file:", error);
-        // Don't throw here - the event is already deleted from DB
-      }
-    }
-
     // Emit socket event for real-time update
-    getSocket().emit("deleteEvent", eventId);
+    const socket = getSocket();
+    if (socket) {
+      socket.emit("deleteEvent", eventId);
+    }
 
     console.log("[EVENTS_DELETE] Event deleted successfully:", eventId);
     return new NextResponse(JSON.stringify({ success: true }), { 
@@ -341,10 +353,10 @@ export async function DELETE(req: Request) {
       }
     });
   } catch (error) {
-    console.error("[EVENTS_DELETE]", error);
+    console.error("[EVENTS_DELETE] Error:", error);
     return new NextResponse(
       JSON.stringify({ 
-        error: error instanceof Error ? error.message : "Internal Server Error",
+        error: error instanceof Error ? error.message : "Failed to delete event",
         success: false 
       }), 
       { 
