@@ -32,12 +32,12 @@ function Suggestions({ users, className, hideTitle = false }: SuggestionsProps) 
 
       // Check for any follow relationship
       const hasFollowRelationship = user.followers?.some(follow => 
-        follow.followerId === session.user.id
+        follow.followerId === session.user.id && follow.status === "ACCEPTED"
       );
 
       // Check for any follow request
-      const hasFollowRequest = user.following?.some(follow => 
-        follow.followingId === session.user.id
+      const hasFollowRequest = user.followers?.some(follow => 
+        follow.followerId === session.user.id && follow.status === "PENDING"
       );
 
       // Skip if there's any relationship
