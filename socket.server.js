@@ -30,20 +30,20 @@ const server = http.createServer(app);
 // Configure Socket.IO with CORS
 const io = socketIo(server, {
   cors: {
-    origin: process.env.APP_URL || "http://localhost:3000",
+    origin: process.env.APP_URL || "https://social-land.ro",
     methods: ["GET", "POST"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   },
-  transports: ['websocket'],
+  transports: ['websocket', 'polling'],
   allowUpgrades: true,
-  pingTimeout: 30000,
-  pingInterval: 10000,
-  connectTimeout: 20000,
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  connectTimeout: 45000,
   reconnection: true,
-  reconnectionAttempts: 3,
-  reconnectionDelay: 500,
-  reconnectionDelayMax: 2000,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
   maxHttpBufferSize: 1e8,
   perMessageDeflate: {
     threshold: 32768
@@ -51,7 +51,9 @@ const io = socketIo(server, {
   connectionStateRecovery: {
     maxDisconnectionDuration: 60 * 1000,
     skipMiddlewares: true,
-  }
+  },
+  path: '/socket.io/',
+  debug: true
 });
 
 // Store active clients and user sockets
@@ -90,25 +92,40 @@ const initializeDatabase = async () => {
   }
 };
 
-// Error handling for server
+// Add error logging
 server.on('error', (error) => {
+  console.error('[SOCKET] Server error:', error);
   if (error.code === 'EADDRINUSE') {
-    // Address already in use, trying alternative port
+    console.error('[SOCKET] Port already in use, trying alternative port');
     const newPort = (process.env.SOCKET_PORT || 5002) + 1;
     server.listen(newPort);
   }
 });
 
-// Define start server function
+// Add connection logging
+io.on('connection', (socket) => {
+  console.log('[SOCKET] New connection:', socket.id);
+  
+  socket.on('error', (error) => {
+    console.error('[SOCKET] Socket error:', error);
+  });
+});
+
+// Add server start logging
 const startServer = async () => {
-  // Initialize database before starting server
-  await initializeDatabase();
-  
-  const PORT = process.env.SOCKET_PORT || 5002;
-  const HOST = process.env.SOCKET_HOST || 'localhost';
-  server.listen(PORT, HOST);
-  
-  if (shouldLog) console.log(`[SOCKET] Server started on ${HOST}:${PORT}`);
+  try {
+    await initializeDatabase();
+    
+    const PORT = process.env.SOCKET_PORT || 5002;
+    const HOST = '0.0.0.0';
+    
+    console.log(`[SOCKET] Starting server on ${HOST}:${PORT}`);
+    server.listen(PORT, HOST, () => {
+      console.log(`[SOCKET] Server started successfully on ${HOST}:${PORT}`);
+    });
+  } catch (error) {
+    console.error('[SOCKET] Failed to start server:', error);
+  }
 };
 
 // Socket connection handling
@@ -211,11 +228,6 @@ io.on("connection", (socket) => {
         userSockets.delete(socket.userId);
       }
     }
-  });
-
-  // Add error handling for individual socket
-  socket.on('error', () => {
-    // Silently handle errors
   });
 });
 

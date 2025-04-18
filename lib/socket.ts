@@ -9,7 +9,7 @@ let isConnecting = false;
 let hasAuthenticated = false;
 let currentUserId: string | null = null;
 let connectionAttempts = 0;
-const MAX_CONNECTION_ATTEMPTS = 3;
+const MAX_CONNECTION_ATTEMPTS = 5;
 
 // Create a singleton socket instance
 export function getSocket() {
@@ -21,23 +21,60 @@ export function getSocket() {
 
     socket = io(socketUrl, {
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: MAX_CONNECTION_ATTEMPTS,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       timeout: 20000,
-      autoConnect: true,
-      transports: ["websocket"],
-      // Add these options for better production handling
-      path: '/socket.io',
+      autoConnect: false, // Don't connect automatically
+      transports: ["websocket", "polling"], // Allow fallback to polling
+      path: '/socket.io/',
       secure: isProduction,
-      rejectUnauthorized: false
+      rejectUnauthorized: false,
+      // Add these options for better connection handling
+      forceNew: true,
+      rememberUpgrade: true,
+      upgrade: true,
+      // Add these options for better production handling
+      perMessageDeflate: {
+        threshold: 32768
+      }
     });
 
-    socket.on("connect", () => {});
+    // Only connect after the page is fully loaded
+    if (typeof window !== 'undefined') {
+      window.addEventListener('load', () => {
+        if (!socket?.connected) {
+          socket?.connect();
+        }
+      });
+    }
 
-    socket.on("disconnect", () => {});
+    socket.on("connect", () => {
+      console.log("[Socket] Connected successfully");
+      connectionAttempts = 0;
+    });
 
-    socket.on("connect_error", (error) => {});
+    socket.on("disconnect", (reason) => {
+      console.log("[Socket] Disconnected:", reason);
+      if (reason === "io server disconnect") {
+        // Server initiated disconnect, try to reconnect
+        socket?.connect();
+      }
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error("[Socket] Connection error:", error);
+      connectionAttempts++;
+      
+      if (connectionAttempts >= MAX_CONNECTION_ATTEMPTS) {
+        console.log("[Socket] Max connection attempts reached");
+        socket?.disconnect();
+      }
+    });
+
+    socket.on("error", (error) => {
+      console.error("[Socket] Error:", error);
+    });
   }
 
   return socket;
