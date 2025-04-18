@@ -82,8 +82,37 @@ export default function EventsPage() {
   const [activeFilter, setActiveFilter] = useState<EventStatus | "ALL">("ALL");
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<EventWithUser | null>(null);
+  const [socketError, setSocketError] = useState(false);
   const { data: session } = useSession();
   const socket = useSocket();
+
+  // Handle socket connection errors
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleConnect = () => {
+      setSocketError(false);
+    };
+
+    const handleDisconnect = () => {
+      setSocketError(true);
+    };
+
+    const handleError = (error: Error) => {
+      console.error('[EVENTS_PAGE] Socket error:', error);
+      setSocketError(true);
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('error', handleError);
+
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('error', handleError);
+    };
+  }, [socket]);
 
   // Memoize filtered events to prevent unnecessary recalculations
   const filteredEvents = useMemo(() => {
@@ -409,6 +438,16 @@ export default function EventsPage() {
       <div className="container max-w-7xl mx-auto py-8 px-4">
         <div className="flex items-center justify-center min-h-[400px]">
           <CustomLoader />
+        </div>
+      </div>
+    );
+  }
+
+  if (socketError) {
+    return (
+      <div className="container max-w-7xl mx-auto py-8 px-4">
+        <div className="text-center py-8">
+          <p className="text-red-500">Connection error. Please try refreshing the page.</p>
         </div>
       </div>
     );
