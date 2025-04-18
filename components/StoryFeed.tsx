@@ -25,6 +25,7 @@ export default function StoryFeed({
   const { data: session, update: updateSession } = useSession();
   const [userStories, setUserStories] = useState(initialUserStories);
   const [otherStories, setOtherStories] = useState(initialOtherStories);
+  const [hasViewedOwnStories, setHasViewedOwnStories] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
@@ -34,6 +35,41 @@ export default function StoryFeed({
   const isFetchingRef = useRef(false);
   const oldImageRef = useRef<string | null>(null);
   const imageTimestampRef = useRef<number>(Date.now());
+
+  // Fetch view status on mount
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const fetchViewStatus = async () => {
+      try {
+        const response = await fetch('/api/stories/view?operation=own-status');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setHasViewedOwnStories(!data.hasUnviewedStories);
+          }
+        }
+      } catch (error) {
+        console.error('[STORY_FEED] Error fetching view status:', error);
+      }
+    };
+
+    fetchViewStatus();
+  }, [session?.user?.id]);
+
+  // Listen for story viewed events
+  useEffect(() => {
+    const handleStoriesViewed = (event: CustomEvent) => {
+      if (event.type === 'ownStoriesViewed') {
+        setHasViewedOwnStories(true);
+      }
+    };
+
+    window.addEventListener('ownStoriesViewed', handleStoriesViewed);
+    return () => {
+      window.removeEventListener('ownStoriesViewed', handleStoriesViewed);
+    };
+  }, []);
 
   // Get current user data with proper hasActiveStory status
   const currentUser: MinimalUser = useMemo(() => {
@@ -325,6 +361,7 @@ export default function StoryFeed({
                 stories={userStories}
                 showUsername
                 size="md"
+                hasViewedStory={hasViewedOwnStories}
               />
             </div>
 

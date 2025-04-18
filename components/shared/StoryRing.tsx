@@ -18,6 +18,7 @@ interface StoryRingProps {
   isProfilePage?: boolean;
   className?: string;
   onAvatarClick?: (e: React.MouseEvent) => void;
+  hasViewedStory?: boolean;
 }
 
 declare global {
@@ -38,6 +39,7 @@ export default function StoryRing({
   isProfilePage = false,
   className,
   onAvatarClick,
+  hasViewedStory: propHasViewedStory,
 }: StoryRingProps) {
   const { data: session } = useSession();
   const [stories, setStories] = useState(initialStories);
@@ -430,7 +432,7 @@ export default function StoryRing({
     <div className="flex flex-col items-center space-y-1">
       <button
         onClick={handleStoryClick}
-        className={`rounded-full ${size === 'sm' ? 'h-[62px] w-[62px]' : 'h-[72px] w-[72px]'} flex items-center justify-center p-[2px] ${showRing ? (hasViewedStory ? 'bg-gray-400 dark:bg-gray-400' : 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500') : 'bg-transparent'}`}
+        className={`rounded-full ${size === 'sm' ? 'h-[62px] w-[62px]' : 'h-[72px] w-[72px]'} flex items-center justify-center p-[2px] ${showRing ? (propHasViewedStory || hasViewedStory ? 'bg-gray-400 dark:bg-gray-400' : 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500') : 'bg-transparent'}`}
       >
         <div className="rounded-full bg-white dark:bg-black p-[2px] h-full w-full flex items-center justify-center">
           <UserAvatar
