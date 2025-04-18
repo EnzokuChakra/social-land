@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { unlink } from 'fs/promises';
-import { getSocket } from "@/lib/socket";
+import { getServerSocket } from "@/lib/socket";
 import { prisma } from "@/lib/prisma";
 import { PrismaClient } from "@prisma/client";
 
@@ -62,8 +62,11 @@ export async function POST(req: Request) {
     const ext = path.extname(photo.name);
     const filename = `${nanoid()}${ext}`;
     
-    // Use VPS absolute path
-    const uploadDir = '/var/www/social-land/public/uploads/events';
+    // Use correct path based on environment
+    const isProduction = process.env.NODE_ENV === 'production';
+    const uploadDir = isProduction 
+      ? '/var/www/social-land/public/uploads/events'
+      : path.join(process.cwd(), 'public', 'uploads', 'events');
     const relativePath = `/uploads/events/${filename}`;
     const fullPath = path.join(uploadDir, filename);
     
@@ -97,127 +100,38 @@ export async function POST(req: Request) {
       await writeFile(fullPath, buffer);
       console.log("[EVENTS_POST] File written successfully");
       
-      // Verify file exists
-      const fs = require('fs').promises;
-      const fileStats = await fs.stat(fullPath);
-      console.log("[EVENTS_POST] File stats:", {
-        size: fileStats.size,
-        path: fullPath,
-        exists: true
-      });
-    } catch (writeError) {
-      console.error("[EVENTS_POST] Failed to write file:", writeError);
-      return NextResponse.json(
-        { error: "Failed to save photo" },
-        { status: 500 }
-      );
-    }
-
-    const photoUrl = relativePath;
-    console.log("[EVENTS_POST] Photo URL:", photoUrl);
-
-    // Create event in database
-    try {
-      console.log("[EVENTS_POST] Creating event in database...");
-      const prizesData = formData.get("prizes") ? JSON.parse(formData.get("prizes") as string) : [];
-      
-      // Create the event with all required fields
-      const event = await db.event.create({
+      // Create event in database
+      const event = await prisma.event.create({
         data: {
-          id: nanoid(),
           name: formData.get("name") as string,
           type: formData.get("type") as string,
-          description: formData.get("description") as string,
-          rules: formData.get("rules") as string || null,
-          prize: prizesData.length > 0 ? prizesData[0].prize : null,
           location: formData.get("location") as string,
           startDate: new Date(formData.get("startDate") as string),
-          photoUrl: photoUrl,
-          user_id: session.user.id,
-          updatedAt: new Date(),
-        },
-        include: {
-          user: true
+          rules: formData.get("rules") as string,
+          prizes: formData.get("prizes") as string,
+          photo: relativePath,
+          userId: session.user.id
         }
       });
 
-      // Update the prizes field separately if needed
-      if (formData.get("prizes")) {
-        await db.event.update({
-          where: { id: event.id },
-          data: {
-            prizes: JSON.stringify(prizesData)
-          }
-        });
-      }
-
-      console.log("[EVENTS_POST] Event created successfully:", { 
-        eventId: event.id,
-        eventName: event.name,
-        eventType: event.type,
-        eventStartDate: event.startDate,
-        userId: event.user_id
-      });
-      
-      // Get all users except the event creator
-      const users = await db.user.findMany({
-        where: {
-          id: {
-            not: session.user.id
-          }
-        },
-        select: {
-          id: true
-        }
-      });
-
-      console.log("[EVENTS_POST] Creating notifications for users:", {
-        totalUsers: users.length,
-        eventId: event.id
-      });
-
-      // Create notifications for all users
-      await Promise.all(users.map((user: { id: string }) => 
-        db.notification.create({
-          data: {
-            id: nanoid(),
-            type: "EVENT_CREATED",
-            userId: user.id,
-            sender_id: session.user.id,
-            metadata: JSON.stringify({
-              eventId: event.id,
-              eventName: event.name
-            }),
-          },
-        })
-      ));
-      
-      console.log("[EVENTS_POST] Notifications created successfully");
-      
-      // Emit socket event
-      const socket = getSocket();
+      // Emit socket event using server-side socket
+      const socket = getServerSocket();
       if (socket) {
-        socket.emit("newEvent", event);
+        socket.emit('newEvent', event);
       }
 
       return NextResponse.json(event);
-    } catch (error) {
-      console.error("[EVENTS_POST] Database error:", error);
-      // Clean up uploaded file if database operation fails
-      try {
-        await unlink(fullPath);
-      } catch (unlinkError) {
-        console.error("[EVENTS_POST] Failed to clean up file:", unlinkError);
-      }
+    } catch (writeError) {
+      console.error("[EVENTS_POST] Failed to write file:", writeError);
       return NextResponse.json(
-        { error: "Failed to create event" },
+        { error: "Failed to save event photo" },
         { status: 500 }
       );
     }
   } catch (error) {
-    console.error("[EVENTS_POST] Unexpected error:", error);
+    console.error("[EVENTS_POST] Error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Failed to create event" },
       { status: 500 }
     );
   }
@@ -340,7 +254,7 @@ export async function DELETE(req: Request) {
     });
 
     // Emit socket event for real-time update
-    const socket = getSocket();
+    const socket = getServerSocket();
     if (socket) {
       socket.emit("deleteEvent", eventId);
     }

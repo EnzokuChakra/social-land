@@ -18,6 +18,9 @@ let currentUserId: string | null = null;
 let connectionAttempts = 0;
 const MAX_CONNECTION_ATTEMPTS = 5;
 
+// Server-side socket instance
+let serverSocket: Socket | null = null;
+
 // Create a singleton socket instance
 export function getSocket() {
   if (!socket && typeof window !== 'undefined') {
@@ -110,4 +113,30 @@ export function authenticateSocket(token: string) {
   if (socket) {
     socket.emit("authenticate", { token });
   }
+}
+
+// Get server-side socket instance
+export function getServerSocket() {
+  if (!serverSocket) {
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:5002";
+    serverSocket = io(socketUrl, {
+      reconnection: true,
+      reconnectionAttempts: MAX_CONNECTION_ATTEMPTS,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      autoConnect: true,
+      transports: ["websocket", "polling"],
+      path: '/socket.io/',
+      secure: process.env.NODE_ENV === 'production',
+      rejectUnauthorized: false,
+      forceNew: true,
+      rememberUpgrade: true,
+      upgrade: true,
+      perMessageDeflate: {
+        threshold: 32768
+      }
+    });
+  }
+  return serverSocket;
 }
