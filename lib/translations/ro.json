@@ -1,0 +1,56 @@
+{
+  "common": {
+    "home": "Acasă",
+    "profile": "Profil",
+    "settings": "Setări",
+    "logout": "Deconectare",
+    "login": "Autentificare",
+    "register": "Înregistrare",
+    "search": "Caută",
+    "notifications": "Notificări",
+    "messages": "Mesaje",
+    "create": "Creează",
+    "edit": "Editează",
+    "delete": "Șterge",
+    "save": "Salvează",
+    "cancel": "Anulează",
+    "loading": "Se încarcă...",
+    "error": "Eroare",
+    "success": "Succes",
+    "editProfile": "Editează Profilul",
+    "yourActivity": "Activitatea Ta",
+    "saved": "Salvate",
+    "verifiedAccount": "Cont Verificat",
+    "getVerified": "Obține Verificare",
+    "lightMode": "Mod Luminos",
+    "darkMode": "Mod Întunecat",
+    "language": "Limba",
+    "logout": "Deconectare"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Parolă",
+    "confirmPassword": "Confirmă parola",
+    "forgotPassword": "Ai uitat parola?",
+    "resetPassword": "Resetează parola",
+    "rememberMe": "Ține-mă minte",
+    "noAccount": "Nu ai cont?",
+    "haveAccount": "Ai deja cont?"
+  },
+  "profile": {
+    "editProfile": "Editează profilul",
+    "changePhoto": "Schimbă poza",
+    "bio": "Biografie",
+    "followers": "Urmăritori",
+    "following": "Urmăresc",
+    "posts": "Postări"
+  },
+  "posts": {
+    "createPost": "Creează postare",
+    "addPhoto": "Adaugă fotografie",
+    "writeSomething": "Scrie ceva...",
+    "like": "Apreciază",
+    "comment": "Comentează",
+    "share": "Partajează"
+  }
+} 

@@ -1,0 +1,56 @@
+{
+  "common": {
+    "home": "Home",
+    "profile": "Profile",
+    "settings": "Settings",
+    "logout": "Logout",
+    "login": "Login",
+    "register": "Register",
+    "search": "Search",
+    "notifications": "Notifications",
+    "messages": "Messages",
+    "create": "Create",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "editProfile": "Edit Profile",
+    "yourActivity": "Your Activity",
+    "saved": "Saved",
+    "verifiedAccount": "Verified Account",
+    "getVerified": "Get Verified",
+    "lightMode": "Light Mode",
+    "darkMode": "Dark Mode",
+    "language": "Language",
+    "logout": "Logout"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "forgotPassword": "Forgot Password?",
+    "resetPassword": "Reset Password",
+    "rememberMe": "Remember Me",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?"
+  },
+  "profile": {
+    "editProfile": "Edit Profile",
+    "changePhoto": "Change Photo",
+    "bio": "Bio",
+    "followers": "Followers",
+    "following": "Following",
+    "posts": "Posts"
+  },
+  "posts": {
+    "createPost": "Create Post",
+    "addPhoto": "Add Photo",
+    "writeSomething": "Write something...",
+    "like": "Like",
+    "comment": "Comment",
+    "share": "Share"
+  }
+} 

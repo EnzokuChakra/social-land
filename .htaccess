@@ -1,0 +1,32 @@
+# Enable rewrite engine
+RewriteEngine On
+
+# Handle Next.js static files
+RewriteCond %{REQUEST_URI} ^/_next/static/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^_next/static/(.*)$ /_next/static/$1 [L]
+
+# Handle Next.js static files
+RewriteCond %{REQUEST_URI} ^/_next/image/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^_next/image/(.*)$ /_next/image/$1 [L]
+
+# Handle Next.js static files
+RewriteCond %{REQUEST_URI} ^/_next/data/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^_next/data/(.*)$ /_next/data/$1 [L]
+
+# Handle all other routes
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ /index.php [L,QSA]
+
+# Enable CORS
+Header set Access-Control-Allow-Origin "*"
+Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+
+# Cache static assets
+<FilesMatch "\.(js|css|jpg|jpeg|png|gif|ico|woff|woff2|ttf|eot)$">
+    Header set Cache-Control "max-age=31536000, public"
+</FilesMatch> 
