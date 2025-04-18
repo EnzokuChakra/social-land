@@ -77,6 +77,8 @@ function getStatusText(startDate: Date): EventStatus {
 }
 
 export default function EventsPage() {
+  console.log('[EVENTS_PAGE] Component rendering');
+  
   const [events, setEvents] = useState<EventWithUser[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<EventStatus | "ALL">("ALL");
@@ -85,16 +87,31 @@ export default function EventsPage() {
   const { data: session } = useSession();
   const socket = useSocket();
 
+  console.log('[EVENTS_PAGE] Current state:', {
+    eventsCount: events.length,
+    searchQuery,
+    activeFilter,
+    loading,
+    hasSession: !!session,
+    hasSocket: !!socket
+  });
+
   // Memoize filtered events to prevent unnecessary recalculations
   const filteredEvents = useMemo(() => {
+    console.log('[EVENTS_PAGE] Filtering events:', {
+      totalEvents: events.length,
+      searchQuery,
+      activeFilter
+    });
+    
     if (!Array.isArray(events)) {
-      console.error('Events is not an array:', events);
+      console.error('[EVENTS_PAGE] Events is not an array:', events);
       return [];
     }
     
-    return events.filter((event) => {
+    const filtered = events.filter((event) => {
       if (!event || typeof event !== 'object') {
-        console.error('Invalid event object:', event);
+        console.error('[EVENTS_PAGE] Invalid event object:', event);
         return false;
       }
       
@@ -107,11 +124,18 @@ export default function EventsPage() {
       
       return matchesSearch && matchesFilter;
     });
+
+    console.log('[EVENTS_PAGE] Filtered events count:', filtered.length);
+    return filtered;
   }, [events, searchQuery, activeFilter]);
 
   // Memoize sorted events
   const sortedEvents = useMemo(() => {
-    return [...filteredEvents].sort((a: EventWithUser, b: EventWithUser) => {
+    console.log('[EVENTS_PAGE] Sorting events:', {
+      filteredEventsCount: filteredEvents.length
+    });
+    
+    const sorted = [...filteredEvents].sort((a: EventWithUser, b: EventWithUser) => {
       const aDate = new Date(a.startDate);
       const bDate = new Date(b.startDate);
       const aStatus = getStatusText(aDate);
@@ -129,6 +153,9 @@ export default function EventsPage() {
       
       return aDate.getTime() - bDate.getTime();
     });
+
+    console.log('[EVENTS_PAGE] Sorted events count:', sorted.length);
+    return sorted;
   }, [filteredEvents]);
 
   const handleCreateEvent = async (formData: FormData) => {
@@ -237,61 +264,29 @@ export default function EventsPage() {
   };
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        console.log('Fetching events...');
-        const response = await fetch("/api/events");
-        if (!response.ok) {
-          console.error('Failed to fetch events:', response.status, response.statusText);
-          throw new Error("Failed to fetch events");
-        }
-        const data = await response.json();
-        console.log('Received events data:', data);
-        
-        if (!Array.isArray(data)) {
-          console.error('Received non-array data:', data);
-          setEvents([]);
-          return;
-        }
-        
-        // Validate each event object
-        const validEvents = data.filter(event => 
-          event && 
-          typeof event === 'object' && 
-          event.id && 
-          event.name && 
-          event.startDate
-        );
-        
-        setEvents(validEvents);
-      } catch (error) {
-        console.error("Error fetching events:", error);
-        toast.error("Failed to load events");
-        setEvents([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEvents();
-  }, []);
-
-  useEffect(() => {
-    if (!socket) return;
+    console.log('[EVENTS_PAGE] Setting up socket event handlers');
+    
+    if (!socket) {
+      console.log('[EVENTS_PAGE] No socket connection available');
+      return;
+    }
 
     // Handle new event
     const handleNewEvent = (newEvent: EventWithUser) => {
+      console.log('[EVENTS_PAGE] New event received:', newEvent);
       setEvents(prev => {
-        // Check if event already exists to avoid duplicates
         if (prev.some(event => event.id === newEvent.id)) {
+          console.log('[EVENTS_PAGE] Event already exists, skipping');
           return prev;
         }
+        console.log('[EVENTS_PAGE] Adding new event to state');
         return [newEvent, ...prev];
       });
     };
 
     // Handle event deletion
     const handleEventDeleted = (eventId: string) => {
+      console.log('[EVENTS_PAGE] Event deleted:', eventId);
       setEvents(prev => prev.filter(event => event.id !== eventId));
     };
 
@@ -333,12 +328,70 @@ export default function EventsPage() {
 
     // Cleanup
     return () => {
+      console.log('[EVENTS_PAGE] Cleaning up socket event handlers');
       socket.off("newEvent", handleNewEvent);
       socket.off("deleteEvent", handleEventDeleted);
       socket.off("eventInterestUpdate", handleEventInterestUpdate);
       socket.off("eventParticipateUpdate", handleEventParticipateUpdate);
     };
   }, [socket]);
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      console.log('[EVENTS_PAGE] Starting to fetch events');
+      try {
+        const response = await fetch("/api/events");
+        console.log('[EVENTS_PAGE] API response status:', response.status);
+        
+        if (!response.ok) {
+          console.error('[EVENTS_PAGE] Failed to fetch events:', {
+            status: response.status,
+            statusText: response.statusText
+          });
+          throw new Error("Failed to fetch events");
+        }
+        
+        const data = await response.json();
+        console.log('[EVENTS_PAGE] Received data:', {
+          isArray: Array.isArray(data),
+          length: Array.isArray(data) ? data.length : 'not an array',
+          data: data
+        });
+        
+        if (!Array.isArray(data)) {
+          console.error('[EVENTS_PAGE] Received non-array data:', data);
+          setEvents([]);
+          return;
+        }
+        
+        // Validate each event object
+        const validEvents = data.filter(event => {
+          const isValid = event && 
+            typeof event === 'object' && 
+            event.id && 
+            event.name && 
+            event.startDate;
+            
+          if (!isValid) {
+            console.error('[EVENTS_PAGE] Invalid event object found:', event);
+          }
+          return isValid;
+        });
+        
+        console.log('[EVENTS_PAGE] Valid events count:', validEvents.length);
+        setEvents(validEvents);
+      } catch (error) {
+        console.error('[EVENTS_PAGE] Error fetching events:', error);
+        toast.error("Failed to load events");
+        setEvents([]);
+      } finally {
+        console.log('[EVENTS_PAGE] Setting loading to false');
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, []);
 
   return (
     <div className="container max-w-7xl mx-auto py-8 px-4">
@@ -352,7 +405,10 @@ export default function EventsPage() {
         <Input
           placeholder="Search events..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => {
+            console.log('[EVENTS_PAGE] Search query changed:', e.target.value);
+            setSearchQuery(e.target.value);
+          }}
           className="max-w-xs"
         />
       </div>
@@ -360,7 +416,10 @@ export default function EventsPage() {
       <div className="flex flex-wrap gap-2 mb-6">
         <Button
           variant={activeFilter === "ALL" ? "default" : "outline"}
-          onClick={() => setActiveFilter("ALL")}
+          onClick={() => {
+            console.log('[EVENTS_PAGE] Filter changed to ALL');
+            setActiveFilter("ALL");
+          }}
           className="flex items-center gap-2"
         >
           <CalendarDays className="h-4 w-4" />
