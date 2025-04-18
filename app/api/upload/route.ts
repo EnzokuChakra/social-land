@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
       //test
       // Determine upload type and directory
       const uploadType = isProfilePhoto ? 'profiles' : type;
-      const baseUploadPath = path.join(process.cwd(), 'public', 'uploads');
+      const baseUploadPath = '/var/www/social-land/public/uploads';
       const uploadDir = path.join(baseUploadPath, uploadType);
       const relativePath = `/uploads/${uploadType}/${uniqueFilename}`;
       const fullPath = path.join(uploadDir, uniqueFilename);

@@ -62,8 +62,8 @@ export async function POST(req: Request) {
     const ext = path.extname(photo.name);
     const filename = `${nanoid()}${ext}`;
     
-    // Use process.cwd() to get the current working directory
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'events');
+    // Use VPS absolute path
+    const uploadDir = '/var/www/social-land/public/uploads/events';
     const relativePath = `/uploads/events/${filename}`;
     const fullPath = path.join(uploadDir, filename);
     

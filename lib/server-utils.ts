@@ -3,8 +3,8 @@ import path from 'path';
 
 export async function ensureUploadDirectories() {
   const uploadTypes = ['posts', 'profiles', 'stories', 'reels', 'events'];
-  // Use absolute path for the uploads directory
-  const baseDir = path.join(process.cwd(), 'public', 'uploads');
+  // Use production absolute path for the uploads directory
+  const baseDir = '/var/www/social-land/public/uploads';
   
   // First ensure base uploads directory exists
   try {
@@ -56,7 +56,7 @@ export async function deleteUploadedFile(fileUrl: string | null) {
 
     // Try to delete from the typed directory first
     if (type) {
-      const typedFilePath = path.join(process.cwd(), 'public', 'uploads', type, filename);
+      const typedFilePath = path.join('/var/www/social-land/public/uploads', type, filename);
       console.log("[DELETE_FILE] Attempting to delete from typed directory:", typedFilePath);
       
       try {
@@ -74,7 +74,7 @@ export async function deleteUploadedFile(fileUrl: string | null) {
 
     // If file wasn't found in typed directory or no type was specified,
     // try the root uploads directory
-    const rootFilePath = path.join(process.cwd(), 'public', 'uploads', filename);
+    const rootFilePath = path.join('/var/www/social-land/public/uploads', filename);
     console.log("[DELETE_FILE] Attempting to delete from root directory:", rootFilePath);
     
     try {
