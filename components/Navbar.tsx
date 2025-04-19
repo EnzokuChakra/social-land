@@ -55,7 +55,6 @@ import { useProfile } from "@/lib/contexts/profile-context";
 import VerifiedBadge from "./VerifiedBadge";
 import { getSocket } from "@/lib/socket";
 import VerificationStatusDropdownItem from "@/components/VerificationStatusDropdownItem";
-import { useSocket } from "@/lib/hooks/use-socket";
 
 // Base routes without reels
 const baseRoutes = [
@@ -99,7 +98,7 @@ export default function Navbar() {
   const { profile } = useProfile();
   const [showModeToggle, setShowModeToggle] = useState(false);
   const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
-  const socket = useSocket();
+  const socket = getSocket();
   const { t } = useTranslation();
   
   // Update userProfileImage when session changes

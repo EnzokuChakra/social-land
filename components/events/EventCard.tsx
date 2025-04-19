@@ -29,7 +29,7 @@ import { useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/utils";
 import EventViewModal from "./EventViewModal";
 import { cn } from "@/lib/utils";
-import { useSocket } from "@/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 import _ from "lodash";
 
 interface EventCardProps {
@@ -46,7 +46,7 @@ export default function EventCard({ event, status, onDelete }: EventCardProps) {
   const [isParticipating, setIsParticipating] = useState(false);
   const { data: session, status: sessionStatus } = useSession();
   const router = useRouter();
-  const socket = useSocket();
+  const socket = getSocket();
 
   // Parse prizes from JSON string or use single prize
   const prizes = useMemo(() => {

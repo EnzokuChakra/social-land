@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useSocket } from './use-socket';
+import { getSocket } from "@/lib/socket";
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
@@ -14,7 +14,7 @@ export const useStoryDeletion = ({
   isViewingStory,
   onStoryDeleted 
 }: UseStoryDeletionProps) => {
-  const socket = useSocket();
+  const socket = getSocket();
   const router = useRouter();
 
   useEffect(() => {

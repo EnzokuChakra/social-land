@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSocket } from '@/hooks/use-socket';
+import { getSocket } from "@/lib/socket";
 import { useEffect, useMemo } from 'react';
 
 interface ImageOptions {
@@ -12,7 +12,7 @@ interface ImageOptions {
 export function useImage(src: string | null, options: ImageOptions = {}) {
   const { forceRefresh = false } = options;
   const queryClient = useQueryClient();
-  const socket = useSocket();
+  const socket = getSocket();
 
   // Generate a cache key that includes a timestamp for profile images
   const cacheKey = useMemo(() => {

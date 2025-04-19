@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useSocket } from "@/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 import { Story, StoryView, StoryLike } from "@/lib/definitions";
 
 interface StoryUser {
@@ -63,7 +63,7 @@ export default function StoryModal() {
   const [isStoriesInitialized, setIsStoriesInitialized] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportStoryData, setReportStoryData] = useState<{id: string; username: string} | null>(null);
-  const socket = useSocket();
+  const socket = getSocket();
   const [isPaused, setIsPaused] = useState(false);
 
   // Add a new ref to track already viewed stories in the current session
@@ -141,13 +141,13 @@ export default function StoryModal() {
               setViewsCount(prev => prev + 1);
               
               // Emit socket event for real-time updates
-              unviewedStoryIds.forEach(storyId => {
+              if (socket) {
                 socket.emit('storyView', {
                   userId: currentStory.user.id,
-                  storyId: storyId,
+                  storyId: currentStory.id,
                   viewerId: session.user.id
                 });
-              });
+              }
 
               // Dispatch appropriate event for story ring updates
               if (currentStory.user.id === session.user.id) {
@@ -342,11 +342,13 @@ export default function StoryModal() {
           setViewsCount(prev => prev + 1);
           
           // Emit socket event for real-time updates
-          socket.emit('storyView', {
-            userId: currentStory.user.id,
-            storyId: currentStory.id,
-            viewerId: session.user.id
-          });
+          if (socket) {
+            socket.emit('storyView', {
+              userId: currentStory.user.id,
+              storyId: currentStory.id,
+              viewerId: session.user.id
+            });
+          }
 
           // Dispatch appropriate event for story ring updates
           if (currentStory.user.id === session.user.id) {

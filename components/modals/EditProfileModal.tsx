@@ -22,14 +22,14 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Camera, ImageIcon, Trash2, X, ZoomIn, ZoomOut, Move } from "lucide-react";
 import { updateProfile, deleteProfilePhoto } from "@/lib/actions";
-import { useSocket } from "@/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 import { cn } from "@/lib/utils";
 
 export default function EditProfileModal() {
   const { data: session } = useSession();
   const editProfileModal = useEditProfileModal();
   const router = useRouter();
-  const socket = useSocket();
+  const socket = getSocket();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [scale, setScale] = useState(1);

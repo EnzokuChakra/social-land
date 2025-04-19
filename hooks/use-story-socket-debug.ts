@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useSocket } from './use-socket';
+import { getSocket } from "@/lib/socket";
 
 export const useStorySocketDebug = () => {
-  const socket = useSocket();
+  const socket = getSocket();
   const [socketStatus, setSocketStatus] = useState({
     connected: false,
     events: [] as { timestamp: string, event: string, data: any }[]

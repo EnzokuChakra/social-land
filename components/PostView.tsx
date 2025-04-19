@@ -36,9 +36,8 @@ import TaggedUsersModal from "@/components/TaggedUsersModal";
 import ProfileHoverCard from "@/components/ProfileHoverCard";
 import { useStoryModal } from "@/hooks/use-story-modal";
 import Timestamp from "@/components/Timestamp";
-import { useSocket } from "@/hooks/use-socket";
-import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { getSocket } from "@/lib/socket";
+import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { useImageCache } from "@/lib/hooks/use-image-cache";
 
 const MemoizedImage = memo(function MemoizedImage({ src, alt, aspectRatio, onDoubleClick }: { 

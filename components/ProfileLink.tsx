@@ -8,7 +8,7 @@ import UserAvatar from "./UserAvatar";
 import { useEffect, useState, useRef } from "react";
 import { UserWithExtras } from "@/lib/definitions";
 import { useNavbar } from "@/lib/hooks/use-navbar";
-import { useSocket } from "@/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 import VerifiedBadge from "./VerifiedBadge";
 
 interface ProfileLinkProps {
@@ -28,7 +28,7 @@ export default function ProfileLink({ user, className }: ProfileLinkProps) {
   const href = `/dashboard/${user.username}`;
   const isActive = pathname === href;
   const { isCollapsed } = useNavbar();
-  const socket = useSocket();
+  const socket = getSocket();
   const [profileImage, setProfileImage] = useState<string | null>(user.image);
 
   // Update profileImage when user.image changes

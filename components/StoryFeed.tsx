@@ -8,7 +8,7 @@ import { useSession } from "next-auth/react";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { Button } from "./ui/button";
 import StoryRing from "./shared/StoryRing";
-import { useSocket } from "@/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 import UserAvatar from "@/components/UserAvatar";
 
 type MinimalUser = Pick<User, "id" | "username" | "image" | "name" | "isPrivate" | "isFollowing" | "hasActiveStory" | "verified">;
@@ -30,7 +30,7 @@ export default function StoryFeed({
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
   const lastFetchRef = useRef<number>(0);
-  const socket = useSocket();
+  const socket = getSocket();
   const [currentUserImage, setCurrentUserImage] = useState<string | null>(session?.user?.image || null);
   const isFetchingRef = useRef(false);
   const oldImageRef = useRef<string | null>(null);

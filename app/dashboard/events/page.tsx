@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useSocket } from "@/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 import { toast } from "sonner";
 import { Event, EventWithUser, UserRole, UserStatus, EventStatus } from "@/lib/definitions";
 import { fetchEvents } from "@/lib/actions";
@@ -83,7 +83,7 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<EventWithUser | null>(null);
   const { data: session } = useSession();
-  const socket = useSocket();
+  const socket = getSocket();
   const [socketConnected, setSocketConnected] = useState(false);
 
   // Handle WebSocket connection status

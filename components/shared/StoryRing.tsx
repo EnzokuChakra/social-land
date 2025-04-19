@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { User, Story } from "@/lib/definitions";
 import { useSession } from "next-auth/react";
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { useSocket } from "@/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 import { useStoryModal } from "@/hooks/use-story-modal";
 import UserAvatar from "../UserAvatar";
 
@@ -44,7 +44,7 @@ export default function StoryRing({
   const { data: session } = useSession();
   const [stories, setStories] = useState(initialStories);
   const [hasUnviewedStories, setHasUnviewedStories] = useState(false);
-  const socket = useSocket();
+  const socket = getSocket();
   const storyModal = useStoryModal();
   const [viewedStoriesMap, setViewedStoriesMap] = useState<Record<string, boolean>>({});
   const lastFetchRef = useRef<number>(0);

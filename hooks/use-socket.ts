@@ -8,7 +8,7 @@ let globalSocket: Socket | null = null;
 let lastSessionState: { userId?: string; userRole?: string } | null = null;
 let isConnecting = false;
 
-export const useSocket = () => {
+export const getSocket = () => {
   const { data: session } = useSession();
 
   useEffect(() => {

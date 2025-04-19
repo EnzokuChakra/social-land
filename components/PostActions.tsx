@@ -18,7 +18,6 @@ import FollowButton from "./FollowButton";
 import io from "socket.io-client";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
-import {useSocket} from "@/hooks/use-socket";
 import { getSocket } from "@/lib/socket";
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";

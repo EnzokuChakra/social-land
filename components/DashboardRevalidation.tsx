@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useSocket } from "@/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 
@@ -14,7 +14,7 @@ export default function DashboardRevalidation({
   userId: string;
 }) {
   const router = useRouter();
-  const socket = useSocket();
+  const socket = getSocket();
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
 

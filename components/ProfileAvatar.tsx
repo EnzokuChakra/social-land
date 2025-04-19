@@ -54,7 +54,7 @@ import React from "react";
 import { useStoryModal } from "@/hooks/use-story-modal";
 import { useEditProfileModal } from "@/hooks/use-edit-profile-modal";
 import ProfilePictureOptionsModal from "./modals/ProfilePictureOptionsModal";
-import { useSocket } from "@/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 
 interface Story {
   id: string;
@@ -139,7 +139,7 @@ function ProfileAvatar({
   const [stories, setStories] = useState<Story[]>(initialStories);
   const [viewedStoriesMap, setViewedStoriesMap] = useState<Record<string, boolean>>({});
   const [hasServerUnviewedStories, setHasServerUnviewedStories] = useState<boolean>(true);
-  const socket = useSocket();
+  const socket = getSocket();
 
   // Fetch story view status with debouncing
   const fetchStoryViewStatus = useCallback(async () => {

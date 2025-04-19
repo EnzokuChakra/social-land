@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useSocket } from "@/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 
 interface EventViewModalProps {
   event: EventWithUser;
@@ -39,7 +39,7 @@ export default function EventViewModal({
   const [localEvent, setLocalEvent] = useState<EventWithUser>(event);
   const { data: session, status: sessionStatus } = useSession();
   const router = useRouter();
-  const socket = useSocket();
+  const socket = getSocket();
 
   // Update local event when prop changes
   useEffect(() => {

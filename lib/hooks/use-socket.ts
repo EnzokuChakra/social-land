@@ -5,7 +5,7 @@ import { io, Socket } from 'socket.io-client';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5002';
 
-export function useSocket() {
+export function getSocket() {
   const socketRef = useRef<Socket | null>(null);
   const connectionAttemptsRef = useRef(0);
   const MAX_RECONNECTION_ATTEMPTS = 5;

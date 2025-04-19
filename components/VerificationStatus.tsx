@@ -4,7 +4,7 @@ import { BadgeCheckIcon, Clock } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useSocket } from "@/lib/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 
 type VerificationStatus = {
   hasRequest: boolean;
@@ -19,7 +19,7 @@ export default function VerificationStatus() {
     isVerified: false
   });
   const { data: session } = useSession();
-  const socket = useSocket();
+  const socket = getSocket();
 
   const loadStatus = useCallback(async () => {
     if (session?.user?.id) {

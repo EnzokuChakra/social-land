@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { NotificationWithExtras, NotificationType, FollowRequest } from "@/lib/definitions";
+import { NotificationWithExtras, NotificationType } from "@/lib/definitions";
 import NotificationItem from "./NotificationItem";
 import FollowRequests from "./FollowRequests";
 import { ChevronLeftIcon } from "lucide-react";
 import { Button } from "./ui/button";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { HydrationSafeDiv } from "./HydrationSafeDiv";
-import { useSocket } from "@/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 import { useSession } from "next-auth/react";
 import { useNotifications } from "@/lib/hooks/use-notifications";
 import { Notification } from "@/types";
@@ -38,7 +38,7 @@ export default function NotificationSidebar({
   const [animationCount, setAnimationCount] = useState(0);
   const isAnimatingRef = useRef(false);
   const lastIsOpenRef = useRef(isOpen);
-  const socket = useSocket();
+  const socket = getSocket();
   const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(true);
   const hasJoinedRoom = useRef(false);
@@ -186,49 +186,40 @@ export default function NotificationSidebar({
     if (!notification.isRead) {
       markAsRead(notification.id);
     }
-    setIsOpen(false);
+    onClose();
     
     // Navigate based on notification type
-    if (notification.post) {
-      router.push(`/posts/${notification.post.id}`);
-    } else if (notification.story) {
-      router.push(`/stories/${notification.story.id}`);
+    if (notification.postId) {
+      router.push(`/posts/${notification.postId}`);
+    } else if (notification.storyId) {
+      router.push(`/stories/${notification.storyId}`);
     }
   };
 
   const getNotificationMessage = (notification: NotificationWithExtras): string => {
     switch (notification.type as NotificationType) {
       case "FOLLOW":
-        return "started following you";
+        return `${notification.sender?.username || 'Someone'} started following you`;
       case "LIKE":
-        const othersCount = notification.metadata?.othersCount as number;
-        if (othersCount && othersCount > 0) {
-          return `and ${othersCount} others liked your post`;
-        }
-        return "liked your post";
+        return `${notification.sender?.username || 'Someone'} liked your post`;
       case "COMMENT":
-        return `commented: ${notification.comment?.text ?? ''}`;
+        return `${notification.sender?.username || 'Someone'} commented on your post`;
       case "FOLLOW_REQUEST":
-        return "requested to follow you";
+        return `${notification.sender?.username || 'Someone'} wants to follow you`;
       case "REPLY":
-        return `replied to your comment: ${notification.comment?.text ?? ''}`;
+        return `${notification.sender?.username || 'Someone'} replied to your comment`;
       case "MENTION":
-        return "mentioned you in a comment";
+        return `${notification.sender?.username || 'Someone'} mentioned you in a comment`;
       case "TAG":
-        return "tagged you in a post";
+        return `${notification.sender?.username || 'Someone'} tagged you in a post`;
       case "STORY_LIKE":
-        const storyOthersCount = notification.metadata?.othersCount as number;
-        if (storyOthersCount && storyOthersCount > 0) {
-          return `and ${storyOthersCount} others liked your story`;
-        }
-        return "liked your story";
+        return `${notification.sender?.username || 'Someone'} liked your story`;
       case "COMMENT_LIKE":
-        return "liked your comment";
+        return `${notification.sender?.username || 'Someone'} liked your comment`;
       case "EVENT_CREATED":
-        const eventName = notification.metadata?.eventName as string;
-        return `A new event "${eventName || ''}" has been posted!`;
+        return `${notification.sender?.username || 'Someone'} created an event`;
       default:
-        return "";
+        return "New notification";
     }
   };
 

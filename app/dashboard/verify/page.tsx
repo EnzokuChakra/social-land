@@ -11,7 +11,7 @@ import { useNavbar } from "@/lib/hooks/use-navbar";
 import { useMediaQuery } from "@/lib/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { useSocket } from "@/lib/hooks/use-socket";
+import { getSocket } from "@/lib/socket";
 import { CustomLoader } from "@/components/ui/custom-loader";
 
 type VerificationStatus = {
@@ -33,7 +33,7 @@ export default function VerifyPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showTransition, setShowTransition] = useState(false);
-  const socket = useSocket();
+  const socket = getSocket();
   const [isMounted, setIsMounted] = useState(false);
   const [hasFetchedStatus, setHasFetchedStatus] = useState(false);
   const [animationComplete, setAnimationComplete] = useState(false);
