@@ -41,7 +41,18 @@ interface EventCardProps {
 export default function EventCard({ event, status, onDelete }: EventCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [localEvent, setLocalEvent] = useState<EventWithUser>(event);
+  const [localEvent, setLocalEvent] = useState<EventWithUser>({
+    ...event,
+    user: {
+      id: event.user?.id || '',
+      username: event.user?.username || 'user',
+      name: event.user?.name || 'User',
+      image: event.user?.image || '/images/profile_placeholder.webp',
+      verified: event.user?.verified || false,
+      role: event.user?.role || 'USER',
+      status: event.user?.status || 'ACTIVE'
+    }
+  });
   const [isInterested, setIsInterested] = useState(false);
   const [isParticipating, setIsParticipating] = useState(false);
   const { data: session, status: sessionStatus } = useSession();
