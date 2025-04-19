@@ -139,11 +139,17 @@ export default function EventsPage() {
   }, [searchQuery, activeFilter]);
 
   const sortedEvents = useMemo(() => {
+    console.log("[DEBUG] Events before sorting:", events);
+    console.log("[DEBUG] Events type:", typeof events);
+    console.log("[DEBUG] Is events array:", Array.isArray(events));
+    
     if (!Array.isArray(events)) {
+      console.error("[DEBUG] Events is not an array:", events);
       return [];
     }
     
     const filteredEvents = filterEvents(events);
+    console.log("[DEBUG] Filtered events:", filteredEvents);
     
     const sorted = filteredEvents.sort((a: EventWithUser, b: EventWithUser) => {
       const aDate = new Date(a.startDate);
@@ -164,6 +170,7 @@ export default function EventsPage() {
       return aDate.getTime() - bDate.getTime();
     });
     
+    console.log("[DEBUG] Final sorted events:", sorted);
     return sorted;
   }, [events, filterEvents]);
 
@@ -275,13 +282,18 @@ export default function EventsPage() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
+        console.log("[DEBUG] Starting to fetch events");
         const response = await fetch("/api/events");
         if (!response.ok) {
           throw new Error("Failed to fetch events");
         }
         const data = await response.json();
+        console.log("[DEBUG] Raw API response:", data);
+        console.log("[DEBUG] Response type:", typeof data);
+        console.log("[DEBUG] Is response array:", Array.isArray(data));
         
         if (!Array.isArray(data)) {
+          console.error("[DEBUG] API response is not an array:", data);
           setEvents([]);
           return;
         }
@@ -292,11 +304,14 @@ export default function EventsPage() {
             'id' in event && 
             'name' in event && 
             'startDate' in event;
+          console.log("[DEBUG] Event validation:", { event, isValid });
           return isValid;
         });
 
+        console.log("[DEBUG] Valid events after filtering:", validEvents);
         setEvents(validEvents);
       } catch (error) {
+        console.error("[DEBUG] Error fetching events:", error);
         toast.error("Failed to load events");
         setEvents([]);
       } finally {
@@ -391,7 +406,12 @@ export default function EventsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(() => {
+            console.log("[DEBUG] Rendering sortedEvents:", sortedEvents);
+            console.log("[DEBUG] sortedEvents type:", typeof sortedEvents);
+            console.log("[DEBUG] Is sortedEvents array:", Array.isArray(sortedEvents));
+            
             const eventsToRender = Array.isArray(sortedEvents) ? sortedEvents : [];
+            console.log("[DEBUG] eventsToRender:", eventsToRender);
             
             if (eventsToRender.length === 0) {
               return (
@@ -407,14 +427,17 @@ export default function EventsPage() {
               );
             }
 
-            return eventsToRender.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                status={getStatusText(new Date(event.startDate))}
-                onDelete={() => handleDelete(event.id)}
-              />
-            ));
+            return eventsToRender.map((event) => {
+              console.log("[DEBUG] Rendering event:", event);
+              return (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  status={getStatusText(new Date(event.startDate))}
+                  onDelete={() => handleDelete(event.id)}
+                />
+              );
+            });
           })()}
         </div>
       )}
