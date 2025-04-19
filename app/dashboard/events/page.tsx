@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useSocket } from "@/hooks/use-socket";
 import { toast } from "sonner";
@@ -10,6 +10,7 @@ import { CalendarDays, Search, CalendarClock, Trophy, MoreVertical, Trash2 } fro
 import CreateEventButton from "@/components/events/CreateEventButton";
 import EventViewModal from "@/components/events/EventViewModal";
 import { Input } from "@/components/ui/input";
+import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, isToday, isPast, isFuture } from "date-fns";
 import Image from "next/image";
@@ -30,6 +31,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import EventCard from "@/components/events/EventCard";
+
+const container = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const item = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0 }
+};
 
 function getStatusColor(startDate: Date) {
   if (isEventOngoing(startDate)) {
@@ -63,39 +79,45 @@ function getStatusText(startDate: Date): EventStatus {
 export default function EventsPage() {
   const [events, setEvents] = useState<EventWithUser[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState<EventStatus | "ALL">("ALL");
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<EventWithUser | null>(null);
-  const [socketError, setSocketError] = useState(false);
   const { data: session } = useSession();
   const socket = useSocket();
 
-  // Handle socket connection errors
-  useEffect(() => {
-    if (!socket) return;
+  const filterEvents = (events: EventWithUser[]) => {
+    return events.filter((event) => {
+      const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.location.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const eventStatus = getStatusText(new Date(event.startDate));
+      const matchesFilter = activeFilter === "ALL" || eventStatus === activeFilter;
+      
+      return matchesSearch && matchesFilter;
+    });
+  };
 
-    const handleConnect = () => {
-      setSocketError(false);
+  const sortedEvents = filterEvents(events).sort((a: EventWithUser, b: EventWithUser) => {
+    const aDate = new Date(a.startDate);
+    const bDate = new Date(b.startDate);
+    const aStatus = getStatusText(aDate);
+    const bStatus = getStatusText(bDate);
+    
+    // First sort by status priority (ONGOING > UPCOMING > ENDED)
+    const statusPriority: Record<EventStatus, number> = { 
+      ONGOING: 0, 
+      UPCOMING: 1, 
+      ENDED: 2 
     };
-
-    const handleDisconnect = () => {
-      setSocketError(true);
-    };
-
-    const handleError = (error: Error) => {
-      console.error('[EVENTS_PAGE] Socket error:', error);
-      setSocketError(true);
-    };
-
-    socket.on('connect', handleConnect);
-    socket.on('disconnect', handleDisconnect);
-    socket.on('error', handleError);
-
-    return () => {
-      socket.off('connect', handleConnect);
-      socket.off('disconnect', handleDisconnect);
-      socket.off('error', handleError);
-    };
-  }, [socket]);
+    
+    if (statusPriority[aStatus] !== statusPriority[bStatus]) {
+      return statusPriority[aStatus] - statusPriority[bStatus];
+    }
+    
+    // Then sort by date within each status
+    return aDate.getTime() - bDate.getTime();
+  });
 
   const handleCreateEvent = async (formData: FormData) => {
     // Generate a temporary ID for the event
@@ -174,16 +196,11 @@ export default function EventsPage() {
   };
 
   const handleDelete = async (eventId: string) => {
-    try {
-      // Optimistically remove the event from the UI
-      setEvents(prev => {
-        if (!Array.isArray(prev)) {
-          console.error('[EVENTS_PAGE] Current events state is not an array:', prev);
-          return [];
-        }
-        return prev.filter(event => event.id !== eventId);
-      });
+    // Optimistically remove the event from the UI
+    const eventToDelete = events.find(event => event.id === eventId);
+    setEvents(prev => prev.filter(event => event.id !== eventId));
 
+    try {
       const response = await fetch(`/api/events?id=${eventId}`, {
         method: "DELETE",
       });
@@ -199,96 +216,78 @@ export default function EventsPage() {
 
       toast.success("Event deleted successfully");
     } catch (error) {
-      console.error('[EVENTS_PAGE] Error deleting event:', error);
-      toast.error("Failed to delete event");
-      // Re-fetch events to ensure consistency
-      const response = await fetch("/api/events");
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          setEvents(data);
-        }
+      // Revert the optimistic update on error
+      if (eventToDelete) {
+        setEvents(prev => [...prev, eventToDelete]);
       }
+      toast.error("Failed to delete event");
     }
   };
 
   useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const response = await fetch("/api/events");
+        if (!response.ok) throw new Error("Failed to fetch events");
+        const data = await response.json();
+        setEvents(data);
+      } catch (error) {
+        toast.error("Failed to load events");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, []);
+
+  useEffect(() => {
     if (!socket) return;
 
+    // Handle new event
     const handleNewEvent = (newEvent: EventWithUser) => {
-      if (!newEvent || typeof newEvent !== 'object') {
-        console.error('[EVENTS_PAGE] Invalid new event received:', newEvent);
-        return;
-      }
       setEvents(prev => {
-        if (!Array.isArray(prev)) {
-          console.error('[EVENTS_PAGE] Current events state is not an array:', prev);
-          return [newEvent];
+        // Check if event already exists to avoid duplicates
+        if (prev.some(event => event.id === newEvent.id)) {
+          return prev;
         }
         return [newEvent, ...prev];
       });
     };
 
+    // Handle event deletion
     const handleEventDeleted = (eventId: string) => {
-      if (!eventId || typeof eventId !== 'string') {
-        console.error('[EVENTS_PAGE] Invalid event ID received for deletion:', eventId);
-        return;
-      }
-      setEvents(prev => {
-        if (!Array.isArray(prev)) {
-          console.error('[EVENTS_PAGE] Current events state is not an array:', prev);
-          return [];
-        }
-        return prev.filter(event => event.id !== eventId);
-      });
+      setEvents(prev => prev.filter(event => event.id !== eventId));
     };
 
+    // Handle event interest updates
     const handleEventInterestUpdate = (data: { eventId: string, counts: { interested: number, participants: number } }) => {
-      if (!data || !data.eventId || !data.counts) {
-        console.error('[EVENTS_PAGE] Invalid interest update data:', data);
-        return;
-      }
-      setEvents(prev => {
-        if (!Array.isArray(prev)) {
-          console.error('[EVENTS_PAGE] Current events state is not an array:', prev);
-          return [];
-        }
-        return prev.map(event => 
-          event.id === data.eventId 
-            ? { 
-                ...event, 
-                _count: { 
-                  interested: data.counts.interested, 
-                  participants: data.counts.participants 
-                } 
+      setEvents(prev => prev.map(event => 
+        event.id === data.eventId 
+          ? { 
+              ...event, 
+              _count: { 
+                interested: data.counts.interested, 
+                participants: data.counts.participants 
               } 
-            : event
-        );
-      });
+            } 
+          : event
+      ));
     };
 
+    // Handle event participation updates
     const handleEventParticipateUpdate = (data: { eventId: string, counts: { interested: number, participants: number } }) => {
-      if (!data || !data.eventId || !data.counts) {
-        console.error('[EVENTS_PAGE] Invalid participation update data:', data);
-        return;
-      }
-      setEvents(prev => {
-        if (!Array.isArray(prev)) {
-          console.error('[EVENTS_PAGE] Current events state is not an array:', prev);
-          return [];
-        }
-        return prev.map(event => 
-          event.id === data.eventId 
-            ? { 
-                ...event, 
-                _count: { 
-                  interested: data.counts.interested, 
-                  participants: data.counts.participants 
-                } 
+      setEvents(prev => prev.map(event => 
+        event.id === data.eventId 
+          ? { 
+              ...event, 
+              _count: { 
+                interested: data.counts.interested, 
+                participants: data.counts.participants 
               } 
-            : event
-        );
-      });
+            } 
+          : event
+      ));
     };
 
     // Subscribe to socket events
@@ -299,64 +298,12 @@ export default function EventsPage() {
 
     // Cleanup
     return () => {
-      if (socket) {
-        socket.off("newEvent", handleNewEvent);
-        socket.off("deleteEvent", handleEventDeleted);
-        socket.off("eventInterestUpdate", handleEventInterestUpdate);
-        socket.off("eventParticipateUpdate", handleEventParticipateUpdate);
-      }
+      socket.off("newEvent", handleNewEvent);
+      socket.off("deleteEvent", handleEventDeleted);
+      socket.off("eventInterestUpdate", handleEventInterestUpdate);
+      socket.off("eventParticipateUpdate", handleEventParticipateUpdate);
     };
   }, [socket]);
-
-  useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const response = await fetch("/api/events");
-        
-        if (!response.ok) {
-          throw new Error("Failed to fetch events");
-        }
-        
-        const data = await response.json();
-        
-        if (!Array.isArray(data)) {
-          console.error('[EVENTS_PAGE] Received non-array data:', data);
-          setEvents([]);
-          return;
-        }
-        
-        setEvents(data);
-      } catch (error) {
-        console.error('[EVENTS_PAGE] Error fetching events:', error);
-        toast.error("Failed to load events");
-        setEvents([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEvents();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="container max-w-7xl mx-auto py-8 px-4">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <CustomLoader />
-        </div>
-      </div>
-    );
-  }
-
-  if (socketError) {
-    return (
-      <div className="container max-w-7xl mx-auto py-8 px-4">
-        <div className="text-center py-8">
-          <p className="text-red-500">Connection error. Please try refreshing the page.</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="container max-w-7xl mx-auto py-8 px-4">
@@ -375,20 +322,67 @@ export default function EventsPage() {
         />
       </div>
 
-      {events.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-gray-500">No events found</p>
+      <div className="flex flex-wrap gap-2 mb-6">
+        <Button
+          variant={activeFilter === "ALL" ? "default" : "outline"}
+          onClick={() => setActiveFilter("ALL")}
+          className="flex items-center gap-2"
+        >
+          <CalendarDays className="h-4 w-4" />
+          All Events
+        </Button>
+        <Button
+          variant={activeFilter === "UPCOMING" ? "default" : "outline"}
+          onClick={() => setActiveFilter("UPCOMING")}
+          className="flex items-center gap-2"
+        >
+          <CalendarClock className="h-4 w-4" />
+          Upcoming
+        </Button>
+        <Button
+          variant={activeFilter === "ONGOING" ? "default" : "outline"}
+          onClick={() => setActiveFilter("ONGOING")}
+          className="flex items-center gap-2"
+        >
+          <Trophy className="h-4 w-4" />
+          Ongoing
+        </Button>
+        <Button
+          variant={activeFilter === "ENDED" ? "default" : "outline"}
+          onClick={() => setActiveFilter("ENDED")}
+          className="flex items-center gap-2"
+        >
+          <CalendarDays className="h-4 w-4" />
+          Ended
+        </Button>
+      </div>
+
+      {loading ? (
+        <div className="container max-w-7xl mx-auto py-8 px-4 flex items-center justify-center min-h-[400px]">
+          <CustomLoader />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {events.map((event) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              status={getStatusText(new Date(event.startDate))}
-              onDelete={() => handleDelete(event.id)}
-            />
-          ))}
+          {sortedEvents.length === 0 ? (
+            <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
+              <CalendarDays className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No events found</h3>
+              <p className="text-sm text-muted-foreground max-w-[400px]">
+                {searchQuery 
+                  ? "Try adjusting your search query or check back later for new events."
+                  : "There are no events scheduled at the moment. Check back later or create a new event."}
+              </p>
+            </div>
+          ) : (
+            sortedEvents.map((event) => (
+              <EventCard
+                key={event.id}
+                event={event}
+                status={getStatusText(new Date(event.startDate))}
+                onDelete={() => handleDelete(event.id)}
+              />
+            ))
+          )}
         </div>
       )}
     </div>

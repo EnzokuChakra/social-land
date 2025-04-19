@@ -33,20 +33,18 @@ export function getSocket() {
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       timeout: 20000,
-      autoConnect: false,
-      transports: ["websocket", "polling"],
+      autoConnect: false, // Don't connect automatically
+      transports: ["websocket", "polling"], // Allow fallback to polling
       path: '/socket.io/',
       secure: process.env.NODE_ENV === 'production',
       rejectUnauthorized: false,
+      // Add these options for better connection handling
       forceNew: true,
       rememberUpgrade: true,
       upgrade: true,
+      // Add these options for better production handling
       perMessageDeflate: {
         threshold: 32768
-      },
-      withCredentials: true,
-      extraHeaders: {
-        "Access-Control-Allow-Origin": "*"
       }
     });
 
