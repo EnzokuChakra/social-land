@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useSocket } from "@/hooks/use-socket";
 import { toast } from "sonner";
@@ -84,32 +84,39 @@ export default function EventsPage() {
   const [selectedEvent, setSelectedEvent] = useState<EventWithUser | null>(null);
   const { data: session } = useSession();
   const socket = useSocket();
+  const [socketConnected, setSocketConnected] = useState(false);
 
-  // Handle WebSocket connection errors
+  // Handle WebSocket connection status
   useEffect(() => {
     if (socket) {
+      const handleConnect = () => {
+        console.log("[EVENTS_PAGE] WebSocket connected");
+        setSocketConnected(true);
+      };
+
+      const handleDisconnect = () => {
+        console.log("[EVENTS_PAGE] WebSocket disconnected");
+        setSocketConnected(false);
+      };
+
       const handleError = (error: Error) => {
         console.error("[EVENTS_PAGE] WebSocket error:", error);
-        // Don't show error to user, just log it
+        setSocketConnected(false);
       };
 
-      const handleConnectError = (error: Error) => {
-        console.error("[EVENTS_PAGE] WebSocket connection error:", error);
-        // Don't show error to user, just log it
-      };
-
+      socket.on("connect", handleConnect);
+      socket.on("disconnect", handleDisconnect);
       socket.on("error", handleError);
-      socket.on("connect_error", handleConnectError);
 
       return () => {
+        socket.off("connect", handleConnect);
+        socket.off("disconnect", handleDisconnect);
         socket.off("error", handleError);
-        socket.off("connect_error", handleConnectError);
       };
     }
   }, [socket]);
 
-  const filterEvents = (events: EventWithUser[]) => {
-    console.log("[EVENTS_PAGE] Filtering events:", events);
+  const filterEvents = useCallback((events: EventWithUser[]) => {
     if (!Array.isArray(events)) {
       console.error("[EVENTS_PAGE] Events is not an array in filterEvents:", events);
       return [];
@@ -128,21 +135,21 @@ export default function EventsPage() {
       
       return matchesSearch && matchesFilter;
     });
-  };
+  }, [searchQuery, activeFilter]);
 
   const sortedEvents = useMemo(() => {
-    console.log("[EVENTS_PAGE] Sorting events:", events);
     if (!Array.isArray(events)) {
       console.error("[EVENTS_PAGE] Events is not an array in sortedEvents:", events);
       return [];
     }
-    return filterEvents(events).sort((a: EventWithUser, b: EventWithUser) => {
+    
+    const filteredEvents = filterEvents(events);
+    return filteredEvents.sort((a: EventWithUser, b: EventWithUser) => {
       const aDate = new Date(a.startDate);
       const bDate = new Date(b.startDate);
       const aStatus = getStatusText(aDate);
       const bStatus = getStatusText(bDate);
       
-      // First sort by status priority (ONGOING > UPCOMING > ENDED)
       const statusPriority: Record<EventStatus, number> = { 
         ONGOING: 0, 
         UPCOMING: 1, 
@@ -153,10 +160,9 @@ export default function EventsPage() {
         return statusPriority[aStatus] - statusPriority[bStatus];
       }
       
-      // Then sort by date within each status
       return aDate.getTime() - bDate.getTime();
     });
-  }, [events, searchQuery, activeFilter]);
+  }, [events, filterEvents]);
 
   const handleCreateEvent = async (formData: FormData) => {
     // Generate a temporary ID for the event
@@ -281,7 +287,6 @@ export default function EventsPage() {
           return;
         }
 
-        // Ensure each event has the required properties
         const validEvents = data.filter(event => {
           const isValid = event && 
             typeof event === 'object' && 
@@ -309,9 +314,9 @@ export default function EventsPage() {
     fetchEvents();
   }, []);
 
-  // Only set up socket listeners if socket is available
+  // Only set up socket listeners if socket is available and connected
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !socketConnected) return;
 
     const handleNewEvent = (newEvent: EventWithUser) => {
       setEvents(prev => {
@@ -340,7 +345,7 @@ export default function EventsPage() {
       socket.off("newEvent", handleNewEvent);
       socket.off("deleteEvent", handleEventDeleted);
     };
-  }, [socket]);
+  }, [socket, socketConnected]);
 
   return (
     <div className="container max-w-7xl mx-auto py-8 px-4">
