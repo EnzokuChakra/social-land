@@ -14,6 +14,10 @@ export const useSocket = () => {
       const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:5002';
       globalSocket = io(socketUrl, {
         transports: ['websocket'],
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
       });
 
       globalSocket.on('connect', () => {
@@ -30,8 +34,12 @@ export const useSocket = () => {
         }
       });
 
-      globalSocket.on('authenticated', () => {
-        console.log("[Socket] Authentication successful");
+      globalSocket.on('reconnect', () => {
+        console.log("[Socket] Reconnected, re-authenticating...");
+        if (session?.user?.id) {
+          console.log("[Socket] Re-authenticating with user ID:", session.user.id);
+          globalSocket?.emit('authenticate', { token: session.user.id });
+        }
       });
 
       globalSocket.on('disconnect', (reason) => {
