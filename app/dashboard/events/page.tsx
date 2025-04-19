@@ -313,19 +313,15 @@ export default function EventsPage() {
 
     const handleNewEvent = (newEvent: EventWithUser) => {
       setEvents(prev => {
-        if (!Array.isArray(prev)) {
-          return [newEvent];
-        }
-        return [newEvent, ...prev];
+        const currentEvents = Array.isArray(prev) ? prev : [];
+        return [newEvent, ...currentEvents];
       });
     };
 
     const handleEventDeleted = (eventId: string) => {
       setEvents(prev => {
-        if (!Array.isArray(prev)) {
-          return [];
-        }
-        return prev.filter(event => event.id !== eventId);
+        const currentEvents = Array.isArray(prev) ? prev : [];
+        return currentEvents.filter(event => event.id !== eventId);
       });
     };
 
@@ -395,17 +391,9 @@ export default function EventsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(() => {
-            if (!Array.isArray(sortedEvents)) {
-              return (
-                <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
-                  <CalendarDays className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Error loading events</h3>
-                  <p className="text-sm text-muted-foreground">Please try refreshing the page.</p>
-                </div>
-              );
-            }
-
-            if (sortedEvents.length === 0) {
+            const eventsToRender = Array.isArray(sortedEvents) ? sortedEvents : [];
+            
+            if (eventsToRender.length === 0) {
               return (
                 <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
                   <CalendarDays className="h-12 w-12 text-muted-foreground mb-4" />
@@ -419,7 +407,7 @@ export default function EventsPage() {
               );
             }
 
-            return sortedEvents.map((event) => (
+            return eventsToRender.map((event) => (
               <EventCard
                 key={event.id}
                 event={event}
