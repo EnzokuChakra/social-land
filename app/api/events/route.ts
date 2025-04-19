@@ -23,6 +23,7 @@ export const config = {
 
 export async function POST(req: Request) {
   if (!db) {
+    console.error("[EVENTS_POST] Database connection not available");
     return NextResponse.json(
       { error: "Database connection not available" },
       { status: 500 }
@@ -32,7 +33,13 @@ export async function POST(req: Request) {
   try {
     console.log("[EVENTS_POST] Starting event creation...");
     const session = await getServerSession(authOptions);
-    console.log("[EVENTS_POST] Session:", { userId: session?.user?.id, verified: session?.user?.verified });
+    console.log("[EVENTS_POST] Session details:", { 
+      hasSession: !!session,
+      userId: session?.user?.id,
+      username: session?.user?.username,
+      verified: session?.user?.verified,
+      role: session?.user?.role
+    });
 
     if (!session?.user || !session.user.verified) {
       console.log("[EVENTS_POST] Unauthorized: No session or user not verified");
@@ -48,7 +55,8 @@ export async function POST(req: Request) {
       startDate: formData.get("startDate"),
       hasRules: !!formData.get("rules"),
       hasPrizes: !!formData.get("prizes"),
-      hasPhoto: !!formData.get("photo")
+      hasPhoto: !!formData.get("photo"),
+      userId: session.user.id
     });
 
     // Handle photo upload

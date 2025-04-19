@@ -175,7 +175,15 @@ export default function EventsPage() {
   }, [events, filterEvents]);
 
   const handleCreateEvent = async (formData: FormData) => {
+    console.log("[EVENT_CREATE] Starting event creation...");
+    console.log("[EVENT_CREATE] Session state:", { 
+      hasSession: !!session, 
+      userId: session?.user?.id,
+      username: session?.user?.username 
+    });
+
     if (!session?.user) {
+      console.log("[EVENT_CREATE] No session or user found");
       toast.error("You must be logged in to create an event");
       return Promise.reject(new Error("Not authenticated"));
     }
@@ -184,6 +192,7 @@ export default function EventsPage() {
     const tempId = 'temp-' + Date.now();
     
     try {
+      console.log("[EVENT_CREATE] Creating temporary event with ID:", tempId);
       // Create a temporary event with optimistic data
       const tempEvent: EventWithUser = {
         id: tempId, // Temporary ID
@@ -237,8 +246,15 @@ export default function EventsPage() {
       ));
 
       // Emit socket event for real-time updates
-      if (socket) {
+      if (socket && socket.connected) {
+        console.log("[EVENT_CREATE] Emitting newEvent socket event:", {
+          eventId: createdEvent.id,
+          socketId: socket.id,
+          isAuthenticated: !!session
+        });
         socket.emit("newEvent", createdEvent);
+      } else {
+        console.warn("[EVENT_CREATE] Socket not connected or not available");
       }
 
       toast.success('Event created successfully!');
