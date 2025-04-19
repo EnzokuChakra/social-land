@@ -117,19 +117,12 @@ export default function EventsPage() {
   }, [socket]);
 
   const filterEvents = useCallback((events: EventWithUser[]) => {
-    console.log("[EVENTS_PAGE] filterEvents input:", events);
-    console.log("[EVENTS_PAGE] filterEvents input type:", typeof events);
-    console.log("[EVENTS_PAGE] filterEvents isArray:", Array.isArray(events));
-    
     if (!Array.isArray(events)) {
-      console.error("[EVENTS_PAGE] Events is not an array in filterEvents:", events);
       return [];
     }
     
     const filtered = events.filter((event) => {
-      console.log("[EVENTS_PAGE] Processing event:", event);
       if (!event || typeof event !== 'object') {
-        console.error("[EVENTS_PAGE] Invalid event object in filter:", event);
         return false;
       }
       const matchesSearch = event.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -139,29 +132,20 @@ export default function EventsPage() {
       const eventStatus = getStatusText(new Date(event.startDate));
       const matchesFilter = activeFilter === "ALL" || eventStatus === activeFilter;
       
-      console.log("[EVENTS_PAGE] Event matches:", { matchesSearch, matchesFilter });
       return matchesSearch && matchesFilter;
     });
     
-    console.log("[EVENTS_PAGE] Filtered events result:", filtered);
     return filtered;
   }, [searchQuery, activeFilter]);
 
   const sortedEvents = useMemo(() => {
-    console.log("[EVENTS_PAGE] sortedEvents input:", events);
-    console.log("[EVENTS_PAGE] sortedEvents input type:", typeof events);
-    console.log("[EVENTS_PAGE] sortedEvents isArray:", Array.isArray(events));
-    
     if (!Array.isArray(events)) {
-      console.error("[EVENTS_PAGE] Events is not an array in sortedEvents:", events);
       return [];
     }
     
     const filteredEvents = filterEvents(events);
-    console.log("[EVENTS_PAGE] After filtering:", filteredEvents);
     
     const sorted = filteredEvents.sort((a: EventWithUser, b: EventWithUser) => {
-      console.log("[EVENTS_PAGE] Sorting comparison:", { a, b });
       const aDate = new Date(a.startDate);
       const bDate = new Date(b.startDate);
       const aStatus = getStatusText(aDate);
@@ -180,7 +164,6 @@ export default function EventsPage() {
       return aDate.getTime() - bDate.getTime();
     });
     
-    console.log("[EVENTS_PAGE] Final sorted result:", sorted);
     return sorted;
   }, [events, filterEvents]);
 
@@ -292,41 +275,28 @@ export default function EventsPage() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        console.log("[EVENTS_PAGE] Fetching events...");
         const response = await fetch("/api/events");
         if (!response.ok) {
-          console.error("[EVENTS_PAGE] Failed to fetch events:", response.status);
           throw new Error("Failed to fetch events");
         }
         const data = await response.json();
-        console.log("[EVENTS_PAGE] Raw API response:", data);
-        console.log("[EVENTS_PAGE] Response type:", typeof data);
-        console.log("[EVENTS_PAGE] Is array:", Array.isArray(data));
         
         if (!Array.isArray(data)) {
-          console.error("[EVENTS_PAGE] Data is not an array:", data);
           setEvents([]);
           return;
         }
 
         const validEvents = data.filter(event => {
-          console.log("[EVENTS_PAGE] Validating event:", event);
           const isValid = event && 
             typeof event === 'object' && 
             'id' in event && 
             'name' in event && 
             'startDate' in event;
-          
-          if (!isValid) {
-            console.error("[EVENTS_PAGE] Invalid event object:", event);
-          }
           return isValid;
         });
 
-        console.log("[EVENTS_PAGE] Valid events:", validEvents);
         setEvents(validEvents);
       } catch (error) {
-        console.error("[EVENTS_PAGE] Error:", error);
         toast.error("Failed to load events");
         setEvents([]);
       } finally {
@@ -344,7 +314,6 @@ export default function EventsPage() {
     const handleNewEvent = (newEvent: EventWithUser) => {
       setEvents(prev => {
         if (!Array.isArray(prev)) {
-          console.error("[EVENTS_PAGE] Previous events is not an array:", prev);
           return [newEvent];
         }
         return [newEvent, ...prev];
@@ -354,7 +323,6 @@ export default function EventsPage() {
     const handleEventDeleted = (eventId: string) => {
       setEvents(prev => {
         if (!Array.isArray(prev)) {
-          console.error("[EVENTS_PAGE] Previous events is not an array:", prev);
           return [];
         }
         return prev.filter(event => event.id !== eventId);
@@ -372,54 +340,52 @@ export default function EventsPage() {
 
   return (
     <div className="container max-w-7xl mx-auto py-8 px-4">
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-bold">Events</h1>
-          {session?.user?.verified && (
-            <CreateEventButton onEventCreate={handleCreateEvent} />
-          )}
+          <p className="text-muted-foreground">Browse and manage upcoming events</p>
         </div>
-        <Input
-          placeholder="Search events..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-xs"
-        />
+        {session?.user?.verified && (
+          <CreateEventButton onEventCreate={handleCreateEvent} />
+        )}
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-6">
-        <Button
-          variant={activeFilter === "ALL" ? "default" : "outline"}
-          onClick={() => setActiveFilter("ALL")}
-          className="flex items-center gap-2"
-        >
-          <CalendarDays className="h-4 w-4" />
-          All Events
-        </Button>
-        <Button
-          variant={activeFilter === "UPCOMING" ? "default" : "outline"}
-          onClick={() => setActiveFilter("UPCOMING")}
-          className="flex items-center gap-2"
-        >
-          <CalendarClock className="h-4 w-4" />
-          Upcoming
-        </Button>
-        <Button
-          variant={activeFilter === "ONGOING" ? "default" : "outline"}
-          onClick={() => setActiveFilter("ONGOING")}
-          className="flex items-center gap-2"
-        >
-          <Trophy className="h-4 w-4" />
-          Ongoing
-        </Button>
-        <Button
-          variant={activeFilter === "ENDED" ? "default" : "outline"}
-          onClick={() => setActiveFilter("ENDED")}
-          className="flex items-center gap-2"
-        >
-          <CalendarDays className="h-4 w-4" />
-          Ended
-        </Button>
+      <div className="flex flex-col md:flex-row gap-4 mb-8">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search events..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant={activeFilter === "ALL" ? "default" : "outline"}
+            onClick={() => setActiveFilter("ALL")}
+          >
+            All
+          </Button>
+          <Button
+            variant={activeFilter === "UPCOMING" ? "default" : "outline"}
+            onClick={() => setActiveFilter("UPCOMING")}
+          >
+            Upcoming
+          </Button>
+          <Button
+            variant={activeFilter === "ONGOING" ? "default" : "outline"}
+            onClick={() => setActiveFilter("ONGOING")}
+          >
+            Ongoing
+          </Button>
+          <Button
+            variant={activeFilter === "ENDED" ? "default" : "outline"}
+            onClick={() => setActiveFilter("ENDED")}
+          >
+            Ended
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -429,12 +395,7 @@ export default function EventsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(() => {
-            console.log("[EVENTS_PAGE] Rendering sortedEvents:", sortedEvents);
-            console.log("[EVENTS_PAGE] sortedEvents type:", typeof sortedEvents);
-            console.log("[EVENTS_PAGE] sortedEvents isArray:", Array.isArray(sortedEvents));
-            
             if (!Array.isArray(sortedEvents)) {
-              console.error("[EVENTS_PAGE] sortedEvents is not an array during render:", sortedEvents);
               return (
                 <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
                   <CalendarDays className="h-12 w-12 text-muted-foreground mb-4" />
@@ -458,17 +419,14 @@ export default function EventsPage() {
               );
             }
 
-            return sortedEvents.map((event) => {
-              console.log("[EVENTS_PAGE] Rendering event:", event);
-              return (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  status={getStatusText(new Date(event.startDate))}
-                  onDelete={() => handleDelete(event.id)}
-                />
-              );
-            });
+            return sortedEvents.map((event) => (
+              <EventCard
+                key={event.id}
+                event={event}
+                status={getStatusText(new Date(event.startDate))}
+                onDelete={() => handleDelete(event.id)}
+              />
+            ));
           })()}
         </div>
       )}
