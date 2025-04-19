@@ -97,38 +97,6 @@ export default function EventsPage() {
     };
   }, [socket]);
 
-  // Temporarily removed filtering logic
-  const sortedEvents = useMemo(() => {
-    if (!Array.isArray(events)) {
-      console.error('[EVENTS_PAGE] Events is not an array:', events);
-      return [];
-    }
-
-    return [...events].sort((a: EventWithUser, b: EventWithUser) => {
-      if (!a || !b || typeof a !== 'object' || typeof b !== 'object') {
-        console.error('[EVENTS_PAGE] Invalid event objects during sort:', { a, b });
-        return 0;
-      }
-
-      const aDate = new Date(a.startDate);
-      const bDate = new Date(b.startDate);
-      const aStatus = getStatusText(aDate);
-      const bStatus = getStatusText(bDate);
-      
-      const statusPriority: Record<EventStatus, number> = { 
-        ONGOING: 0, 
-        UPCOMING: 1, 
-        ENDED: 2 
-      };
-      
-      if (statusPriority[aStatus] !== statusPriority[bStatus]) {
-        return statusPriority[aStatus] - statusPriority[bStatus];
-      }
-      
-      return aDate.getTime() - bDate.getTime();
-    });
-  }, [events]);
-
   const handleCreateEvent = async (formData: FormData) => {
     // Generate a temporary ID for the event
     const tempId = 'temp-' + Date.now();
@@ -206,11 +174,16 @@ export default function EventsPage() {
   };
 
   const handleDelete = async (eventId: string) => {
-    // Optimistically remove the event from the UI
-    const eventToDelete = events.find(event => event.id === eventId);
-    setEvents(prev => prev.filter(event => event.id !== eventId));
-
     try {
+      // Optimistically remove the event from the UI
+      setEvents(prev => {
+        if (!Array.isArray(prev)) {
+          console.error('[EVENTS_PAGE] Current events state is not an array:', prev);
+          return [];
+        }
+        return prev.filter(event => event.id !== eventId);
+      });
+
       const response = await fetch(`/api/events?id=${eventId}`, {
         method: "DELETE",
       });
@@ -226,11 +199,16 @@ export default function EventsPage() {
 
       toast.success("Event deleted successfully");
     } catch (error) {
-      // Revert the optimistic update on error
-      if (eventToDelete) {
-        setEvents(prev => [...prev, eventToDelete]);
-      }
+      console.error('[EVENTS_PAGE] Error deleting event:', error);
       toast.error("Failed to delete event");
+      // Re-fetch events to ensure consistency
+      const response = await fetch("/api/events");
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          setEvents(data);
+        }
+      }
     }
   };
 
@@ -347,7 +325,6 @@ export default function EventsPage() {
           return;
         }
         
-        // Removed filter validation and directly set events
         setEvents(data);
       } catch (error) {
         console.error('[EVENTS_PAGE] Error fetching events:', error);
@@ -398,13 +375,13 @@ export default function EventsPage() {
         />
       </div>
 
-      {sortedEvents.length === 0 ? (
+      {events.length === 0 ? (
         <div className="text-center py-8">
           <p className="text-gray-500">No events found</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedEvents.map((event) => (
+          {events.map((event) => (
             <EventCard
               key={event.id}
               event={event}
