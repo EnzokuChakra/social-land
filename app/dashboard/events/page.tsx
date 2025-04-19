@@ -86,6 +86,10 @@ export default function EventsPage() {
   const socket = useSocket();
 
   const filterEvents = (events: EventWithUser[]) => {
+    if (!Array.isArray(events)) {
+      console.error('Events is not an array:', events);
+      return [];
+    }
     return events.filter((event) => {
       const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -230,9 +234,16 @@ export default function EventsPage() {
         const response = await fetch("/api/events");
         if (!response.ok) throw new Error("Failed to fetch events");
         const data = await response.json();
+        if (!Array.isArray(data)) {
+          console.error('API response is not an array:', data);
+          setEvents([]);
+          return;
+        }
         setEvents(data);
       } catch (error) {
+        console.error('Error fetching events:', error);
         toast.error("Failed to load events");
+        setEvents([]);
       } finally {
         setLoading(false);
       }
