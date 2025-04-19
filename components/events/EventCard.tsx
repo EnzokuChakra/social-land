@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { format } from "date-fns";
 import { MapPin, Calendar, Trophy, User, Users, Clock, MoreVertical, Trash2, Heart, UserPlus } from "lucide-react";
@@ -48,40 +48,69 @@ export default function EventCard({ event, status, onDelete }: EventCardProps) {
   const socket = useSocket();
 
   // Parse prizes from JSON string or use single prize
-  const prizes = localEvent.prizes 
-    ? (typeof localEvent.prizes === 'string' ? JSON.parse(localEvent.prizes) : localEvent.prizes) 
-    : (localEvent.prize ? [localEvent.prize] : []);
+  const prizes = useMemo(() => {
+    console.log("[EVENT_CARD] Raw prizes:", localEvent.prizes);
+    console.log("[EVENT_CARD] Raw prize:", localEvent.prize);
+    
+    try {
+      if (localEvent.prizes) {
+        const parsedPrizes = typeof localEvent.prizes === 'string' 
+          ? JSON.parse(localEvent.prizes) 
+          : localEvent.prizes;
+        console.log("[EVENT_CARD] Parsed prizes:", parsedPrizes);
+        return Array.isArray(parsedPrizes) ? parsedPrizes : [];
+      }
+      if (localEvent.prize) {
+        console.log("[EVENT_CARD] Using single prize:", localEvent.prize);
+        return [localEvent.prize];
+      }
+      return [];
+    } catch (error) {
+      console.error("[EVENT_CARD] Error parsing prizes:", error);
+      return [];
+    }
+  }, [localEvent.prizes, localEvent.prize]);
 
   // Ensure all prizes are valid numbers and handle edge cases
-  const validPrizes = prizes.filter((prize: string | number) => {
-    if (!prize) return false;
-    try {
-      const numericValue = typeof prize === 'string' 
-        ? prize.replace(/[^0-9.]/g, '') 
-        : prize.toString();
-      return !isNaN(parseFloat(numericValue)) && parseFloat(numericValue) > 0;
-    } catch (error) {
-      console.error('Error processing prize:', prize, error);
-      return false;
-    }
-  });
+  const validPrizes = useMemo(() => {
+    console.log("[EVENT_CARD] Filtering prizes:", prizes);
+    return prizes.filter((prize: string | number) => {
+      if (!prize) {
+        console.log("[EVENT_CARD] Invalid prize (empty):", prize);
+        return false;
+      }
+      try {
+        const numericValue = typeof prize === 'string' 
+          ? prize.replace(/[^0-9.]/g, '') 
+          : prize.toString();
+        const isValid = !isNaN(parseFloat(numericValue)) && parseFloat(numericValue) > 0;
+        console.log("[EVENT_CARD] Prize validation:", { prize, numericValue, isValid });
+        return isValid;
+      } catch (error) {
+        console.error("[EVENT_CARD] Error processing prize:", prize, error);
+        return false;
+      }
+    });
+  }, [prizes]);
 
   // Calculate total prize pool with better error handling
-  const calculateTotalPrizePool = (prizes: any[]): number => {
+  const totalPrizePool = useMemo(() => {
+    console.log("[EVENT_CARD] Calculating total prize pool from:", validPrizes);
     try {
-      return prizes.reduce((total, prize) => {
+      const total = validPrizes.reduce((total, prize) => {
         const value = typeof prize === 'string' 
           ? parseFloat(prize.replace(/[^0-9.]/g, '')) 
           : parseFloat(prize.toString());
+        console.log("[EVENT_CARD] Prize value:", { prize, value });
         return total + (isNaN(value) ? 0 : value);
       }, 0);
+      console.log("[EVENT_CARD] Total prize pool:", total);
+      return total;
     } catch (error) {
-      console.error('Error calculating prize pool:', error);
+      console.error("[EVENT_CARD] Error calculating prize pool:", error);
       return 0;
     }
-  };
-
-  const totalPrizePool = calculateTotalPrizePool(validPrizes);
+  }, [validPrizes]);
 
   // Parse and validate the start date
   const parseAndValidateDate = (dateStr: string | Date): Date | null => {
@@ -89,14 +118,12 @@ export default function EventCard({ event, status, onDelete }: EventCardProps) {
       const date = new Date(dateStr);
       return isNaN(date.getTime()) ? null : date;
     } catch (error) {
-      console.error('Error parsing date:', error);
       return null;
     }
   };
 
   const startDate = parseAndValidateDate(localEvent.startDate);
   if (!startDate) {
-    console.error('Invalid start date:', localEvent.startDate);
     return null;
   }
 
@@ -108,7 +135,6 @@ export default function EventCard({ event, status, onDelete }: EventCardProps) {
     try {
       return format(date, formatString);
     } catch (error) {
-      console.error('Error formatting date:', error);
       return 'Invalid date';
     }
   };
