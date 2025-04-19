@@ -64,13 +64,6 @@ export function getSocket() {
     socket.on("connect", () => {
       console.log("[Socket] Connected successfully to", socketUrl);
       connectionAttempts = 0;
-      
-      // Log authentication state
-      console.log("[Socket] Authentication state:", {
-        hasAuthenticated,
-        currentUserId,
-        socketId: socket?.id
-      });
     });
 
     socket.on("disconnect", (reason) => {
@@ -81,21 +74,17 @@ export function getSocket() {
       }
     });
 
-    // Add authentication event handler
-    socket.on("authenticated", (data) => {
-      console.log("[Socket] Authentication response:", data);
-      hasAuthenticated = true;
-      currentUserId = data.userId;
+    socket.on("connect_error", (error: Error & { type?: string; description?: string; context?: any }) => {
+      console.error("[Socket] Connection error:", error.message);
+      console.error("[Socket] Error details:", {
+        type: error.type,
+        description: error.description,
+        context: error.context
+      });
     });
 
-    // Add error handler
     socket.on("error", (error) => {
-      console.error("[Socket] Error:", error);
-    });
-
-    // Add connect_error handler
-    socket.on("connect_error", (error) => {
-      console.error("[Socket] Connection error:", error);
+      console.error("[Socket] General error:", error);
     });
 
     socket.on("reconnect", (attemptNumber) => {

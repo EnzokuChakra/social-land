@@ -2097,7 +2097,6 @@ export async function fetchEvents() {
 
     return events;
   } catch (error) {
-    console.error("Error fetching events:", error);
     return [];
   }
 }

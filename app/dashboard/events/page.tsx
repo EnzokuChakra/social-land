@@ -90,12 +90,10 @@ export default function EventsPage() {
   useEffect(() => {
     if (socket) {
       const handleConnect = () => {
-        console.log("[EVENTS_PAGE] WebSocket connected");
         setSocketConnected(true);
       };
 
       const handleDisconnect = () => {
-        console.log("[EVENTS_PAGE] WebSocket disconnected");
         setSocketConnected(false);
       };
 
@@ -139,17 +137,11 @@ export default function EventsPage() {
   }, [searchQuery, activeFilter]);
 
   const sortedEvents = useMemo(() => {
-    console.log("[DEBUG] Events before sorting:", events);
-    console.log("[DEBUG] Events type:", typeof events);
-    console.log("[DEBUG] Is events array:", Array.isArray(events));
-    
     if (!Array.isArray(events)) {
-      console.error("[DEBUG] Events is not an array:", events);
       return [];
     }
     
     const filteredEvents = filterEvents(events);
-    console.log("[DEBUG] Filtered events:", filteredEvents);
     
     const sorted = filteredEvents.sort((a: EventWithUser, b: EventWithUser) => {
       const aDate = new Date(a.startDate);
@@ -170,20 +162,11 @@ export default function EventsPage() {
       return aDate.getTime() - bDate.getTime();
     });
     
-    console.log("[DEBUG] Final sorted events:", sorted);
     return sorted;
   }, [events, filterEvents]);
 
   const handleCreateEvent = async (formData: FormData) => {
-    console.log("[EVENT_CREATE] Starting event creation...");
-    console.log("[EVENT_CREATE] Session state:", { 
-      hasSession: !!session, 
-      userId: session?.user?.id,
-      username: session?.user?.username 
-    });
-
     if (!session?.user) {
-      console.log("[EVENT_CREATE] No session or user found");
       toast.error("You must be logged in to create an event");
       return Promise.reject(new Error("Not authenticated"));
     }
@@ -192,7 +175,6 @@ export default function EventsPage() {
     const tempId = 'temp-' + Date.now();
     
     try {
-      console.log("[EVENT_CREATE] Creating temporary event with ID:", tempId);
       // Create a temporary event with optimistic data
       const tempEvent: EventWithUser = {
         id: tempId, // Temporary ID
@@ -246,15 +228,8 @@ export default function EventsPage() {
       ));
 
       // Emit socket event for real-time updates
-      if (socket && socket.connected) {
-        console.log("[EVENT_CREATE] Emitting newEvent socket event:", {
-          eventId: createdEvent.id,
-          socketId: socket.id,
-          isAuthenticated: !!session
-        });
+      if (socket) {
         socket.emit("newEvent", createdEvent);
-      } else {
-        console.warn("[EVENT_CREATE] Socket not connected or not available");
       }
 
       toast.success('Event created successfully!');
@@ -303,33 +278,25 @@ export default function EventsPage() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        console.log("[DEBUG] Starting to fetch events");
         const response = await fetch("/api/events");
         if (!response.ok) {
           throw new Error("Failed to fetch events");
         }
         const data = await response.json();
-        console.log("[DEBUG] Raw API response:", data);
-        console.log("[DEBUG] Response type:", typeof data);
-        console.log("[DEBUG] Is response array:", Array.isArray(data));
         
         if (!Array.isArray(data)) {
-          console.error("[DEBUG] API response is not an array:", data);
           setEvents([]);
           return;
         }
 
         const validEvents = data.filter(event => {
-          const isValid = event && 
+          return event && 
             typeof event === 'object' && 
             'id' in event && 
             'name' in event && 
             'startDate' in event;
-          console.log("[DEBUG] Event validation:", { event, isValid });
-          return isValid;
         });
 
-        console.log("[DEBUG] Valid events after filtering:", validEvents);
         setEvents(validEvents);
       } catch (error) {
         console.error("[DEBUG] Error fetching events:", error);
@@ -427,12 +394,7 @@ export default function EventsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(() => {
-            console.log("[DEBUG] Rendering sortedEvents:", sortedEvents);
-            console.log("[DEBUG] sortedEvents type:", typeof sortedEvents);
-            console.log("[DEBUG] Is sortedEvents array:", Array.isArray(sortedEvents));
-            
             const eventsToRender = Array.isArray(sortedEvents) ? sortedEvents : [];
-            console.log("[DEBUG] eventsToRender:", eventsToRender);
             
             if (eventsToRender.length === 0) {
               return (
@@ -448,17 +410,14 @@ export default function EventsPage() {
               );
             }
 
-            return eventsToRender.map((event) => {
-              console.log("[DEBUG] Rendering event:", event);
-              return (
-                <EventCard
-                  key={event.id}
-                  event={event}
-                  status={getStatusText(new Date(event.startDate))}
-                  onDelete={() => handleDelete(event.id)}
-                />
-              );
-            });
+            return eventsToRender.map((event) => (
+              <EventCard
+                key={event.id}
+                event={event}
+                status={getStatusText(new Date(event.startDate))}
+                onDelete={() => handleDelete(event.id)}
+              />
+            ));
           })()}
         </div>
       )}

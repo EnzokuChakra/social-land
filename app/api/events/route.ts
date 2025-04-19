@@ -23,7 +23,6 @@ export const config = {
 
 export async function POST(req: Request) {
   if (!db) {
-    console.error("[EVENTS_POST] Database connection not available");
     return NextResponse.json(
       { error: "Database connection not available" },
       { status: 500 }
@@ -33,13 +32,7 @@ export async function POST(req: Request) {
   try {
     console.log("[EVENTS_POST] Starting event creation...");
     const session = await getServerSession(authOptions);
-    console.log("[EVENTS_POST] Session details:", { 
-      hasSession: !!session,
-      userId: session?.user?.id,
-      username: session?.user?.username,
-      verified: session?.user?.verified,
-      role: session?.user?.role
-    });
+    console.log("[EVENTS_POST] Session:", { userId: session?.user?.id, verified: session?.user?.verified });
 
     if (!session?.user || !session.user.verified) {
       console.log("[EVENTS_POST] Unauthorized: No session or user not verified");
@@ -55,8 +48,7 @@ export async function POST(req: Request) {
       startDate: formData.get("startDate"),
       hasRules: !!formData.get("rules"),
       hasPrizes: !!formData.get("prizes"),
-      hasPhoto: !!formData.get("photo"),
-      userId: session.user.id
+      hasPhoto: !!formData.get("photo")
     });
 
     // Handle photo upload
@@ -207,68 +199,22 @@ export async function GET() {
 export async function DELETE(req: Request) {
   if (!db) {
     return new NextResponse(
-      JSON.stringify({ error: "Database connection not available", success: false }), 
+      JSON.stringify({ error: "Database connection not available" }),
       { status: 500 }
     );
   }
 
   try {
-    console.log("[EVENTS_DELETE] Starting event deletion...");
-    const session = await getServerSession(authOptions);
-
-    if (!session?.user) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
-
     const { searchParams } = new URL(req.url);
     const eventId = searchParams.get("id");
 
     if (!eventId) {
-      return new NextResponse("Event ID is required", { status: 400 });
+      return new NextResponse(
+        JSON.stringify({ error: "Event ID is required" }),
+        { status: 400 }
+      );
     }
 
-    console.log("[EVENTS_DELETE] Fetching event:", eventId);
-    // Get the event to check ownership and permissions
-    const event = await db.event.findUnique({
-      where: { id: eventId },
-      select: {
-        user_id: true,
-        photoUrl: true,
-      },
-    });
-
-    if (!event) {
-      return new NextResponse("Event not found", { status: 404 });
-    }
-
-    // Check if user is authorized to delete
-    const isAuthorized = 
-      session.user.id === event.user_id || 
-      session.user.role === "ADMIN" || 
-      session.user.role === "MASTER_ADMIN";
-
-    if (!isAuthorized) {
-      return new NextResponse("Unauthorized", { status: 403 });
-    }
-
-    // First delete the event photo if it exists
-    if (event.photoUrl) {
-      try {
-        const filename = event.photoUrl.split('/').pop();
-        if (filename) {
-          const filepath = path.join(process.cwd(), 'public', 'uploads', 'events', filename);
-          console.log("[EVENTS_DELETE] Deleting photo file:", filepath);
-          
-          await unlink(filepath);
-          console.log("[EVENTS_DELETE] Photo file deleted successfully");
-        }
-      } catch (error) {
-        console.error("[EVENTS_DELETE] Error deleting photo file:", error);
-        // Continue with event deletion even if photo deletion fails
-      }
-    }
-
-    console.log("[EVENTS_DELETE] Deleting event from database:", eventId);
     // Delete the event
     await db.event.delete({
       where: { id: eventId },
@@ -280,7 +226,6 @@ export async function DELETE(req: Request) {
       socket.emit("deleteEvent", eventId);
     }
 
-    console.log("[EVENTS_DELETE] Event deleted successfully:", eventId);
     return new NextResponse(JSON.stringify({ success: true }), { 
       status: 200,
       headers: {

@@ -137,24 +137,14 @@ io.on("connection", (socket) => {
   // Handle authentication
   socket.on("authenticate", async (data) => {
     try {
-      console.log("[Socket Server] Authentication attempt:", { 
-        socketId: socket.id,
-        hasUserId: !!data?.token 
-      });
-
       const { token: userId } = data;
       
       if (!userId) {
-        console.log("[Socket Server] Authentication failed: No user ID provided");
         return;
       }
 
       // Associate socket with user
       socket.userId = userId;
-      console.log("[Socket Server] Socket associated with user:", {
-        socketId: socket.id,
-        userId: userId
-      });
       
       if (!userSockets.has(userId)) {
         userSockets.set(userId, new Set());
@@ -178,12 +168,6 @@ io.on("connection", (socket) => {
             orderBy: { createdAt: "desc" }
           });
           
-          console.log("[Socket Server] Sending verification status:", {
-            userId,
-            isVerified: !!user?.verified,
-            hasRequest: !!verificationRequest
-          });
-
           socket.emit(`user:${userId}`, {
             type: "VERIFICATION_STATUS_UPDATE",
             data: {
@@ -192,19 +176,15 @@ io.on("connection", (socket) => {
               isVerified: !!user?.verified
             }
           });
-
-          // Emit authentication success
-          socket.emit("authenticated", { userId });
         }
       } catch (error) {
-        console.error("[Socket Server] Error during verification check:", error);
+        // Silently handle errors
       }
     } catch (error) {
-      console.error("[Socket Server] Authentication error:", error);
+      // Silently handle errors
     }
   });
-
-  // Story events
+// Story events
   socket.on("storyLike", (data) => {
     io.emit("storyLikeUpdate", data);
   });
@@ -225,7 +205,6 @@ io.on("connection", (socket) => {
   socket.on("deleteComment", (data) => {
     io.emit("commentDelete", data);
   });
-
   socket.on("followUnfollowEvent", (data) => {
     io.emit("followUnfollowEvent", data);
   });
