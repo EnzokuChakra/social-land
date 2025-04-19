@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import Image from "next/image";
 import { TimePicker } from "@/components/ui/time-picker";
 import { formatInTimeZone } from "date-fns-tz";
+import { useSession } from "next-auth/react";
 
 type EventFormData = {
   name: string;
@@ -59,6 +60,7 @@ export default function CreateEventButton({ onEventCreate }: CreateEventButtonPr
   const [prizes, setPrizes] = useState<string[]>([""]);
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const router = useRouter();
+  const { data: session } = useSession();
 
   const form = useForm<EventFormData>({
     resolver: zodResolver(EventSchema),
@@ -98,6 +100,13 @@ export default function CreateEventButton({ onEventCreate }: CreateEventButtonPr
 
   async function onSubmit(data: EventFormData) {
     try {
+      console.log("[CREATE_EVENT] Starting event creation...");
+      console.log("[CREATE_EVENT] Session state:", { 
+        hasSession: !!session,
+        userId: session?.user?.id,
+        userRole: session?.user?.role 
+      });
+      
       setIsCreatingEvent(true);
       const formData = new FormData();
       
@@ -118,7 +127,16 @@ export default function CreateEventButton({ onEventCreate }: CreateEventButtonPr
         formData.append("photo", photo);
       }
 
+      console.log("[CREATE_EVENT] Form data prepared:", {
+        name: data.name,
+        type: data.type,
+        hasPhoto: !!photo,
+        prizeCount: validPrizes.length
+      });
+
       await onEventCreate(formData);
+      console.log("[CREATE_EVENT] Event created successfully");
+      
       setOpen(false);
       form.reset();
       setPhoto(undefined);
@@ -126,7 +144,11 @@ export default function CreateEventButton({ onEventCreate }: CreateEventButtonPr
       setPrizes([""]);
       toast.success("Event created successfully!");
     } catch (error) {
-      console.error("Error creating event:", error);
+      console.error("[CREATE_EVENT] Error creating event:", {
+        error,
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
+        stack: error instanceof Error ? error.stack : undefined
+      });
       toast.error("Failed to create event. Please try again.");
     } finally {
       setIsCreatingEvent(false);
