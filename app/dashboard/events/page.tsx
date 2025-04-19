@@ -186,14 +186,14 @@ export default function EventsPage() {
         prizes: formData.get('prize') as string,
         location: formData.get('location') as string,
         startDate: new Date(formData.get('startDate') as string),
-        photoUrl: '/placeholder.jpg', // Temporary placeholder
+        photoUrl: '/images/profile_placeholder.webp', // Temporary placeholder
         user_id: session.user.id,
         status: 'UPCOMING' as const,
         user: {
           id: session.user.id,
-          username: session.user.username || null,
-          name: session.user.name || null,
-          image: session.user.image || null,
+          username: session.user.username || 'user',
+          name: session.user.name || 'User',
+          image: session.user.image || '/images/profile_placeholder.webp',
           verified: session.user.verified || false,
           role: (session.user.role as UserRole) || 'USER',
           status: 'ACTIVE' as UserStatus,

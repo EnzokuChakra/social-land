@@ -337,13 +337,13 @@ export default function EventCard({ event, status, onDelete }: EventCardProps) {
       >
         <div className="relative h-80">
           <Image
-            src={localEvent.photoUrl || '/placeholder.jpg'}
+            src={localEvent.photoUrl || '/images/profile_placeholder.webp'}
             alt={localEvent.name}
             fill
             className="object-cover transition-transform duration-500"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
-              target.src = '/placeholder.jpg';
+              target.src = '/images/profile_placeholder.webp';
             }}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent" />
