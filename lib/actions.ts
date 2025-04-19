@@ -1003,18 +1003,6 @@ export async function deleteComment(formData: FormData) {
       throw new Error("Post not found for comment");
     }
 
-    // Check if the comment has been reported
-    const report = await prisma.commentreport.findFirst({
-      where: {
-        commentId: id,
-        status: "PENDING"
-      }
-    });
-
-    if (report) {
-      throw new Error("Comment is reported, you can't delete it");
-    }
-
     // Check if user is either comment owner or post owner
     const isCommentOwner = comment.user_id === userId;
     const isPostOwner = comment.post.user_id === userId;
@@ -1022,6 +1010,13 @@ export async function deleteComment(formData: FormData) {
     if (!isCommentOwner && !isPostOwner) {
       throw new Error("You don't have permission to delete this comment");
     }
+
+    // Delete all comment reports first
+    await prisma.commentreport.deleteMany({
+      where: {
+        commentId: id
+      }
+    });
 
     // Delete all likes associated with the comment
     await prisma.commentlike.deleteMany({
