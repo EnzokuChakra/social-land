@@ -1,9 +1,14 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
+import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(req: Request) {
   try {
+    if (!db) {
+      return new NextResponse("Database connection not available", { status: 500 });
+    }
+
     const session = await auth();
 
     if (!session?.user?.id) {
@@ -17,13 +22,17 @@ export async function POST(req: Request) {
     }
 
     // Create the reel with PENDING status
-    const reel = await prisma.reel.create({
+    const reel = await db.reel.create({
       data: {
+        id: uuidv4(),
         fileUrl,
-        caption,
-        thumbnail: fileUrl, // Using the video URL as thumbnail for now
+        caption: caption || null,
+        thumbnail: fileUrl,
         user_id: session.user.id,
-        status: "PENDING", // Set initial status as PENDING
+        status: "PENDING",
+        views: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       },
     });
 

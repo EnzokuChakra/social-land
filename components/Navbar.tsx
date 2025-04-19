@@ -141,6 +141,39 @@ export default function Navbar() {
     };
   }, [socket, session?.user?.id, userProfileImage]);
   
+  // Fetch reels visibility on mount and when socket updates
+  useEffect(() => {
+    const fetchReelsVisibility = async () => {
+      try {
+        const response = await fetch("/api/settings/reels");
+        if (response.ok) {
+          const data = await response.json();
+          setReelsEnabled(data.value === "true");
+        }
+      } catch (error) {
+        console.error("Error fetching reels visibility:", error);
+        setReelsEnabled(false);
+      }
+    };
+
+    fetchReelsVisibility();
+  }, []);
+
+  // Listen for reels visibility changes via WebSocket
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleReelsVisibilityChange = (data: { reelsEnabled: boolean }) => {
+      setReelsEnabled(data.reelsEnabled);
+    };
+
+    socket.on('reels_visibility_changed', handleReelsVisibilityChange);
+
+    return () => {
+      socket.off('reels_visibility_changed', handleReelsVisibilityChange);
+    };
+  }, [socket]);
+  
   // Combined state object for better performance
   const [states, setStates] = useState({
     isNotificationsOpen: false,
@@ -286,7 +319,7 @@ export default function Navbar() {
   const mainRoutes = [...baseRoutes];
   
   // Add reels route if enabled
-  if (reelsEnabled === true) {
+  if (reelsEnabled) {
     const exploreIndex = mainRoutes.findIndex(route => route.href === "/dashboard/explore");
     if (exploreIndex !== -1) {
       mainRoutes.splice(exploreIndex + 1, 0, reelsRoute);

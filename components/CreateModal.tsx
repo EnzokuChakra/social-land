@@ -38,6 +38,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import TagPeople from "./TagPeople";
 import { Label } from "@/components/ui/label";
 import { useSession } from "next-auth/react";
+import { getSocket } from "@/lib/socket";
 
 type TabType = "post" | "story" | "reel";
 
@@ -94,18 +95,19 @@ export default function CreateModal({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const uploadInProgressRef = useRef(false);
+  const socket = getSocket();
 
+  // Fetch reels visibility setting when component mounts
   useEffect(() => {
-    // Fetch reels visibility setting when component mounts
     const fetchReelsVisibility = async () => {
       try {
         const response = await fetch("/api/settings/reels");
         if (response.ok) {
           const data = await response.json();
-          setReelsEnabled(data.enabled === true);
+          setReelsEnabled(data.value === "true");
           
           // If reels are disabled and current active tab is reel, switch to post
-          if (data.enabled !== true && activeTab === "reel") {
+          if (data.value !== "true" && activeTab === "reel") {
             setActiveTab("post");
           }
         } else {
@@ -127,7 +129,23 @@ export default function CreateModal({ children }: { children: React.ReactNode })
     };
 
     fetchReelsVisibility();
-  }, [activeTab]);
+
+    // Set up WebSocket listener
+    if (socket) {
+      const handleReelsVisibilityChange = (data: { reelsEnabled: boolean }) => {
+        setReelsEnabled(data.reelsEnabled);
+        if (!data.reelsEnabled && activeTab === "reel") {
+          setActiveTab("post");
+        }
+      };
+
+      socket.on('reels_visibility_changed', handleReelsVisibilityChange);
+
+      return () => {
+        socket.off('reels_visibility_changed', handleReelsVisibilityChange);
+      };
+    }
+  }, [activeTab, socket]);
 
   useEffect(() => {
     // Reset zoom when switching tabs
@@ -280,21 +298,22 @@ export default function CreateModal({ children }: { children: React.ReactNode })
           taggedUsers: state.tags,
         }),
         ...(activeTab === "story" && {
-          scale: state.scale,
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         }),
       };
 
-      // Create the content
       const createRes = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(body),
       });
 
       if (!createRes.ok) {
-        const data = await createRes.json().catch(() => ({}));
-        console.error("Content creation failed:", { status: createRes.status, data });
-        throw new Error(data?.message || data?.error || 'Failed to create content');
+        const errorData = await createRes.json().catch(() => ({}));
+        console.error("Content creation failed:", { status: createRes.status, data: errorData });
+        throw new Error(errorData?.message || errorData?.error || 'Failed to create content');
       }
 
       const createData = await createRes.json();

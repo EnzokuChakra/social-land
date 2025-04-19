@@ -13,6 +13,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { getSocket } from "@/lib/socket";
 
 interface Reel {
   id: string;
@@ -98,6 +99,11 @@ export default function AdminReelsPage() {
 
       if (response.ok) {
         setReelsEnabled(!reelsEnabled);
+        // Emit WebSocket event for real-time updates
+        const socket = getSocket();
+        if (socket) {
+          socket.emit('reels_visibility_changed', { reelsEnabled: !reelsEnabled });
+        }
         toast.success(`Reels are now ${!reelsEnabled ? "enabled" : "disabled"} platform-wide`);
       } else {
         throw new Error("Failed to update reels visibility");
