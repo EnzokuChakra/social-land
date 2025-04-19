@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { format } from "date-fns";
 import Image from "next/image";
 import { CalendarIcon, MapPin, Trophy, X, CalendarDays, Clock, Users, Share2, Heart, UserPlus, Info } from "lucide-react";
@@ -100,7 +100,23 @@ export default function EventViewModal({
   };
 
   const totalPrizePool = calculateTotalPrizePool(localEvent.prizes || localEvent.prize);
-  const prizeArray = localEvent.prizes ? JSON.parse(localEvent.prizes) : (localEvent.prize ? [localEvent.prize] : []);
+  
+  // Safely parse prizeArray with error handling
+  const prizeArray = useMemo(() => {
+    try {
+      if (localEvent.prizes) {
+        const parsed = JSON.parse(localEvent.prizes);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+      if (localEvent.prize) {
+        return [localEvent.prize];
+      }
+      return [];
+    } catch (error) {
+      console.error("Error parsing prizes:", error);
+      return [];
+    }
+  }, [localEvent.prizes, localEvent.prize]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
