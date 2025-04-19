@@ -82,7 +82,7 @@ export default function EventsPage() {
   const [activeFilter, setActiveFilter] = useState<EventStatus | "ALL">("ALL");
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<EventWithUser | null>(null);
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const socket = getSocket();
   const [socketConnected, setSocketConnected] = useState(false);
 
@@ -205,6 +205,11 @@ export default function EventsPage() {
           participants: 0
         }
       };
+
+      // Wait for the session to be fully loaded before updating the UI
+      if (sessionStatus !== 'authenticated') {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
 
       // Optimistically update the UI
       setEvents(prev => [tempEvent, ...prev]);
