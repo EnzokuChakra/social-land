@@ -85,6 +85,29 @@ export default function EventsPage() {
   const { data: session } = useSession();
   const socket = useSocket();
 
+  // Handle WebSocket connection errors
+  useEffect(() => {
+    if (socket) {
+      const handleError = (error: Error) => {
+        console.error("[EVENTS_PAGE] WebSocket error:", error);
+        // Don't show error to user, just log it
+      };
+
+      const handleConnectError = (error: Error) => {
+        console.error("[EVENTS_PAGE] WebSocket connection error:", error);
+        // Don't show error to user, just log it
+      };
+
+      socket.on("error", handleError);
+      socket.on("connect_error", handleConnectError);
+
+      return () => {
+        socket.off("error", handleError);
+        socket.off("connect_error", handleConnectError);
+      };
+    }
+  }, [socket]);
+
   const filterEvents = (events: EventWithUser[]) => {
     console.log("[EVENTS_PAGE] Filtering events:", events);
     if (!Array.isArray(events)) {
@@ -286,67 +309,36 @@ export default function EventsPage() {
     fetchEvents();
   }, []);
 
+  // Only set up socket listeners if socket is available
   useEffect(() => {
     if (!socket) return;
 
-    // Handle new event
     const handleNewEvent = (newEvent: EventWithUser) => {
       setEvents(prev => {
-        // Check if event already exists to avoid duplicates
-        if (prev.some(event => event.id === newEvent.id)) {
-          return prev;
+        if (!Array.isArray(prev)) {
+          console.error("[EVENTS_PAGE] Previous events is not an array:", prev);
+          return [newEvent];
         }
         return [newEvent, ...prev];
       });
     };
 
-    // Handle event deletion
     const handleEventDeleted = (eventId: string) => {
-      setEvents(prev => prev.filter(event => event.id !== eventId));
+      setEvents(prev => {
+        if (!Array.isArray(prev)) {
+          console.error("[EVENTS_PAGE] Previous events is not an array:", prev);
+          return [];
+        }
+        return prev.filter(event => event.id !== eventId);
+      });
     };
 
-    // Handle event interest updates
-    const handleEventInterestUpdate = (data: { eventId: string, counts: { interested: number, participants: number } }) => {
-      setEvents(prev => prev.map(event => 
-        event.id === data.eventId 
-          ? { 
-              ...event, 
-              _count: { 
-                interested: data.counts.interested, 
-                participants: data.counts.participants 
-              } 
-            } 
-          : event
-      ));
-    };
-
-    // Handle event participation updates
-    const handleEventParticipateUpdate = (data: { eventId: string, counts: { interested: number, participants: number } }) => {
-      setEvents(prev => prev.map(event => 
-        event.id === data.eventId 
-          ? { 
-              ...event, 
-              _count: { 
-                interested: data.counts.interested, 
-                participants: data.counts.participants 
-              } 
-            } 
-          : event
-      ));
-    };
-
-    // Subscribe to socket events
     socket.on("newEvent", handleNewEvent);
     socket.on("deleteEvent", handleEventDeleted);
-    socket.on("eventInterestUpdate", handleEventInterestUpdate);
-    socket.on("eventParticipateUpdate", handleEventParticipateUpdate);
 
-    // Cleanup
     return () => {
       socket.off("newEvent", handleNewEvent);
       socket.off("deleteEvent", handleEventDeleted);
-      socket.off("eventInterestUpdate", handleEventInterestUpdate);
-      socket.off("eventParticipateUpdate", handleEventParticipateUpdate);
     };
   }, [socket]);
 
