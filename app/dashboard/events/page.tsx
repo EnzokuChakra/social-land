@@ -231,17 +231,39 @@ export default function EventsPage() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
+        console.log("[EVENTS_PAGE] Fetching events...");
         const response = await fetch("/api/events");
-        if (!response.ok) throw new Error("Failed to fetch events");
+        if (!response.ok) {
+          console.error("[EVENTS_PAGE] Failed to fetch events:", response.status);
+          throw new Error("Failed to fetch events");
+        }
         const data = await response.json();
+        console.log("[EVENTS_PAGE] Received data:", data);
+        
         if (!Array.isArray(data)) {
-          console.error('API response is not an array:', data);
+          console.error("[EVENTS_PAGE] Data is not an array:", data);
           setEvents([]);
           return;
         }
-        setEvents(data);
+
+        // Ensure each event has the required properties
+        const validEvents = data.filter(event => {
+          const isValid = event && 
+            typeof event === 'object' && 
+            'id' in event && 
+            'name' in event && 
+            'startDate' in event;
+          
+          if (!isValid) {
+            console.error("[EVENTS_PAGE] Invalid event object:", event);
+          }
+          return isValid;
+        });
+
+        console.log("[EVENTS_PAGE] Setting events:", validEvents.length);
+        setEvents(validEvents);
       } catch (error) {
-        console.error('Error fetching events:', error);
+        console.error("[EVENTS_PAGE] Error:", error);
         toast.error("Failed to load events");
         setEvents([]);
       } finally {

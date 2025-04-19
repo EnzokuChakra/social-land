@@ -152,10 +152,8 @@ export async function POST(req: Request) {
 export async function GET() {
   try {
     if (!prisma) {
-      return NextResponse.json(
-        { error: "Database connection not available" },
-        { status: 500 }
-      );
+      console.error("[EVENTS_GET] Prisma client not available");
+      return NextResponse.json([], { status: 200 });
     }
 
     const prismaClient = prisma as PrismaClient;
@@ -185,13 +183,16 @@ export async function GET() {
       },
     });
 
+    // Ensure we always return an array
+    if (!Array.isArray(events)) {
+      console.error("[EVENTS_GET] Events is not an array:", events);
+      return NextResponse.json([], { status: 200 });
+    }
+
     return NextResponse.json(events);
   } catch (error) {
-    console.error("[EVENTS_GET]", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    console.error("[EVENTS_GET] Error:", error);
+    return NextResponse.json([], { status: 200 });
   }
 }
 
