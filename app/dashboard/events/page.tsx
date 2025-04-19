@@ -117,11 +117,17 @@ export default function EventsPage() {
   }, [socket]);
 
   const filterEvents = useCallback((events: EventWithUser[]) => {
+    console.log("[EVENTS_PAGE] filterEvents input:", events);
+    console.log("[EVENTS_PAGE] filterEvents input type:", typeof events);
+    console.log("[EVENTS_PAGE] filterEvents isArray:", Array.isArray(events));
+    
     if (!Array.isArray(events)) {
       console.error("[EVENTS_PAGE] Events is not an array in filterEvents:", events);
       return [];
     }
-    return events.filter((event) => {
+    
+    const filtered = events.filter((event) => {
+      console.log("[EVENTS_PAGE] Processing event:", event);
       if (!event || typeof event !== 'object') {
         console.error("[EVENTS_PAGE] Invalid event object in filter:", event);
         return false;
@@ -133,18 +139,29 @@ export default function EventsPage() {
       const eventStatus = getStatusText(new Date(event.startDate));
       const matchesFilter = activeFilter === "ALL" || eventStatus === activeFilter;
       
+      console.log("[EVENTS_PAGE] Event matches:", { matchesSearch, matchesFilter });
       return matchesSearch && matchesFilter;
     });
+    
+    console.log("[EVENTS_PAGE] Filtered events result:", filtered);
+    return filtered;
   }, [searchQuery, activeFilter]);
 
   const sortedEvents = useMemo(() => {
+    console.log("[EVENTS_PAGE] sortedEvents input:", events);
+    console.log("[EVENTS_PAGE] sortedEvents input type:", typeof events);
+    console.log("[EVENTS_PAGE] sortedEvents isArray:", Array.isArray(events));
+    
     if (!Array.isArray(events)) {
       console.error("[EVENTS_PAGE] Events is not an array in sortedEvents:", events);
       return [];
     }
     
     const filteredEvents = filterEvents(events);
-    return filteredEvents.sort((a: EventWithUser, b: EventWithUser) => {
+    console.log("[EVENTS_PAGE] After filtering:", filteredEvents);
+    
+    const sorted = filteredEvents.sort((a: EventWithUser, b: EventWithUser) => {
+      console.log("[EVENTS_PAGE] Sorting comparison:", { a, b });
       const aDate = new Date(a.startDate);
       const bDate = new Date(b.startDate);
       const aStatus = getStatusText(aDate);
@@ -162,6 +179,9 @@ export default function EventsPage() {
       
       return aDate.getTime() - bDate.getTime();
     });
+    
+    console.log("[EVENTS_PAGE] Final sorted result:", sorted);
+    return sorted;
   }, [events, filterEvents]);
 
   const handleCreateEvent = async (formData: FormData) => {
@@ -279,7 +299,9 @@ export default function EventsPage() {
           throw new Error("Failed to fetch events");
         }
         const data = await response.json();
-        console.log("[EVENTS_PAGE] Received data:", data);
+        console.log("[EVENTS_PAGE] Raw API response:", data);
+        console.log("[EVENTS_PAGE] Response type:", typeof data);
+        console.log("[EVENTS_PAGE] Is array:", Array.isArray(data));
         
         if (!Array.isArray(data)) {
           console.error("[EVENTS_PAGE] Data is not an array:", data);
@@ -288,6 +310,7 @@ export default function EventsPage() {
         }
 
         const validEvents = data.filter(event => {
+          console.log("[EVENTS_PAGE] Validating event:", event);
           const isValid = event && 
             typeof event === 'object' && 
             'id' in event && 
@@ -300,7 +323,7 @@ export default function EventsPage() {
           return isValid;
         });
 
-        console.log("[EVENTS_PAGE] Setting events:", validEvents.length);
+        console.log("[EVENTS_PAGE] Valid events:", validEvents);
         setEvents(validEvents);
       } catch (error) {
         console.error("[EVENTS_PAGE] Error:", error);
