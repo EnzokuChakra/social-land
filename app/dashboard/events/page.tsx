@@ -428,26 +428,48 @@ export default function EventsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedEvents.length === 0 ? (
-            <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
-              <CalendarDays className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No events found</h3>
-              <p className="text-sm text-muted-foreground max-w-[400px]">
-                {searchQuery 
-                  ? "Try adjusting your search query or check back later for new events."
-                  : "There are no events scheduled at the moment. Check back later or create a new event."}
-              </p>
-            </div>
-          ) : (
-            sortedEvents.map((event) => (
-              <EventCard
-                key={event.id}
-                event={event}
-                status={getStatusText(new Date(event.startDate))}
-                onDelete={() => handleDelete(event.id)}
-              />
-            ))
-          )}
+          {(() => {
+            console.log("[EVENTS_PAGE] Rendering sortedEvents:", sortedEvents);
+            console.log("[EVENTS_PAGE] sortedEvents type:", typeof sortedEvents);
+            console.log("[EVENTS_PAGE] sortedEvents isArray:", Array.isArray(sortedEvents));
+            
+            if (!Array.isArray(sortedEvents)) {
+              console.error("[EVENTS_PAGE] sortedEvents is not an array during render:", sortedEvents);
+              return (
+                <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
+                  <CalendarDays className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">Error loading events</h3>
+                  <p className="text-sm text-muted-foreground">Please try refreshing the page.</p>
+                </div>
+              );
+            }
+
+            if (sortedEvents.length === 0) {
+              return (
+                <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
+                  <CalendarDays className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No events found</h3>
+                  <p className="text-sm text-muted-foreground max-w-[400px]">
+                    {searchQuery 
+                      ? "Try adjusting your search query or check back later for new events."
+                      : "There are no events scheduled at the moment. Check back later or create a new event."}
+                  </p>
+                </div>
+              );
+            }
+
+            return sortedEvents.map((event) => {
+              console.log("[EVENTS_PAGE] Rendering event:", event);
+              return (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  status={getStatusText(new Date(event.startDate))}
+                  onDelete={() => handleDelete(event.id)}
+                />
+              );
+            });
+          })()}
         </div>
       )}
     </div>
