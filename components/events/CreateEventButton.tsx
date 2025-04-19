@@ -107,6 +107,24 @@ export default function CreateEventButton({ onEventCreate }: CreateEventButtonPr
         userRole: session?.user?.role 
       });
       
+      // Validate photo before proceeding
+      if (!photo) {
+        toast.error("Please upload an event photo");
+        return;
+      }
+
+      // Validate photo size (max 5MB)
+      if (photo.size > 5 * 1024 * 1024) {
+        toast.error("Photo size must be less than 5MB");
+        return;
+      }
+
+      // Validate photo type
+      if (!photo.type.startsWith('image/')) {
+        toast.error("Please upload a valid image file");
+        return;
+      }
+      
       setIsCreatingEvent(true);
       const formData = new FormData();
       
@@ -122,15 +140,15 @@ export default function CreateEventButton({ onEventCreate }: CreateEventButtonPr
       const validPrizes = prizes.filter(prize => prize.trim() !== "");
       formData.append("prizes", JSON.stringify(validPrizes));
       
-      // Handle photo
-      if (photo) {
-        formData.append("photo", photo);
-      }
+      // Handle photo - ensure it's properly appended
+      formData.append("photo", photo);
 
       console.log("[CREATE_EVENT] Form data prepared:", {
         name: data.name,
         type: data.type,
         hasPhoto: !!photo,
+        photoSize: photo.size,
+        photoType: photo.type,
         prizeCount: validPrizes.length
       });
 
