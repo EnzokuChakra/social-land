@@ -137,9 +137,15 @@ io.on("connection", (socket) => {
   // Handle authentication
   socket.on("authenticate", async (data) => {
     try {
+      console.log("[Socket Server] Authentication attempt:", {
+        socketId: socket.id,
+        userId: data.token
+      });
+      
       const { token: userId } = data;
       
       if (!userId) {
+        console.log("[Socket Server] Authentication failed: No user ID provided");
         return;
       }
 
@@ -151,6 +157,10 @@ io.on("connection", (socket) => {
       }
       
       userSockets.get(userId).add(socket);
+      console.log("[Socket Server] Authentication successful:", {
+        socketId: socket.id,
+        userId: userId
+      });
 
       // Send verification status update
       try {
@@ -178,13 +188,14 @@ io.on("connection", (socket) => {
           });
         }
       } catch (error) {
-        // Silently handle errors
+        console.error("[Socket Server] Error fetching verification status:", error);
       }
     } catch (error) {
-      // Silently handle errors
+      console.error("[Socket Server] Authentication error:", error);
     }
   });
-// Story events
+
+  // Story events
   socket.on("storyLike", (data) => {
     io.emit("storyLikeUpdate", data);
   });
@@ -205,6 +216,7 @@ io.on("connection", (socket) => {
   socket.on("deleteComment", (data) => {
     io.emit("commentDelete", data);
   });
+
   socket.on("followUnfollowEvent", (data) => {
     io.emit("followUnfollowEvent", data);
   });

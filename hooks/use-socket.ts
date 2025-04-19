@@ -17,9 +17,29 @@ export const useSocket = () => {
       });
 
       globalSocket.on('connect', () => {
+        console.log("[Socket] Connected, session state:", {
+          hasSession: !!session,
+          userId: session?.user?.id,
+          userRole: session?.user?.role
+        });
         if (session?.user?.id) {
+          console.log("[Socket] Authenticating with user ID:", session.user.id);
           globalSocket?.emit('authenticate', { token: session.user.id });
+        } else {
+          console.log("[Socket] No session user ID available for authentication");
         }
+      });
+
+      globalSocket.on('authenticated', () => {
+        console.log("[Socket] Authentication successful");
+      });
+
+      globalSocket.on('disconnect', (reason) => {
+        console.log("[Socket] Disconnected:", reason);
+      });
+
+      globalSocket.on('error', (error) => {
+        console.error("[Socket] Error:", error);
       });
     }
 
