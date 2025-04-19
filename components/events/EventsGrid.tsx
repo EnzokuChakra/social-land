@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Calendar, MapPin, Users, Clock } from "lucide-react";
@@ -78,15 +78,6 @@ const dummyEvents: Event[] = [
 export default function EventsGrid() {
   const [events, setEvents] = useState<Event[]>(dummyEvents);
 
-  useEffect(() => {
-    if (Array.isArray(events)) {
-      setEvents(events.map(event => ({
-        ...event,
-        date: new Date(event.date).toLocaleDateString()
-      })));
-    }
-  }, [events]);
-
   const toggleAttendance = (eventId: string) => {
     setEvents(events.map(event => 
       event.id === eventId 
@@ -97,7 +88,7 @@ export default function EventsGrid() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {Array.isArray(events) && events.map((event) => (
+      {events.map((event) => (
         <div
           key={event.id}
           className="bg-white dark:bg-neutral-900 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300"
@@ -125,7 +116,7 @@ export default function EventsGrid() {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                 <Calendar className="w-4 h-4" />
-                <span>{event.date}</span>
+                <span>{new Date(event.date).toLocaleDateString()}</span>
               </div>
               <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                 <Clock className="w-4 h-4" />

@@ -53,12 +53,18 @@ export default function EventCard({ event, status, onDelete }: EventCardProps) {
     : (localEvent.prize ? [localEvent.prize] : []);
 
   // Ensure all prizes are valid numbers and handle edge cases
-  const validPrizes = [];
-  for (const prize of prizes) {
-    if (typeof prize === 'string' || typeof prize === 'number') {
-      validPrizes.push(prize);
+  const validPrizes = prizes.filter((prize: string | number) => {
+    if (!prize) return false;
+    try {
+      const numericValue = typeof prize === 'string' 
+        ? prize.replace(/[^0-9.]/g, '') 
+        : prize.toString();
+      return !isNaN(parseFloat(numericValue)) && parseFloat(numericValue) > 0;
+    } catch (error) {
+      console.error('Error processing prize:', prize, error);
+      return false;
     }
-  }
+  });
 
   // Calculate total prize pool with better error handling
   const calculateTotalPrizePool = (prizes: any[]): number => {

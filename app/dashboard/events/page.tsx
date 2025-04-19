@@ -10,7 +10,6 @@ import { CalendarDays, Search, CalendarClock, Trophy, MoreVertical, Trash2 } fro
 import CreateEventButton from "@/components/events/CreateEventButton";
 import EventViewModal from "@/components/events/EventViewModal";
 import { Input } from "@/components/ui/input";
-import { motion } from "framer-motion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, isToday, isPast, isFuture } from "date-fns";
 import Image from "next/image";
@@ -31,21 +30,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import EventCard from "@/components/events/EventCard";
-
-const container = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1
-    }
-  }
-};
-
-const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 }
-};
 
 function getStatusColor(startDate: Date) {
   if (isEventOngoing(startDate)) {
@@ -78,6 +62,7 @@ function getStatusText(startDate: Date): EventStatus {
 
 export default function EventsPage() {
   const [events, setEvents] = useState<EventWithUser[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<EventWithUser | null>(null);
   const [socketError, setSocketError] = useState(false);
@@ -197,21 +182,9 @@ export default function EventsPage() {
       const createdEvent = await response.json();
 
       // Update the temporary event with the real one
-      setEvents(prev => {
-        if (!Array.isArray(prev)) {
-          console.error('[EVENTS_PAGE] Invalid events state during update:', prev);
-          return [createdEvent];
-        }
-        const newEvents = [];
-        for (const event of prev) {
-          if (event.id === tempId) {
-            newEvents.push(createdEvent);
-          } else {
-            newEvents.push(event);
-          }
-        }
-        return newEvents;
-      });
+      setEvents(prev => prev.map(event => 
+        event.id === tempId ? createdEvent : event
+      ));
 
       // Emit socket event for real-time updates
       if (socket) {
@@ -222,19 +195,7 @@ export default function EventsPage() {
       return Promise.resolve();
     } catch (error) {
       // Remove the temporary event on error
-      setEvents(prev => {
-        if (!Array.isArray(prev)) {
-          console.error('[EVENTS_PAGE] Invalid events state during error cleanup:', prev);
-          return [];
-        }
-        const newEvents = [];
-        for (const event of prev) {
-          if (event.id !== tempId) {
-            newEvents.push(event);
-          }
-        }
-        return newEvents;
-      });
+      setEvents(prev => prev.filter(event => event.id !== tempId));
       console.error('Event creation error:', error);
       
       // Show error toast and reject the promise
@@ -247,19 +208,7 @@ export default function EventsPage() {
   const handleDelete = async (eventId: string) => {
     // Optimistically remove the event from the UI
     const eventToDelete = events.find(event => event.id === eventId);
-    setEvents(prev => {
-      if (!Array.isArray(prev)) {
-        console.error('[EVENTS_PAGE] Invalid events state during delete:', prev);
-        return [];
-      }
-      const newEvents = [];
-      for (const event of prev) {
-        if (event.id !== eventId) {
-          newEvents.push(event);
-        }
-      }
-      return newEvents;
-    });
+    setEvents(prev => prev.filter(event => event.id !== eventId));
 
     try {
       const response = await fetch(`/api/events?id=${eventId}`, {
@@ -312,13 +261,7 @@ export default function EventsPage() {
           console.error('[EVENTS_PAGE] Current events state is not an array:', prev);
           return [];
         }
-        const newEvents = [];
-        for (const event of prev) {
-          if (event.id !== eventId) {
-            newEvents.push(event);
-          }
-        }
-        return newEvents;
+        return prev.filter(event => event.id !== eventId);
       });
     };
 
@@ -332,21 +275,17 @@ export default function EventsPage() {
           console.error('[EVENTS_PAGE] Current events state is not an array:', prev);
           return [];
         }
-        const newEvents = [];
-        for (const event of prev) {
-          if (event.id === data.eventId) {
-            newEvents.push({
-              ...event,
-              _count: {
-                interested: data.counts.interested,
-                participants: data.counts.participants
-              }
-            });
-          } else {
-            newEvents.push(event);
-          }
-        }
-        return newEvents;
+        return prev.map(event => 
+          event.id === data.eventId 
+            ? { 
+                ...event, 
+                _count: { 
+                  interested: data.counts.interested, 
+                  participants: data.counts.participants 
+                } 
+              } 
+            : event
+        );
       });
     };
 
@@ -360,21 +299,17 @@ export default function EventsPage() {
           console.error('[EVENTS_PAGE] Current events state is not an array:', prev);
           return [];
         }
-        const newEvents = [];
-        for (const event of prev) {
-          if (event.id === data.eventId) {
-            newEvents.push({
-              ...event,
-              _count: {
-                interested: data.counts.interested,
-                participants: data.counts.participants
-              }
-            });
-          } else {
-            newEvents.push(event);
-          }
-        }
-        return newEvents;
+        return prev.map(event => 
+          event.id === data.eventId 
+            ? { 
+                ...event, 
+                _count: { 
+                  interested: data.counts.interested, 
+                  participants: data.counts.participants 
+                } 
+              } 
+            : event
+        );
       });
     };
 
@@ -406,9 +341,14 @@ export default function EventsPage() {
         
         const data = await response.json();
         
-        // Ensure data is an array
-        const eventsArray = Array.isArray(data) ? data : [];
-        setEvents(eventsArray);
+        if (!Array.isArray(data)) {
+          console.error('[EVENTS_PAGE] Received non-array data:', data);
+          setEvents([]);
+          return;
+        }
+        
+        // Removed filter validation and directly set events
+        setEvents(data);
       } catch (error) {
         console.error('[EVENTS_PAGE] Error fetching events:', error);
         toast.error("Failed to load events");
@@ -450,6 +390,12 @@ export default function EventsPage() {
             <CreateEventButton onEventCreate={handleCreateEvent} />
           )}
         </div>
+        <Input
+          placeholder="Search events..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="max-w-xs"
+        />
       </div>
 
       {sortedEvents.length === 0 ? (
@@ -457,22 +403,16 @@ export default function EventsPage() {
           <p className="text-gray-500">No events found</p>
         </div>
       ) : (
-        <motion.div
-          variants={container}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        >
-          {Array.isArray(sortedEvents) && sortedEvents.map((event) => (
-            <motion.div key={event.id} variants={item}>
-              <EventCard
-                event={event}
-                status={getStatusText(new Date(event.startDate))}
-                onDelete={() => handleDelete(event.id)}
-              />
-            </motion.div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sortedEvents.map((event) => (
+            <EventCard
+              key={event.id}
+              event={event}
+              status={getStatusText(new Date(event.startDate))}
+              onDelete={() => handleDelete(event.id)}
+            />
           ))}
-        </motion.div>
+        </div>
       )}
     </div>
   );

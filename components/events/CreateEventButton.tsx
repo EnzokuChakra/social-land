@@ -79,14 +79,8 @@ export default function CreateEventButton({ onEventCreate }: CreateEventButtonPr
     setPrizes([...prizes, ""]);
   };
 
-  const handleRemovePrize = (index: number) => {
-    const newPrizes = [];
-    for (let i = 0; i < prizes.length; i++) {
-      if (i !== index) {
-        newPrizes.push(prizes[i]);
-      }
-    }
-    setPrizes(newPrizes);
+  const removePrize = (index: number) => {
+    setPrizes(prizes.filter((_, i) => i !== index));
   };
 
   const updatePrize = (index: number, value: string) => {
@@ -116,12 +110,7 @@ export default function CreateEventButton({ onEventCreate }: CreateEventButtonPr
       formData.append("startDate", data.startDate.toISOString());
       
       // Handle prizes
-      const validPrizes = [];
-      for (const prize of prizes) {
-        if (prize.trim() !== "") {
-          validPrizes.push(prize);
-        }
-      }
+      const validPrizes = prizes.filter(prize => prize.trim() !== "");
       formData.append("prizes", JSON.stringify(validPrizes));
       
       // Handle photo
@@ -384,7 +373,7 @@ export default function CreateEventButton({ onEventCreate }: CreateEventButtonPr
                           Add Prize
                         </Button>
                       </div>
-                      {Array.isArray(prizes) && prizes.map((prize, index) => (
+                      {prizes.map((prize, index) => (
                         <div key={index} className="flex gap-2">
                           <FormControl>
                             <Input 
@@ -399,7 +388,7 @@ export default function CreateEventButton({ onEventCreate }: CreateEventButtonPr
                               type="button"
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleRemovePrize(index)}
+                              onClick={() => removePrize(index)}
                               className="text-red-500 hover:text-red-400"
                             >
                               <X className="w-4 h-4" />

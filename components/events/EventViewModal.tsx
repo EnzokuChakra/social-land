@@ -100,7 +100,7 @@ export default function EventViewModal({
   };
 
   const totalPrizePool = calculateTotalPrizePool(localEvent.prizes || localEvent.prize);
-  const prizeArray = Array.isArray(localEvent.prizes) ? localEvent.prizes : [localEvent.prize];
+  const prizeArray = localEvent.prizes ? JSON.parse(localEvent.prizes) : (localEvent.prize ? [localEvent.prize] : []);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -175,7 +175,7 @@ export default function EventViewModal({
                   prizeArray.length === 2 && "grid-cols-2 max-w-2xl mx-auto",
                   prizeArray.length >= 3 && "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
                 )}>
-                  {Array.isArray(prizeArray) && prizeArray.map((prize: string, index: number) => (
+                  {prizeArray.map((prize: string, index: number) => (
                     <div
                       key={index}
                       className="bg-neutral-900/50 rounded-lg p-4 text-sm flex items-center justify-between border border-neutral-800 hover:border-neutral-700 transition-colors"
