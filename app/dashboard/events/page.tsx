@@ -175,6 +175,11 @@ export default function EventsPage() {
   }, [events, filterEvents]);
 
   const handleCreateEvent = async (formData: FormData) => {
+    if (!session?.user) {
+      toast.error("You must be logged in to create an event");
+      return Promise.reject(new Error("Not authenticated"));
+    }
+
     // Generate a temporary ID for the event
     const tempId = 'temp-' + Date.now();
     
@@ -191,15 +196,15 @@ export default function EventsPage() {
         location: formData.get('location') as string,
         startDate: new Date(formData.get('startDate') as string),
         photoUrl: '/placeholder.jpg', // Temporary placeholder
-        user_id: session?.user?.id || '',
+        user_id: session.user.id,
         status: 'UPCOMING' as const,
         user: {
-          id: session?.user?.id || '',
-          username: session?.user?.username || null,
-          name: session?.user?.name || null,
-          image: session?.user?.image || null,
-          verified: session?.user?.verified || false,
-          role: (session?.user?.role as UserRole) || 'USER',
+          id: session.user.id,
+          username: session.user.username || null,
+          name: session.user.name || null,
+          image: session.user.image || null,
+          verified: session.user.verified || false,
+          role: (session.user.role as UserRole) || 'USER',
           status: 'ACTIVE' as UserStatus,
         },
         createdAt: new Date(),
