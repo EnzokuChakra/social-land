@@ -1,0 +1,450 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
+}
+
+model account {
+  id                  String  @id
+  user_id             String
+  type                String
+  provider            String
+  provider_account_id String
+  refresh_token       String? @db.Text
+  access_token        String? @db.Text
+  expires_at          Int?
+  token_type          String?
+  scope               String?
+  id_token            String? @db.Text
+  session_state       String?
+  oauth_token_secret  String?
+  oauth_token         String?
+  user                user    @relation(fields: [user_id], references: [id])
+
+  @@unique([provider, provider_account_id], map: "Account_provider_provider_account_id_key")
+  @@index([user_id], map: "Account_user_id_idx")
+}
+
+model comment {
+  id        String        @id
+  createdAt DateTime      @default(now())
+  updatedAt DateTime
+  body      String
+  postId    String?
+  reelId    String?
+  user_id   String
+  parentId  String?
+  user      user          @relation(fields: [user_id], references: [id])
+  post      post?         @relation(fields: [postId], references: [id])
+  reel      reel?         @relation(fields: [reelId], references: [id])
+  parent    comment?      @relation("CommentToComment", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies   comment[]     @relation("CommentToComment")
+  likes     commentlike[]
+  reports   commentreport[]
+
+  @@index([parentId], map: "Comment_parentId_idx")
+  @@index([user_id], map: "Comment_user_id_idx")
+}
+
+model commentlike {
+  id        String   @id
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  commentId String
+  user_id   String
+  comment   comment  @relation(fields: [commentId], references: [id])
+  user      user     @relation(fields: [user_id], references: [id])
+
+  @@unique([commentId, user_id], map: "CommentLike_commentId_user_id_key")
+  @@index([user_id], map: "CommentLike_user_id_idx")
+}
+
+model event {
+  id           String   @id
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime
+  name         String
+  description  String   @db.Text
+  rules        String?  @db.Text
+  type         String
+  prize        String?
+  prizes       String?  @db.Text
+  location     String
+  startDate    DateTime
+  photoUrl     String
+  user_id      String
+  user         user     @relation(fields: [user_id], references: [id])
+  interested   user[]   @relation("InterestedEvents")
+  participants user[]   @relation("EventParticipants")
+
+  @@index([startDate], map: "Event_startDate_idx")
+  @@index([user_id], map: "Event_user_id_idx")
+}
+
+model follows {
+  followerId  String
+  followingId String
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  follower    user     @relation("Following", fields: [followerId], references: [id])
+  following   user     @relation("Followers", fields: [followingId], references: [id])
+
+  @@id([followerId, followingId])
+  @@index([followerId], map: "Follows_followerId_idx")
+  @@index([followingId], map: "Follows_followingId_idx")
+}
+
+model like {
+  id        String   @id
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  postId    String?
+  reelId    String?
+  storyId   String?
+  user_id   String
+  user      user     @relation(fields: [user_id], references: [id])
+  post      post?    @relation(fields: [postId], references: [id])
+  reel      reel?    @relation(fields: [reelId], references: [id])
+  story     story?   @relation(fields: [storyId], references: [id])
+
+  @@unique([postId, user_id], map: "Like_postId_user_id_key")
+  @@unique([reelId, user_id], map: "Like_reelId_user_id_key")
+  @@unique([storyId, user_id], map: "Like_storyId_user_id_key")
+  @@index([user_id], map: "Like_user_id_idx")
+}
+
+model notification {
+  id        String   @id
+  createdAt DateTime @default(now())
+  type      String
+  userId    String
+  sender_id String
+  postId    String?
+  reelId    String?
+  storyId   String?
+  isRead    Boolean  @default(false)
+  metadata  String?  @db.LongText
+  user      user     @relation("UserNotifications", fields: [userId], references: [id])
+  sender    user     @relation("SentNotifications", fields: [sender_id], references: [id])
+  post      post?    @relation(fields: [postId], references: [id])
+  reel      reel?    @relation(fields: [reelId], references: [id])
+  story     story?   @relation(fields: [storyId], references: [id])
+
+  @@index([postId], map: "Notification_postId_idx")
+  @@index([reelId], map: "Notification_reelId_idx")
+  @@index([sender_id], map: "Notification_sender_id_idx")
+  @@index([storyId], map: "Notification_storyId_idx")
+  @@index([userId], map: "Notification_userId_idx")
+}
+
+model post {
+  id            String         @id
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime
+  caption       String?        @db.VarChar(250)
+  fileUrl       String         @unique(map: "Post_fileUrl_key")
+  aspectRatio   Float          @default(1)
+  location      String?        @db.VarChar(20)
+  user_id       String
+  user          user           @relation(fields: [user_id], references: [id])
+  likes         like[]
+  comments      comment[]
+  savedBy       savedpost[]
+  tags          posttag[]
+  reports       report[]
+  notifications notification[]
+
+  @@index([user_id], map: "Post_user_id_idx")
+}
+
+model posttag {
+  id        String   @id
+  postId    String
+  userId    String
+  x         Float?
+  y         Float?
+  createdAt DateTime @default(now())
+  post      post     @relation(fields: [postId], references: [id])
+  user      user     @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId], map: "PostTag_postId_userId_key")
+  @@index([postId], map: "PostTag_postId_idx")
+  @@index([userId], map: "PostTag_userId_idx")
+}
+
+model recentsearch {
+  id         String   @id
+  userId     String
+  searchedId String
+  createdAt  DateTime @default(now())
+  user       user     @relation(fields: [userId], references: [id])
+
+  @@index([searchedId], map: "RecentSearch_searchedId_idx")
+  @@index([userId], map: "RecentSearch_userId_idx")
+}
+
+model reel {
+  id            String         @id
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime
+  caption       String?
+  fileUrl       String         @unique(map: "Reel_fileUrl_key")
+  thumbnail     String
+  views         Int            @default(0)
+  status        String         @default("PENDING")
+  reviewedAt    DateTime?
+  reviewedBy    String?
+  reviewNote    String?
+  user_id       String
+  user          user           @relation(fields: [user_id], references: [id])
+  likes         like[]
+  comments      comment[]
+  viewRecords   reelview[]
+  notifications notification[]
+
+  @@index([reviewedBy], map: "Reel_reviewedBy_idx")
+  @@index([status], map: "Reel_status_idx")
+  @@index([user_id], map: "Reel_user_id_idx")
+}
+
+model reelview {
+  id        String   @id
+  createdAt DateTime @default(now())
+  user_id   String
+  reel_id   String
+  user      user     @relation(fields: [user_id], references: [id])
+  reel      reel     @relation(fields: [reel_id], references: [id])
+
+  @@unique([user_id, reel_id], map: "ReelView_user_id_reel_id_key")
+  @@index([reel_id], map: "ReelView_reel_id_idx")
+  @@index([user_id], map: "ReelView_user_id_idx")
+}
+
+model report {
+  id        String   @id
+  createdAt DateTime @default(now())
+  postId    String
+  userId    String
+  reason    String?  @db.Text
+  status    String   @default("PENDING")
+  post      post     @relation(fields: [postId], references: [id])
+  user      user     @relation(fields: [userId], references: [id])
+
+  @@index([postId], map: "Report_postId_idx")
+  @@index([userId], map: "Report_userId_idx")
+}
+
+model savedpost {
+  id        String   @id
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  postId    String
+  user_id   String
+  post      post     @relation(fields: [postId], references: [id])
+  user      user     @relation(fields: [user_id], references: [id])
+
+  @@unique([postId, user_id], map: "SavedPost_postId_user_id_key")
+  @@index([user_id], map: "SavedPost_user_id_idx")
+}
+
+model block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  blocker   user     @relation("BlockedBy", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   user     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+}
+
+model session {
+  id           String   @id
+  sessionToken String   @unique(map: "Session_sessionToken_key")
+  userId       String
+  expires      DateTime
+  user         user     @relation(fields: [userId], references: [id])
+
+  @@index([userId], map: "Session_userId_idx")
+}
+
+model setting {
+  id        String   @id
+  key       String   @unique(map: "Setting_key_key")
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+
+  @@index([key], map: "Setting_key_idx")
+}
+
+model story {
+  id            String         @id
+  createdAt     DateTime       @default(now())
+  fileUrl       String         @unique(map: "Story_fileUrl_key")
+  scale         Float          @default(1)
+  user_id       String
+  user          user           @relation(fields: [user_id], references: [id])
+  likes         like[]
+  views         storyview[]
+  notifications notification[]
+  reports       storyreport[]
+
+  @@index([user_id], map: "Story_user_id_idx")
+}
+
+model storyview {
+  id        String   @id
+  createdAt DateTime @default(now())
+  storyId   String
+  user_id   String
+  story     story    @relation(fields: [storyId], references: [id])
+  user      user     @relation(fields: [user_id], references: [id])
+
+  @@unique([storyId, user_id], map: "StoryView_storyId_user_id_key")
+  @@index([user_id], map: "StoryView_user_id_idx")
+}
+
+model user {
+  id                 String         @id
+  name               String?
+  email              String?        @unique
+  emailVerified      DateTime?
+  image              String?
+  username           String?        @unique
+  password           String?
+  bio                String?        @db.Text
+  verified           Boolean        @default(false)
+  role               String         @default("USER")
+  status             String         @default("ACTIVE")
+  isPrivate          Boolean        @default(false)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  lastUsernameChange DateTime?
+  accounts           account[]
+  sessions           session[]
+  posts              post[]
+  savedPosts         savedpost[]
+  likes              like[]
+  comments           comment[]
+  stories            story[]
+  reels              reel[]
+  followers          follows[]      @relation("Followers")
+  following          follows[]      @relation("Following")
+  notifications      notification[] @relation("UserNotifications")
+  sentNotifications  notification[] @relation("SentNotifications")
+  postTags           posttag[]
+  recentSearches     recentsearch[]
+  reports            report[]
+  events             event[]
+  reelViews          reelview[]
+  storyViews         storyview[]
+  commentLikes       commentlike[]
+  blockedBy          block[]        @relation("BlockedBy")
+  blockedUsers       block[]        @relation("Blocked")
+  interested         event[]        @relation("InterestedEvents")
+  participating      event[]        @relation("EventParticipants")
+  settings           user_setting?
+  commentReports     commentreport[] @relation("CommentReportReporter")
+  storyReports       storyreport[]   @relation("StoryReportReporter")
+  userReports        userreport[]    @relation("UserReportReporter")
+  reportedBy         userreport[]    @relation("UserReportReported")
+
+  @@index([email])
+  @@index([username])
+}
+
+model verificationtoken {
+  id         Int      @id @default(autoincrement())
+  identifier String
+  token      String   @unique(map: "VerificationToken_token_key")
+  expires    DateTime
+
+  @@unique([identifier, token], map: "VerificationToken_identifier_token_key")
+}
+
+model user_setting {
+  id                   String    @id
+  user_id              String    @unique
+  lastViewedOwnStories DateTime?
+  user                 user      @relation(fields: [user_id], references: [id])
+
+  @@index([user_id], map: "UserSetting_user_id_idx")
+}
+
+model eventparticipants {
+  A String
+  B String
+
+  @@unique([A, B], map: "_EventParticipants_AB_unique")
+  @@index([B], map: "_EventParticipants_B_index")
+  @@map("_eventparticipants")
+}
+
+model interestedevents {
+  A String
+  B String
+
+  @@unique([A, B], map: "_InterestedEvents_AB_unique")
+  @@index([B], map: "_InterestedEvents_B_index")
+  @@map("_interestedevents")
+}
+
+model commentreport {
+  id         String   @id
+  createdAt  DateTime @default(now())
+  reporterId String
+  commentId  String
+  reason     String
+  status     String   @default("PENDING")
+  reporter   user     @relation("CommentReportReporter", fields: [reporterId], references: [id])
+  comment    comment  @relation(fields: [commentId], references: [id])
+
+  @@index([commentId], map: "CommentReport_commentId_idx")
+  @@index([reporterId], map: "CommentReport_reporterId_idx")
+}
+
+model storyreport {
+  id         String   @id
+  createdAt  DateTime @default(now())
+  reporterId String
+  storyId    String
+  reason     String?  @db.Text
+  status     String   @default("PENDING")
+  reporter   user     @relation("StoryReportReporter", fields: [reporterId], references: [id])
+  story      story    @relation(fields: [storyId], references: [id])
+
+  @@index([reporterId], map: "StoryReport_reporterId_idx")
+  @@index([storyId], map: "StoryReport_storyId_idx")
+}
+
+model userreport {
+  id         String   @id
+  createdAt  DateTime @default(now())
+  reporterId String
+  reportedId String
+  reason     String?  @db.Text
+  status     String   @default("PENDING")
+  reporter   user     @relation("UserReportReporter", fields: [reporterId], references: [id])
+  reported   user     @relation("UserReportReported", fields: [reportedId], references: [id])
+
+  @@index([reportedId], map: "UserReport_reportedId_idx")
+  @@index([reporterId], map: "UserReport_reporterId_idx")
+}
+
+model verificationrequest {
+  id        String   @id
+  userId    String
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+
+  @@index([userId], map: "VerificationRequest_userId_idx")
+}

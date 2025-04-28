@@ -1,0 +1,8 @@
+.react-calendar__navigation button:disabled {
+    background-color: transparent !important;
+}
+
+.react-calendar__navigation button:enabled:hover,
+.react-calendar__navigation button:enabled:focus {
+    background-color: transparent !important;
+} 
